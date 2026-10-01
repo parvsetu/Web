@@ -271,6 +271,7 @@ function GstView({ range }: { range: Range }) {
             <Stat label="CGST + SGST" value={`${fmtMoney(d.totals.cgst)} + ${fmtMoney(d.totals.sgst)}`} tone="purple" />
             <Stat label="Total collected" value={fmtMoney(d.totals.total)} tone="green" />
           </div>
+          <p className="text-xs text-slate-500">Only paid pass sales are taxable. Donations (and passes given free with a donation) carry 0% GST and are not included here.</p>
           {d.invoices.length === 0 ? (
             <Empty title="No paid online orders in this period" />
           ) : (

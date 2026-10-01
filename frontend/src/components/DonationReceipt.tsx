@@ -126,7 +126,9 @@ export function DonationReceipt({ r, timezone }: { r: Receipt; timezone?: string
           </section>
         )}
 
-        <footer className="mt-8 flex items-end justify-between gap-4 text-sm">
+        <p className="mt-6 text-xs text-slate-500">Voluntary donation — not a sale of goods or services; no GST is charged on this amount.</p>
+
+        <footer className="mt-4 flex items-end justify-between gap-4 text-sm">
           <p className="max-w-[60%] text-slate-600">
             🙏 Thank you for your generous contribution.
             <span className="mt-1 block text-[11px] text-slate-400">Computer-generated receipt · Parvsetu</span>
