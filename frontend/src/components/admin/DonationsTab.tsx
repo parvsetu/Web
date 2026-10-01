@@ -11,7 +11,8 @@ import type { Donation, DonationCreateResponse, Paged, PaymentProvider, TimeSlot
 import { QrImage } from '../QrImage';
 import { ValidityPicker, VisitorCountInput, buildValidity, initialValidity, type ValidityState } from '../TokenParts';
 import { Alert, Badge, Button, Card, Checkbox, Empty, Field, LabeledInput, LabeledSelect, Modal, Pager, SkeletonList, Textarea } from '../ui';
-import { HandCoins, Printer, Save } from 'lucide-react';
+import { HandCoins, Printer, ReceiptText, Save } from 'lucide-react';
+import { ReceiptShareActions } from '../ReceiptShareActions';
 
 // API.md doesn't enumerate these; the server validates.
 export const DONATION_METHODS = ['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'ONLINE', 'OTHER'];
@@ -84,9 +85,9 @@ export function DonationsTab() {
                 {d.paymentStatus === 'SUCCESS' && (
                   <Link
                     href={`/e/${ev.eventId}/donations/${d.id}/receipt`}
-                    className="inline-flex min-h-[40px] items-center rounded-xl border border-slate-300 px-3 text-sm font-semibold"
+                    className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-orange-200 bg-white px-3 text-sm font-semibold hover:bg-orange-50"
                   >
-                    Receipt
+                    <ReceiptText aria-hidden className="h-4 w-4" /> Receipt
                   </Link>
                 )}
                 {can(ev.perms, 'DONATION_UPDATE') && (
@@ -95,6 +96,18 @@ export function DonationsTab() {
                   </Button>
                 )}
               </div>
+              {d.paymentStatus === 'SUCCESS' && (
+                <ReceiptShareActions
+                  className="w-full border-t border-orange-50 pt-2"
+                  size="sm"
+                  eventId={ev.eventId}
+                  donationId={d.id}
+                  donorName={d.donorName}
+                  donorEmail={d.donorEmail}
+                  amount={d.amount}
+                  eventName={ev.name}
+                />
+              )}
             </Card>
           ))}
           <Pager page={list.data.page} pageSize={list.data.pageSize} total={list.data.total} onPage={setPage} />

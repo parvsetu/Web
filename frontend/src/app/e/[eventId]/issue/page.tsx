@@ -20,6 +20,7 @@ import {
 import { Clock, Plus, Printer, QrCode, Ticket, UserRound, Users } from 'lucide-react';
 import { Alert, Button, Card, LabeledInput, SectionTitle, SkeletonList, cx } from '@/components/ui';
 import { CreditBanner, type CreditStatus } from '@/components/org/CreditTab';
+import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '@/components/PrintFormat';
 import type { SponsorPublic } from '@/components/SponsorStrip';
 
 export default function IssuePage() {
@@ -45,6 +46,7 @@ function IssueForm() {
   const [busy, setBusy] = useState(false);
   const [issued, setIssued] = useState<TokenWithQr[] | null>(null);
   const [perPerson, setPerPerson] = useState(true);
+  const [printFormat, setPrintFormat] = useState<PrintFormat>(ev.detail?.passPrintFormat ?? 'A4');
   const maxVisitors = ev.detail?.maxVisitorsPerToken ?? 10;
   const credit = useAsync(() => api.get<CreditStatus>(`/events/${ev.eventId}/credit-status`), [ev.eventId, issued?.length ?? 0]);
   const sponsors = useAsync(() => api.get<SponsorPublic[]>(`/events/${ev.eventId}/sponsors`), [ev.eventId]);
@@ -91,6 +93,11 @@ function IssueForm() {
             ? `${issued.length} passes issued — one QR per person. Each can be used once.`
             : 'Token issued. Show or print this QR for the visitor.'}
         </Alert>
+        <PrintFormatStyle format={printFormat} />
+        <div className="no-print rounded-2xl border border-orange-100 bg-white p-3">
+          <p className="mb-2 text-sm font-semibold text-slate-700">Print as</p>
+          <PrintFormatPicker value={printFormat} onChange={setPrintFormat} />
+        </div>
         {issued.map((t, i) => (
           <div key={t.id} className="flex flex-col gap-2">
             {issued.length > 1 && <div className="text-center text-sm font-bold text-orange-800">Pass {i + 1} of {issued.length}</div>}

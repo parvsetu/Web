@@ -38,6 +38,7 @@ export interface BookingSlot {
 }
 
 export interface BookableEventDetail extends BookableEvent {
+  gst?: { ratePercent: number; bearer: 'CUSTOMER' | 'MANDAL' } | null;
   holdMinutes: number;
   slots: BookingSlot[];
   sponsors?: import('@/components/SponsorStrip').SponsorPublic[];
@@ -65,6 +66,10 @@ export type PassOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
 export type PassStatus = 'ACTIVE' | 'USED' | 'EXPIRED' | 'NOT_YET_VALID' | 'CANCELLED';
 
 export interface PassOrder {
+  invoiceNo?: string | null;
+  gst?: { taxable: string; amount: string; ratePercent: number; bearer: 'CUSTOMER' | 'MANDAL'; cgst: string; sgst: string; sac: string } | null;
+  issuer?: { legalName: string; gstin: string | null; address: string } | null;
+  printFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   /** Partners printed on these passes (paid promotion). */
   printedSponsors?: import('@/components/SponsorStrip').SponsorPublic[];
   id: string;

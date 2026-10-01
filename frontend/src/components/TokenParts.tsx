@@ -254,9 +254,9 @@ export function SlotSelect({ slots, value, onChange, label = 'Slot' }: { slots: 
 export function TokenTicket({ token, eventName, tz, festivalType, sponsors }: { token: TokenWithQr; eventName: string; tz: string; festivalType?: string | null; sponsors?: SponsorPublic[] }) {
   const t = festivalTheme(festivalType);
   return (
-    <div className="print-break-inside-avoid overflow-hidden rounded-3xl border-2 bg-white text-center shadow-lg" style={{ borderColor: t.via }}>
+    <div className="pass-print print-break-inside-avoid overflow-hidden rounded-3xl border-2 bg-white text-center shadow-lg" style={{ borderColor: t.via }}>
       <div className="flex items-center gap-3 px-4 py-3 text-left text-white print:!bg-none print:!text-slate-900" style={{ background: gradient(t) }}>
-        <span className="h-12 w-12 shrink-0 rounded-full bg-white p-1.5 shadow">
+        <span className="thermal-hide h-12 w-12 shrink-0 rounded-full bg-white p-1.5 shadow">
           <FestivalArt type={festivalType} className="h-full w-full" />
         </span>
         <div className="min-w-0">

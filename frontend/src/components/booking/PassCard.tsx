@@ -36,7 +36,7 @@ export function PassCard({ order, pass, index = 0, total = 1 }: { order: PassOrd
   return (
     <article
       aria-label={`Pass ${pass.tokenCode}`}
-      className="pass-ticket print-break-inside-avoid overflow-hidden rounded-[28px] border-2 bg-white shadow-xl shadow-orange-900/10"
+      className="pass-ticket pass-print print-break-inside-avoid overflow-hidden rounded-[28px] border-2 bg-white shadow-xl shadow-orange-900/10"
       style={{ borderColor: t.via }}
     >
       <header className="relative overflow-hidden px-5 pb-5 pt-8 text-white" style={{ background: gradient(t) }}>

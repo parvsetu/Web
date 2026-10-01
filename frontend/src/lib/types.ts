@@ -206,6 +206,11 @@ export interface EventDetail {
   volunteerRegistrationOpen: boolean;
   publicBookingEnabled?: boolean;
   tokenDurationOptions?: number[];
+  gstEnabled?: boolean;
+  gstRatePercent?: number;
+  gstBearer?: 'CUSTOMER' | 'MANDAL';
+  gstSac?: string;
+  passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   maxVisitorsPerToken: number;
   createdAt: string;
   myPermissions: string[];
@@ -224,6 +229,11 @@ export interface EventBody {
   volunteerRegistrationOpen?: boolean;
   publicBookingEnabled?: boolean;
   tokenDurationOptions?: number[];
+  gstEnabled?: boolean;
+  gstRatePercent?: number;
+  gstBearer?: 'CUSTOMER' | 'MANDAL';
+  gstSac?: string;
+  passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   maxVisitorsPerToken?: number;
   state?: string;
   city?: string;
@@ -359,16 +369,153 @@ export interface DonationCreateResponse extends Donation {
   passes?: { id: string; tokenCode: string; qrPayload: string; visitorCount: number; status: string; validFrom: string; validUntil: string }[];
 }
 
+/** Legal identity printed on a receipt (only when the mandal's payout account is VERIFIED). */
+export interface ReceiptIssuer {
+  legalName: string;
+  entityType: PayoutEntityType;
+  registrationNumber: string | null;
+  pan: string | null;
+  reg80G: string | null;
+  reg12A: string | null;
+  address: string;
+}
+
 export interface Receipt {
   receiptNo: string;
-  organization: { name: string; city: string | null; address: string | null };
-  event: { name: string };
+  organization: { name: string; city: string | null; state: string | null; address: string | null };
+  event: { name: string; festivalType: string | null };
+  issuer: ReceiptIssuer | null;
   donorName: string;
+  donorMobile: string | null;
+  donorEmail: string | null;
   amount: string;
   amountInWords: string;
+  currency?: string;
   method: string;
   paymentReference: string | null;
   donatedAt: string;
+}
+
+export interface ReceiptShare {
+  path: string;
+  url: string;
+}
+
+// ─── Payout accounts, split settlements ─────────────────────────────
+
+export type PayoutEntityType = 'REGISTERED' | 'UNREGISTERED';
+export type RegisteredType = 'TRUST' | 'SOCIETY' | 'SECTION8' | 'PARTNERSHIP' | 'PROPRIETORSHIP' | 'OTHER';
+export type PayoutStatus = 'PENDING' | 'VERIFIED' | 'NEEDS_CORRECTION' | 'REJECTED';
+export type BankAccountType = 'SAVINGS' | 'CURRENT';
+
+/** As returned by the API — PANs and the account number are masked (XXXXXX9012). */
+export interface PayoutAccount {
+  entityType: PayoutEntityType;
+  registeredType: RegisteredType | null;
+  legalName: string;
+  registrationNumber: string | null;
+  orgPan: string | null;
+  gstin: string | null;
+  reg80G: string | null;
+  reg12A: string | null;
+  addressLine: string;
+  city: string;
+  state: string;
+  pincode: string;
+  contactName: string;
+  contactRole: string;
+  contactPhone: string;
+  contactEmail: string;
+  signatoryPan: string;
+  bankHolderName: string;
+  bankAccount: string;
+  ifsc: string;
+  accountType: BankAccountType;
+  hasProof: boolean;
+  status: PayoutStatus;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+  gatewayAccountId: string | null;
+  submittedAt: string;
+  updatedAt: string;
+}
+
+export interface PayoutAccountInput {
+  entityType: PayoutEntityType;
+  registeredType?: RegisteredType;
+  legalName: string;
+  registrationNumber?: string;
+  orgPan?: string;
+  gstin?: string;
+  reg80G?: string;
+  reg12A?: string;
+  addressLine: string;
+  city: string;
+  state: string;
+  pincode: string;
+  contactName: string;
+  contactRole: string;
+  contactPhone: string;
+  contactEmail: string;
+  signatoryPan: string;
+  bankHolderName: string;
+  bankAccount: string;
+  ifsc: string;
+  accountType: BankAccountType;
+  proofDataUrl?: string;
+  consent: true;
+}
+
+export interface PlatformPayoutAccount extends PayoutAccount {
+  organizationId: string;
+  organization: { name: string; city: string | null; state: string | null };
+}
+
+export type SettlementStatus = 'PENDING_PAYOUT' | 'PAID_OUT';
+
+export interface Settlement {
+  id: string;
+  createdAt: string;
+  organization?: IdName;
+  event: IdName | null;
+  sourceType: string;
+  sourceId?: string;
+  gross: string;
+  gatewayFee: string;
+  commission: string;
+  net: string;
+  status: SettlementStatus;
+  payoutId: string | null;
+}
+
+export interface SettlementTotals {
+  gross: string;
+  commission: string;
+  gatewayFees: string;
+  netToMandals: string;
+  pendingPayout: string;
+  paidOut: string;
+}
+
+export interface SettlementPage extends Paged<Settlement> {
+  totals: SettlementTotals;
+}
+
+export interface Payout {
+  id: string;
+  organization?: IdName;
+  amount: string;
+  reference: string;
+  note: string | null;
+  paidAt: string;
+  settlements: number;
+}
+
+export interface RevealedBank {
+  bankHolderName: string;
+  bankAccount: string;
+  ifsc: string;
+  accountType: BankAccountType;
 }
 
 export interface Expense {

@@ -19,6 +19,7 @@ import {
   type ValidityState,
 } from '../TokenParts';
 import { Ban, CalendarClock, Layers, Printer, RotateCcw } from 'lucide-react';
+import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '../PrintFormat';
 import {
   Alert,
   Badge,
@@ -445,8 +446,12 @@ function BulkModal({ slots, onClose, onDone }: { slots: TimeSlot[]; onClose: () 
 
 function PrintSheet({ tokens, onClose }: { tokens: TokenWithQr[]; onClose: () => void }) {
   const ev = useEvent();
+  const [format, setFormat] = useState<PrintFormat>(ev.detail?.passPrintFormat ?? 'A4');
+  const thermal = format !== 'A4';
   return (
     <div className="flex flex-col gap-4">
+      {thermal ? <PrintFormatStyle format={format} /> : <style media="print">{'@page { size: A4; margin: 10mm; }'}</style>}
+      <PrintFormatPicker value={format} onChange={setFormat} />
       <div className="no-print flex flex-wrap items-center justify-between gap-2">
         <Alert kind="success">{tokens.length} tokens generated.</Alert>
         <div className="flex gap-2">
@@ -456,9 +461,9 @@ function PrintSheet({ tokens, onClose }: { tokens: TokenWithQr[]; onClose: () =>
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 print:grid-cols-3 print:gap-2">
+      <div className={thermal ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 print:block' : 'grid grid-cols-2 gap-3 sm:grid-cols-3 print:grid-cols-3 print:gap-2'}>
         {tokens.map((t) => (
-          <div key={t.id} className="print-break-inside-avoid">
+          <div key={t.id} className={thermal ? 'pass-print' : 'print-break-inside-avoid'}>
             <SmallTicket token={t} eventName={ev.name} tz={ev.timezone} />
           </div>
         ))}

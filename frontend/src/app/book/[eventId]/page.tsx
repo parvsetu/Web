@@ -113,7 +113,10 @@ export default function BookEventPage() {
   }, [people, maxPeople]);
 
   // Display-only preview; the server computes the real amount.
-  const preview = slot ? Number(slot.price) * people : null;
+  const base = slot ? Number(slot.price) * people : null;
+  const gstRate = event?.gst?.ratePercent ?? 0;
+  const gstOnTop = event?.gst?.bearer === 'CUSTOMER' && gstRate > 0;
+  const preview = base === null ? null : gstOnTop ? Math.round(base * (100 + gstRate)) / 100 : base;
   const free = slot ? isFree(slot.price) : false;
 
   function validate(): { ok: boolean; mobile: string | null } {
@@ -425,10 +428,12 @@ export default function BookEventPage() {
                           </>
                         ) : (
                           <>
-                            {people} {people === 1 ? 'person' : 'people'} × {fmtMoney(slot.price)} ={' '}
+                            {people} {people === 1 ? 'person' : 'people'} × {fmtMoney(slot.price)}
+                            {gstOnTop ? ` + ${gstRate}% GST` : ''} ={' '}
                             <span className="text-lg" style={{ color: theme.ink }}>
                               {fmtMoney(preview)}
                             </span>
+                            {event?.gst && !gstOnTop && <span className="ml-1 text-xs font-normal text-slate-500">(incl. {gstRate}% GST)</span>}
                           </>
                         )}
                       </p>

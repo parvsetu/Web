@@ -8,6 +8,7 @@ import { PublicShell } from '@/components/booking/PublicShell';
 import { PassActions, PassCard } from '@/components/booking/PassCard';
 import { PassCarousel } from '@/components/booking/PassCarousel';
 import { SponsorStrip, type SponsorPublic } from '@/components/SponsorStrip';
+import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '@/components/PrintFormat';
 import { Alert, Button, Empty, Skeleton, Spinner } from '@/components/ui';
 import { fmtMoney } from '@/lib/format';
 import { BookingError, booking, bookingErrorMessage, demoPayHref, fmtPassTime, orderPasses, savePass } from '@/lib/booking';
@@ -121,6 +122,8 @@ function PassView() {
           </>
         )}
         <OrderSponsors eventId={order.event.id} />
+        <TaxInvoice order={order} />
+        <PrintChooser initial={order.printFormat ?? 'A4'} />
         <div className="no-print flex flex-col gap-2 pt-2 text-center text-sm">
           <p className="text-slate-500">Saved under My passes on this phone. Bookmark this page to open it anywhere.</p>
           <div className="flex justify-center gap-4 font-semibold">
@@ -192,6 +195,46 @@ function PassView() {
       >
         <TicketPlus aria-hidden className="h-5 w-5" /> Book again
       </Link>
+    </div>
+  );
+}
+
+/** Invoice / tax-invoice details for a paid order (GST split when charged). */
+function TaxInvoice({ order }: { order: PassOrder }) {
+  if (!order.invoiceNo) return null;
+  const g = order.gst;
+  return (
+    <section className="rounded-2xl border border-orange-100 bg-white p-4 text-sm shadow-sm">
+      <h2 className="mb-2 font-bold">{g ? 'Tax invoice' : 'Invoice'} · {order.invoiceNo}</h2>
+      {order.issuer && (
+        <p className="text-slate-600">
+          {order.issuer.legalName}
+          {order.issuer.gstin ? ` · GSTIN ${order.issuer.gstin}` : ''}
+          <br />
+          {order.issuer.address}
+        </p>
+      )}
+      <dl className="mt-2 grid grid-cols-2 gap-y-1">
+        {g ? (
+          <>
+            <dt className="text-slate-500">Taxable value (SAC {g.sac})</dt><dd className="text-right">{fmtMoney(g.taxable)}</dd>
+            <dt className="text-slate-500">CGST {g.ratePercent / 2}%</dt><dd className="text-right">{fmtMoney(g.cgst)}</dd>
+            <dt className="text-slate-500">SGST {g.ratePercent / 2}%</dt><dd className="text-right">{fmtMoney(g.sgst)}</dd>
+          </>
+        ) : null}
+        <dt className="font-semibold">Total paid</dt><dd className="text-right font-bold">{fmtMoney(order.amount)}</dd>
+      </dl>
+    </section>
+  );
+}
+
+function PrintChooser({ initial }: { initial: PrintFormat }) {
+  const [format, setFormat] = useState<PrintFormat>(initial);
+  return (
+    <div className="no-print flex flex-col gap-2 rounded-2xl border border-orange-100 bg-white p-3">
+      <PrintFormatStyle format={format} />
+      <p className="text-sm font-semibold text-slate-700">Print format</p>
+      <PrintFormatPicker value={format} onChange={setFormat} />
     </div>
   );
 }

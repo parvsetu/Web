@@ -5,10 +5,11 @@ import { useOrg } from '@/lib/org-context';
 import { canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
-import { Building2, CreditCard, FileBarChart, Handshake, History, KeyRound, PartyPopper, Settings, UserCheck, UserCog, Users, Wallet } from 'lucide-react';
+import { Building2, CreditCard, FileBarChart, Handshake, History, KeyRound, Landmark, PartyPopper, Settings, UserCheck, UserCog, Users, Wallet } from 'lucide-react';
 import { AccountsTab } from '@/components/org/AccountsTab';
 import { SponsorsTab } from '@/components/org/SponsorsTab';
 import { CreditTab } from '@/components/org/CreditTab';
+import { PayoutsTab } from '@/components/org/PayoutsTab';
 import type { LucideIcon } from 'lucide-react';
 import { Mandala, Toran } from '@/components/FestivalArt';
 import { Alert, SkeletonList, SideTabsLayout } from '@/components/ui';
@@ -30,6 +31,7 @@ const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] 
   { key: 'accounts', label: 'Accounts & P/L', icon: Wallet, anyOf: ['EXPENSE_VIEW'] },
   { key: 'sponsors', label: 'Partners', icon: Handshake, anyOf: ['EVENT_VIEW'] },
   { key: 'credit', label: 'Pass credit', icon: CreditCard, anyOf: ['SETTINGS_VIEW'] },
+  { key: 'payouts', label: 'Payouts & bank', icon: Landmark, anyOf: ['SETTINGS_VIEW'] },
   { key: 'audit', label: 'Audit log', icon: History, anyOf: ['AUDIT_VIEW'] },
   { key: 'reports', label: 'Reports', icon: FileBarChart, anyOf: ['REPORT_VIEW'] },
   { key: 'settings', label: 'Settings', icon: Settings, anyOf: ['SETTINGS_UPDATE'] },
@@ -90,6 +92,7 @@ function OrgAdmin() {
       {tab === 'accounts' && <AccountsTab />}
       {tab === 'sponsors' && <SponsorsTab />}
       {tab === 'credit' && <CreditTab />}
+      {tab === 'payouts' && <PayoutsTab />}
       {tab === 'audit' && <AuditTab />}
       {tab === 'reports' && <OrgReportsTab />}
       {tab === 'settings' && <OrgSettingsTab />}

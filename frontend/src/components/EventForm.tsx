@@ -7,6 +7,7 @@ import type { EventBody, EventDetail, EventStatus } from '@/lib/types';
 import { FestivalBadge } from './FestivalBanner';
 import { Alert, Button, Checkbox, Field, LabeledInput, LabeledSelect, Textarea, cx } from './ui';
 import { FestivalTypeSelect, StateCityPicker } from './PlacePicker';
+import { PrintFormatPicker, type PrintFormat } from './PrintFormat';
 import { useFestivalTypes } from '@/lib/catalog';
 
 const STATUSES: EventStatus[] = ['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
@@ -39,6 +40,11 @@ export function EventForm({
     maxVisitorsPerToken: String(initial?.maxVisitorsPerToken ?? 10),
     state: initial?.state ?? '',
     city: initial?.city ?? '',
+    gstEnabled: initial?.gstEnabled ?? false,
+    gstRatePercent: String(initial?.gstRatePercent ?? 18),
+    gstBearer: (initial?.gstBearer ?? 'CUSTOMER') as 'CUSTOMER' | 'MANDAL',
+    gstSac: initial?.gstSac ?? '9996',
+    passPrintFormat: (initial?.passPrintFormat ?? 'A4') as PrintFormat,
   });
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -71,6 +77,11 @@ export function EventForm({
       volunteerRegistrationOpen: form.volunteerRegistrationOpen,
       publicBookingEnabled: form.publicBookingEnabled,
       tokenDurationOptions: form.tokenDurationOptions,
+      gstEnabled: form.gstEnabled,
+      gstRatePercent: Number(form.gstRatePercent),
+      gstBearer: form.gstBearer,
+      gstSac: form.gstSac.trim() || '9996',
+      passPrintFormat: form.passPrintFormat,
       maxVisitorsPerToken: max,
       ...(form.state || initial ? { state: form.state } : {}),
       ...(form.city || initial ? { city: form.city.trim() } : {}),
@@ -141,6 +152,48 @@ export function EventForm({
         checked={form.publicBookingEnabled}
         onChange={(v) => setForm((x) => ({ ...x, publicBookingEnabled: v }))}
       />
+      <div className="flex flex-col gap-3 rounded-2xl border border-orange-200 bg-orange-50/40 p-3">
+        <Checkbox
+          label={<span className="font-semibold">Charge GST on online pass sales</span>}
+          checked={form.gstEnabled}
+          onChange={(v) => setForm((x) => ({ ...x, gstEnabled: v }))}
+        />
+        {form.gstEnabled && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <LabeledSelect label="GST rate" value={form.gstRatePercent} onChange={set('gstRatePercent')}>
+                {[0, 5, 12, 18, 28].map((r) => (
+                  <option key={r} value={r}>{r}%</option>
+                ))}
+              </LabeledSelect>
+              <LabeledInput label="SAC / HSN code" value={form.gstSac} onChange={set('gstSac')} inputMode="numeric" />
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Who pays GST">
+              {(['CUSTOMER', 'MANDAL'] as const).map((b) => {
+                const r = Number(form.gstRatePercent) || 0;
+                const example = b === 'CUSTOMER' ? `₹100 pass → visitor pays ₹${(100 + r).toFixed(2)}` : `₹100 pass → ₹${(100 / (1 + r / 100)).toFixed(2)} + ₹${(100 - 100 / (1 + r / 100)).toFixed(2)} GST`;
+                return (
+                  <button
+                    key={b}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.gstBearer === b}
+                    onClick={() => setForm((x) => ({ ...x, gstBearer: b }))}
+                    className={cx('flex min-h-[64px] flex-col items-start justify-center rounded-xl border px-3 text-left text-sm', form.gstBearer === b ? 'border-orange-500 bg-white ring-2 ring-orange-400' : 'border-orange-200 bg-white')}
+                  >
+                    <span className="font-semibold">{b === 'CUSTOMER' ? 'Visitor pays GST (added on top)' : 'Mandal bears GST (price includes GST)'}</span>
+                    <span className="text-xs text-slate-500">{example}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-slate-500">Requires your GSTIN in “Payouts &amp; bank”. Each paid order gets a tax invoice. Confirm the applicable rate with your CA.</p>
+          </>
+        )}
+      </div>
+      <Field label="Default pass print format">
+        <PrintFormatPicker value={form.passPrintFormat} onChange={(v) => setForm((x) => ({ ...x, passPrintFormat: v }))} />
+      </Field>
       <Field label="Pass durations the token desk can issue" hint="Admins can always issue any duration. Leave all off to allow only time-slot passes at the desk.">
         <div className="flex flex-wrap gap-2">
           {DURATION_PRESETS.map((h) => {

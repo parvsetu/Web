@@ -10,9 +10,9 @@ import type { CreditStatus } from '../org/CreditTab';
 import { SearchBar } from '../SearchBar';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SectionTitle, SkeletonList, Stat, Table, Td, cx } from '../ui';
 
-interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerPrintFee: string; feePerPass: string }
+interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerPrintFee: string; feePerPass: string; gatewayFeePercent: string }
 interface Summary {
-  commissionEarned: string; partnerFeesEarned: string; totalEarned: string; tokensGenerated: number; personsAdmitted: number;
+  commissionEarned: string; partnerFeesEarned: string; splitCommissionEarned: string; onlineGross: string; totalEarned: string; tokensGenerated: number; personsAdmitted: number;
   creditOutstanding: string; totalRecharged: string; paidRecharges: number;
   mandals: { total: number; low: number; exhausted: number };
   bySource: { source: string | null; commission: string; tokens: number }[];
@@ -39,7 +39,10 @@ export function BillingAdmin() {
           <section className="rounded-3xl bg-gradient-to-br from-violet-600 to-fuchsia-600 p-5 text-white shadow-lg">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">Your platform earnings</p>
             <p className="text-4xl font-black">{fmtMoney(s.totalEarned)}</p>
-            <p className="text-sm text-white/90">Commission {fmtMoney(s.commissionEarned)} · Partner printing {fmtMoney(s.partnerFeesEarned)}</p>
+            <p className="text-sm text-white/90">
+              Pass credit commission {fmtMoney(s.commissionEarned)} · Online split commission {fmtMoney(s.splitCommissionEarned)} · Partner printing {fmtMoney(s.partnerFeesEarned)}
+            </p>
+            <p className="mt-1 text-xs text-white/75">Online payments collected: {fmtMoney(s.onlineGross)}</p>
           </section>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Passes generated" value={s.tokensGenerated.toLocaleString('en-IN')} tone="blue" icon={Ticket} />
@@ -146,8 +149,8 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
     setOk(false);
     setBusy(true);
     try {
-      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerPrintFee } = f!;
-      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerPrintFee });
+      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerPrintFee, gatewayFeePercent } = f!;
+      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerPrintFee, gatewayFeePercent });
       setForm(saved);
       setOk(true);
       onSaved();
@@ -167,6 +170,7 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
         <LabeledInput label="Low-credit warning below (₹)" inputMode="decimal" value={f.lowCreditThreshold} onChange={set('lowCreditThreshold')} />
         <LabeledInput label="Partner print fee per pass (₹)" inputMode="decimal" value={f.partnerPrintFee} onChange={set('partnerPrintFee')} hint="Per partner printed on a pass" />
         <LabeledInput label="Welcome credit for new mandals (₹)" inputMode="decimal" value={f.welcomeCredit} onChange={set('welcomeCredit')} />
+        <LabeledInput label="Gateway fee taken from the mandal's share (%)" inputMode="decimal" value={f.gatewayFeePercent ?? ''} onChange={set('gatewayFeePercent')} hint="Applied to each paid online pass before the mandal's net" />
       </div>
       <p className="flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-900">
         <Percent aria-hidden className="h-4 w-4" /> Each person admitted costs a mandal {fmtMoney(fee)} ({f.defaultCommissionPercent}% of {fmtMoney(f.defaultTokenPrice)}). Mandal-specific rates override this.

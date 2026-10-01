@@ -11,7 +11,7 @@ import type { FinanceReport, ScansReport, SummaryReport, TokensReport, VisitorsR
 import { Alert, BarChart, Button, Card, Empty, LabeledInput, SkeletonList, Stat, Table, Td, Tabs } from '../ui';
 import { FileDown } from 'lucide-react';
 
-type ReportKey = 'summary' | 'tokens' | 'visitors' | 'scans' | 'volunteers' | 'finance';
+type ReportKey = 'summary' | 'tokens' | 'visitors' | 'scans' | 'volunteers' | 'finance' | 'gst';
 
 export function ReportsTab() {
   const ev = useEvent();
@@ -29,6 +29,7 @@ export function ReportsTab() {
     { key: 'scans', label: 'Scans' },
     { key: 'volunteers', label: 'Volunteers' },
     ...(canFinance ? [{ key: 'finance', label: 'Finance' }] : []),
+    ...(can(ev.perms, 'DONATION_VIEW') ? [{ key: 'gst', label: 'GST' }] : []),
   ];
 
   async function exportCsv() {
@@ -73,6 +74,7 @@ export function ReportsTab() {
       {report === 'scans' && <ScansView range={range} />}
       {report === 'volunteers' && <VolunteersView range={range} />}
       {report === 'finance' && canFinance && <FinanceView range={range} />}
+      {report === 'gst' && <GstView range={range} />}
     </div>
   );
 }
@@ -246,6 +248,50 @@ function VolunteersView({ range }: { range: Range }) {
           </Card>
         )
       }
+    </Loader>
+  );
+}
+
+interface GstReport {
+  totals: { orders: number; taxable: string; gst: string; cgst: string; sgst: string; total: string };
+  byMonth: { month: string; orders: number; taxable: string; gst: string; total: string }[];
+  invoices: { invoiceNo: string | null; date: string; buyer: string; people: number; ratePercent: number; bearer: string | null; taxable: string; gst: string; total: string }[];
+}
+
+/** GST on online pass sales — taxable value, CGST/SGST and every invoice. */
+function GstView({ range }: { range: Range }) {
+  const q = useReport<GstReport>('gst', range);
+  return (
+    <Loader q={q}>
+      {(d) => (
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat label={`Paid orders`} value={d.totals.orders} tone="blue" />
+            <Stat label="Taxable value" value={fmtMoney(d.totals.taxable)} tone="brand" />
+            <Stat label="CGST + SGST" value={`${fmtMoney(d.totals.cgst)} + ${fmtMoney(d.totals.sgst)}`} tone="purple" />
+            <Stat label="Total collected" value={fmtMoney(d.totals.total)} tone="green" />
+          </div>
+          {d.invoices.length === 0 ? (
+            <Empty title="No paid online orders in this period" />
+          ) : (
+            <Card>
+              <Table head={['Invoice', 'Date', 'Buyer', 'Rate', 'Taxable', 'GST', 'Total']}>
+                {d.invoices.map((i) => (
+                  <tr key={i.invoiceNo ?? i.date}>
+                    <Td className="font-mono text-xs">{i.invoiceNo ?? '—'}</Td>
+                    <Td className="whitespace-nowrap text-xs">{fmtDateTime(i.date)}</Td>
+                    <Td>{i.buyer} ({i.people})</Td>
+                    <Td>{i.ratePercent}%{i.bearer === 'MANDAL' ? ' incl.' : ''}</Td>
+                    <Td>{fmtMoney(i.taxable)}</Td>
+                    <Td>{fmtMoney(i.gst)}</Td>
+                    <Td className="font-semibold">{fmtMoney(i.total)}</Td>
+                  </tr>
+                ))}
+              </Table>
+            </Card>
+          )}
+        </div>
+      )}
     </Loader>
   );
 }
