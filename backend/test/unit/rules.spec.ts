@@ -5,6 +5,7 @@ import { QrSigner } from '../../src/common/qr/qr-signer';
 import { amountInWords } from '../../src/common/money';
 import { toCsv } from '../../src/common/http';
 import { AccessService } from '../../src/common/access/access.service';
+import { corsOrigins } from '../../src/app.setup';
 
 const now = new Date('2026-10-01T12:00:00Z');
 const t = (status: 'ACTIVE' | 'USED' | 'CANCELLED', fromMin: number, untilMin: number) => ({
@@ -82,5 +83,15 @@ describe('helpers', () => {
     const svc = new AccessService({} as never);
     expect(svc.canGrant(new Set(['A', 'B']), ['A'])).toBe(true);
     expect(svc.canGrant(new Set(['A']), ['A', 'B'])).toBe(false);
+  });
+});
+
+describe('CORS allow-list', () => {
+  it('wildcard matches one label only', () => {
+    const [re, exact] = corsOrigins('https://parvsetu-*.vercel.app, https://app.example.org') as [RegExp, string];
+    expect(re.test('https://parvsetu-abc123-team.vercel.app')).toBe(true);
+    expect(re.test('https://parvsetu-x.vercel.app.evil.com')).toBe(false);
+    expect(re.test('https://parvsetu-a.b.vercel.app')).toBe(false);
+    expect(exact).toBe('https://app.example.org');
   });
 });

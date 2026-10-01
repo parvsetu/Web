@@ -14,7 +14,9 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "test": "jest --runInBand",
-    "test:e2e": "jest --runInBand --config test/jest-e2e.config.js"
+    "test:e2e": "jest --runInBand --config test/jest-e2e.config.js",
+    "build:render": "npm ci --include=dev && prisma generate && nest build",
+    "start:render": "prisma migrate deploy && ts-node --transpile-only prisma/seed.ts && node dist/main.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -61,5 +63,8 @@
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

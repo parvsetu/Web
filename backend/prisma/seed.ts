@@ -163,10 +163,37 @@ Demo data created. Password for every demo account: ${DEMO_PASSWORD}
 super admin id: ${superAdmin.id}`);
 }
 
+/**
+ * First platform admin for a fresh deployment, from env (set once in the
+ * hosting dashboard). Never overwrites an existing account.
+ */
+async function seedBootstrapAdmin() {
+  const { BOOTSTRAP_ADMIN_MOBILE: mobile, BOOTSTRAP_ADMIN_PASSWORD: password } = process.env;
+  if (!mobile || !password) return;
+  if (password.length < 10) throw new Error('BOOTSTRAP_ADMIN_PASSWORD must be at least 10 characters');
+  if (await prisma.user.findUnique({ where: { mobile } })) {
+    console.log('Bootstrap admin already exists — leaving it unchanged.');
+    return;
+  }
+  await prisma.user.create({
+    data: {
+      name: process.env.BOOTSTRAP_ADMIN_NAME ?? 'Platform Admin',
+      mobile,
+      email: process.env.BOOTSTRAP_ADMIN_EMAIL?.toLowerCase() || null,
+      passwordHash: await bcrypt.hash(password, 10),
+      isSuperAdmin: true,
+    },
+  });
+  console.log(`Bootstrap super admin created for ${mobile}.`);
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
-  if (process.env.SEED_DEMO !== 'false') await seedDemo();
+  await seedBootstrapAdmin();
+  // Demo accounts use a password published in the README — never on by default in production.
+  const demo = process.env.SEED_DEMO ?? (process.env.NODE_ENV === 'production' ? 'false' : 'true');
+  if (demo === 'true') await seedDemo();
 }
 
 if (require.main === module) {
