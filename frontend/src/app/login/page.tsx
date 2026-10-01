@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { errorMessage } from '@/lib/api';
 import { isAwaitingApproval, useAuth } from '@/lib/auth';
+import { LogIn } from 'lucide-react';
 import { Alert, Button, LabeledInput } from '@/components/ui';
 import { AuthCard } from '@/components/AuthCard';
 
@@ -53,6 +54,7 @@ function LoginForm() {
       <LabeledInput label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
       {error && <Alert>{error}</Alert>}
       <Button type="submit" size="lg" loading={busy}>
+        {!busy && <LogIn aria-hidden className="h-6 w-6" />}
         Log in
       </Button>
       <p className="text-center text-sm text-slate-600">
@@ -67,7 +69,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <AuthCard title="Log in" subtitle="Welcome to Parvsetu">
+    <AuthCard title="Log in" subtitle="Welcome back 🙏">
       <Suspense>
         <LoginForm />
       </Suspense>

@@ -13,7 +13,7 @@ import { ScanRowCard } from '@/components/ScanRow';
 export default function MyScansPage() {
   const ev = useEvent();
   return (
-    <AppShell title="My scans" subtitle={ev.name} back={`/e/${ev.eventId}`}>
+    <AppShell festivalType={ev.festivalType} title="My scans" subtitle={ev.name} back={`/e/${ev.eventId}`}>
       <EventGate anyOf={['TOKEN_SCAN']}>
         <List />
       </EventGate>

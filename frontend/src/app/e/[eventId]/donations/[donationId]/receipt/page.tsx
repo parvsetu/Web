@@ -8,11 +8,12 @@ import type { Receipt } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
 import { EventGate } from '@/components/EventGate';
 import { Alert, Button, SkeletonList } from '@/components/ui';
+import { Printer } from 'lucide-react';
 
 export default function ReceiptPage({ params }: { params: { donationId: string } }) {
   const ev = useEvent();
   return (
-    <AppShell title="Donation receipt" subtitle={ev.name} back={`/e/${ev.eventId}/admin#donations`}>
+    <AppShell festivalType={ev.festivalType} title="Donation receipt" subtitle={ev.name} back={`/e/${ev.eventId}/admin#donations`}>
       <EventGate anyOf={['DONATION_VIEW']}>
         <ReceiptView donationId={params.donationId} />
       </EventGate>
@@ -30,7 +31,7 @@ function ReceiptView({ donationId }: { donationId: string }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="no-print flex justify-end">
-        <Button onClick={() => window.print()}>Print receipt</Button>
+        <Button onClick={() => window.print()}><Printer aria-hidden className="h-4 w-4" /> Print receipt</Button>
       </div>
       <article className="mx-auto w-full max-w-xl rounded-2xl border-2 border-slate-900 bg-white p-6 print:border-slate-900">
         <header className="border-b border-slate-300 pb-3 text-center">

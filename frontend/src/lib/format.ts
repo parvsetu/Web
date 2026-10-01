@@ -75,7 +75,7 @@ export function fmtMoney(amount: string | number | null | undefined, currency = 
   const n = typeof amount === 'number' ? amount : Number(amount);
   if (Number.isNaN(n)) return String(amount);
   try {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(n);
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency, minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }).format(n);
   } catch {
     return `₹${n.toFixed(2)}`;
   }

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "lucide-react": "^0.460.0",
     "next": "^14.2.35",
     "qr-scanner": "^1.4.2",
     "qrcode": "^1.5.4",

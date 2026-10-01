@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { saveBlob } from '@/lib/api';
 import { clampDate, fmtDate, fmtDateTime, localInputToIso, nowHHmmIn, todayIn } from '@/lib/format';
 import type { TimeSlot, TokenWithQr, Validity } from '@/lib/types';
+import { CalendarClock, Download, Printer, Share2, Users } from 'lucide-react';
+import { festivalTheme, gradient } from '@/lib/festival-theme';
+import { FestivalArt } from './FestivalArt';
 import { QrImage, qrCardPng } from './QrImage';
 import { Badge, Button, Field, Input, LabeledInput, Select, cx } from './ui';
 
@@ -181,24 +184,37 @@ export function SlotSelect({ slots, value, onChange, label = 'Slot' }: { slots: 
 }
 
 /** Large printable token: QR + code + validity. */
-export function TokenTicket({ token, eventName, tz }: { token: TokenWithQr; eventName: string; tz: string }) {
+export function TokenTicket({ token, eventName, tz, festivalType }: { token: TokenWithQr; eventName: string; tz: string; festivalType?: string | null }) {
+  const t = festivalTheme(festivalType);
   return (
-    <div className="print-break-inside-avoid flex flex-col items-center gap-2 rounded-3xl border-2 border-slate-900 bg-white p-4 text-center">
-      <div className="text-sm font-semibold uppercase tracking-wide text-slate-600">{eventName}</div>
-      <QrImage payload={token.qrPayload} size={300} alt={`QR for ${token.tokenCode}`} />
-      <div className="font-mono text-2xl font-bold tracking-wider">{token.tokenCode}</div>
-      {token.timeSlot && <div className="text-base font-semibold">{token.timeSlot.label}</div>}
-      <div className="text-sm text-slate-700">
-        Valid {fmtDateTime(token.validFrom, tz)} – {fmtDateTime(token.validUntil, tz)}
+    <div className="print-break-inside-avoid overflow-hidden rounded-3xl border-2 bg-white text-center shadow-lg" style={{ borderColor: t.via }}>
+      <div className="flex items-center gap-3 px-4 py-3 text-left text-white print:!bg-none print:!text-slate-900" style={{ background: gradient(t) }}>
+        <span className="h-12 w-12 shrink-0 rounded-full bg-white p-1.5 shadow">
+          <FestivalArt type={festivalType} className="h-full w-full" />
+        </span>
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-90">Entry token</div>
+          <div className="truncate text-base font-extrabold">{eventName}</div>
+        </div>
       </div>
-      <div className="text-sm text-slate-700">
-        {token.visitorCount > 1 ? `Admits ${token.visitorCount} people` : 'Admits 1 person'}
-        {token.visitor?.name ? ` · ${token.visitor.name}` : ''}
+      <div className="flex flex-col items-center gap-2 p-4">
+        <QrImage payload={token.qrPayload} size={300} alt={`QR for ${token.tokenCode}`} />
+        <div className="font-mono text-2xl font-bold tracking-wider" style={{ color: t.ink }}>{token.tokenCode}</div>
+        {token.timeSlot && <div className="text-base font-semibold">{token.timeSlot.label}</div>}
+        <div className="flex items-center gap-1.5 text-sm text-slate-700">
+          <CalendarClock aria-hidden className="h-4 w-4 text-slate-400" />
+          {fmtDateTime(token.validFrom, tz)} – {fmtDateTime(token.validUntil, tz)}
+        </div>
+        <div className="flex items-center gap-1.5 text-sm text-slate-700">
+          <Users aria-hidden className="h-4 w-4 text-slate-400" />
+          {token.visitorCount > 1 ? `Admits ${token.visitorCount} people` : 'Admits 1 person'}
+          {token.visitor?.name ? ` · ${token.visitor.name}` : ''}
+        </div>
+        <div className="no-print">
+          <Badge value={token.effectiveStatus} />
+        </div>
+        <div className="w-full border-t border-dashed border-slate-300 pt-2 text-xs text-slate-500">One-time entry. Do not share this QR.</div>
       </div>
-      <div className="no-print">
-        <Badge value={token.effectiveStatus} />
-      </div>
-      <div className="text-xs text-slate-500">One-time entry. Do not share this QR.</div>
     </div>
   );
 }
@@ -251,22 +267,22 @@ export function TokenShareButtons({ token, eventName, tz, showPrint = true }: { 
       <div className={cx('grid gap-2', showPrint ? 'grid-cols-2' : 'grid-cols-1')}>
         {showPrint && (
           <Button variant="secondary" onClick={() => window.print()}>
-            Print
+            <Printer aria-hidden className="h-5 w-5" /> Print
           </Button>
         )}
         {canShare ? (
           <Button variant="secondary" onClick={share}>
-            Share
+            <Share2 aria-hidden className="h-5 w-5" /> Share
           </Button>
         ) : (
           <Button variant="secondary" onClick={download}>
-            Download PNG
+            <Download aria-hidden className="h-5 w-5" /> Download PNG
           </Button>
         )}
       </div>
       {canShare && (
         <Button variant="ghost" size="sm" onClick={download}>
-          Download PNG
+          <Download aria-hidden className="h-4 w-4" /> Download PNG
         </Button>
       )}
       {msg && <p className="text-center text-sm text-red-700">{msg}</p>}

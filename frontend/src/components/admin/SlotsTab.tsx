@@ -6,6 +6,7 @@ import { useEvent } from '@/lib/event-context';
 import { useAsync } from '@/lib/hooks';
 import type { TimeSlot } from '@/lib/types';
 import { Alert, Badge, Button, Card, Checkbox, Empty, LabeledInput, Modal, SkeletonList } from '../ui';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -35,7 +36,7 @@ export function SlotsTab() {
         token keeps its own window. To change one token, open it in the Tokens tab.
       </Alert>
       <div className="flex justify-end">
-        <Button onClick={() => setEditing('new')}>Add slot</Button>
+        <Button onClick={() => setEditing('new')}><Plus aria-hidden className="h-4 w-4" /> Add slot</Button>
       </div>
       {error && <Alert>{error}</Alert>}
       {q.error && <Alert>{q.error}</Alert>}
@@ -59,10 +60,10 @@ export function SlotsTab() {
             </div>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" onClick={() => setEditing(s)}>
-                Edit
+                <Pencil aria-hidden className="h-4 w-4" /> Edit
               </Button>
               <Button variant="ghost" size="sm" className="text-red-700" onClick={() => remove(s)}>
-                Remove
+                <Trash2 aria-hidden className="h-4 w-4" /> Remove
               </Button>
             </div>
           </Card>

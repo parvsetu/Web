@@ -9,6 +9,7 @@ import type { Paged, Volunteer } from '@/lib/types';
 import { RoleSelect } from '../admin/VolunteersTab';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, SkeletonList } from '../ui';
 import { TempPassword, useOrgEvents, useRoles } from './shared';
+import { Pencil, Save, UserCheck, UserPlus, UserX } from 'lucide-react';
 
 export function OrgVolunteersTab() {
   const org = useOrg();
@@ -59,7 +60,7 @@ export function OrgVolunteersTab() {
       </Card>
       {can(org.perms, 'VOLUNTEER_CREATE') && (
         <div className="flex justify-end">
-          <Button onClick={() => setCreating(true)}>Add volunteer</Button>
+          <Button onClick={() => setCreating(true)}><UserPlus aria-hidden className="h-4 w-4" /> Add volunteer</Button>
         </div>
       )}
       {error && <Alert>{error}</Alert>}
@@ -84,15 +85,15 @@ export function OrgVolunteersTab() {
                 {canUpdate && (
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" size="sm" onClick={() => setEditing(v)}>
-                      Edit
+                      <Pencil aria-hidden className="h-4 w-4" /> Edit
                     </Button>
                     {anyActive ? (
                       <Button variant="ghost" size="sm" className="text-red-700" onClick={() => toggle(v, false)}>
-                        Deactivate
+                        <UserX aria-hidden className="h-4 w-4" /> Deactivate
                       </Button>
                     ) : (
                       <Button variant="ghost" size="sm" className="text-green-700" onClick={() => toggle(v, true)}>
-                        Activate
+                        <UserCheck aria-hidden className="h-4 w-4" /> Activate
                       </Button>
                     )}
                   </div>
@@ -205,7 +206,7 @@ function CreateVolunteer({ onClose, onCreated }: { onClose: () => void; onCreate
           </LabeledSelect>
           {error && <Alert>{error}</Alert>}
           <Button type="submit" loading={busy}>
-            Add volunteer
+            <UserPlus aria-hidden className="h-4 w-4" /> Add volunteer
           </Button>
         </form>
       )}
@@ -241,7 +242,7 @@ function EditVolunteer({ v, onClose, onDone }: { v: Volunteer; onClose: () => vo
         <p className="text-xs text-slate-500">Mobile number: {v.mobile ?? '—'} (cannot be changed here)</p>
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>
-          Save
+          <Save aria-hidden className="h-4 w-4" /> Save
         </Button>
       </form>
     </Modal>

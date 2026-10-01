@@ -5,6 +5,9 @@ import { useOrg } from '@/lib/org-context';
 import { canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
+import { Building2, FileBarChart, History, KeyRound, PartyPopper, Settings, UserCheck, UserCog, Users } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Mandala, Toran } from '@/components/FestivalArt';
 import { Alert, SkeletonList, Tabs } from '@/components/ui';
 import { OrgEventsTab } from '@/components/org/OrgEventsTab';
 import { OrgVolunteersTab } from '@/components/org/OrgVolunteersTab';
@@ -15,15 +18,15 @@ import { AuditTab } from '@/components/org/AuditTab';
 import { OrgReportsTab } from '@/components/org/OrgReportsTab';
 import { OrgSettingsTab } from '@/components/org/OrgSettingsTab';
 
-const TABS: { key: string; label: string; anyOf: Permission[] }[] = [
-  { key: 'events', label: 'Festivals', anyOf: ['EVENT_VIEW'] },
-  { key: 'volunteers', label: 'Volunteers', anyOf: ['VOLUNTEER_VIEW'] },
-  { key: 'applications', label: 'Applications', anyOf: ['VOLUNTEER_VIEW'] },
-  { key: 'members', label: 'Members', anyOf: ['USER_VIEW'] },
-  { key: 'roles', label: 'Roles', anyOf: ['ROLE_VIEW'] },
-  { key: 'audit', label: 'Audit log', anyOf: ['AUDIT_VIEW'] },
-  { key: 'reports', label: 'Reports', anyOf: ['REPORT_VIEW'] },
-  { key: 'settings', label: 'Settings', anyOf: ['SETTINGS_UPDATE'] },
+const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] }[] = [
+  { key: 'events', label: 'Festivals', icon: PartyPopper, anyOf: ['EVENT_VIEW'] },
+  { key: 'volunteers', label: 'Volunteers', icon: Users, anyOf: ['VOLUNTEER_VIEW'] },
+  { key: 'applications', label: 'Applications', icon: UserCheck, anyOf: ['VOLUNTEER_VIEW'] },
+  { key: 'members', label: 'Members', icon: UserCog, anyOf: ['USER_VIEW'] },
+  { key: 'roles', label: 'Roles', icon: KeyRound, anyOf: ['ROLE_VIEW'] },
+  { key: 'audit', label: 'Audit log', icon: History, anyOf: ['AUDIT_VIEW'] },
+  { key: 'reports', label: 'Reports', icon: FileBarChart, anyOf: ['REPORT_VIEW'] },
+  { key: 'settings', label: 'Settings', icon: Settings, anyOf: ['SETTINGS_UPDATE'] },
 ];
 
 export default function OrgAdminPage() {
@@ -59,6 +62,19 @@ function OrgAdmin() {
 
   return (
     <div className="flex flex-col gap-4">
+      <section className="no-print relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 text-white shadow-lg">
+        <Toran className="absolute inset-x-0 top-0 w-full" />
+        <Mandala className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 text-white/15" />
+        <div className="relative flex items-center gap-3 px-5 pb-5 pt-8">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 ring-2 ring-white/40">
+            <Building2 aria-hidden className="h-7 w-7" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">Mandal admin</p>
+            <h1 className="truncate text-2xl font-extrabold">{org.name}</h1>
+          </div>
+        </div>
+      </section>
       <Tabs tabs={visible} active={tab} onChange={change} />
       {tab === 'events' && <OrgEventsTab />}
       {tab === 'volunteers' && <OrgVolunteersTab />}

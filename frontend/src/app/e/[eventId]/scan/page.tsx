@@ -22,6 +22,7 @@ import { can } from '@/lib/permissions';
 import type { ScanResponse } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
 import { EventGate } from '@/components/EventGate';
+import { ArrowLeft, CheckCircle2, Flashlight, FlashlightOff, Keyboard, Loader2, RefreshCw, ScanLine, ShieldAlert, ShieldX, WifiOff, XCircle } from 'lucide-react';
 import { Button, Input, Modal, cx } from '@/components/ui';
 
 const REQUEST_TIMEOUT_MS = 8000;
@@ -50,6 +51,7 @@ export default function ScanPage() {
   const online = useOnline();
   return (
     <AppShell
+      festivalType={ev.festivalType}
       title="Scan QR Token"
       subtitle={ev.name}
       back={`/e/${ev.eventId}`}
@@ -292,14 +294,14 @@ function Scanner() {
   if (phase.kind === 'unauthorized') {
     return (
       <div className="flex flex-col items-center gap-4 rounded-3xl bg-red-50 p-6 text-center ring-2 ring-red-300">
-        <div className="text-5xl" aria-hidden>
-          ⛔
-        </div>
+        <span className="flex h-20 w-20 items-center justify-center rounded-full bg-red-100 text-red-600">
+          <ShieldX aria-hidden className="h-11 w-11" />
+        </span>
         <h2 className="text-2xl font-extrabold text-red-800">You are not authorized to scan for this event</h2>
         <p className="text-red-900">{phase.message}</p>
         <p className="text-sm text-slate-700">Please ask your mandal organiser to give you scanning access.</p>
-        <Link href={`/e/${ev.eventId}`} className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-slate-900 font-semibold text-white">
-          Go back
+        <Link href={`/e/${ev.eventId}`} className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-slate-900 font-semibold text-white">
+          <ArrowLeft aria-hidden className="h-5 w-5" /> Go back
         </Link>
       </div>
     );
@@ -308,17 +310,17 @@ function Scanner() {
   return (
     <div className="flex flex-col gap-4">
       {ev.status && ev.status !== 'ACTIVE' && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          This festival is not Active, so the server will refuse scans.
+        <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <ShieldAlert aria-hidden className="h-4 w-4 shrink-0" /> This festival is not Active, so the server will refuse scans.
         </div>
       )}
       {!online && (
-        <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900">
-          You are offline. Tokens cannot be verified without internet.
+        <div className="flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900">
+          <WifiOff aria-hidden className="h-4 w-4 shrink-0" /> You are offline. Tokens cannot be verified without internet.
         </div>
       )}
 
-      <div className="relative overflow-hidden rounded-3xl bg-black" style={{ aspectRatio: '3 / 4', maxHeight: '62dvh', width: '100%' }}>
+      <div className="relative overflow-hidden rounded-3xl bg-black shadow-xl ring-4 ring-orange-200" style={{ aspectRatio: '3 / 4', maxHeight: '62dvh', width: '100%' }}>
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
         {camera !== 'on' && <CameraProblem state={camera} detail={cameraMsg} onRetry={() => void startCamera()} />}
@@ -333,16 +335,18 @@ function Scanner() {
             onClick={toggleTorch}
             aria-pressed={torchOn}
             className={cx(
-              'absolute right-3 top-3 flex h-12 min-w-[48px] items-center justify-center rounded-full px-3 text-sm font-bold',
+              'absolute right-3 top-3 flex h-12 min-w-[48px] items-center justify-center gap-1.5 rounded-full px-3 text-sm font-bold',
               torchOn ? 'bg-yellow-300 text-black' : 'bg-black/60 text-white',
             )}
           >
+            {torchOn ? <Flashlight aria-hidden className="h-5 w-5" /> : <FlashlightOff aria-hidden className="h-5 w-5" />}
             {torchOn ? 'Light on' : 'Light'}
           </button>
         )}
       </div>
 
-      <div className="text-center text-2xl font-extrabold tracking-wide text-slate-900">
+      <div className="flex items-center justify-center gap-2 text-center text-2xl font-extrabold tracking-wide text-slate-900">
+        <ScanLine aria-hidden className="h-7 w-7 text-emerald-600" />
         {phase.kind === 'verifying' ? 'Verifying…' : 'Scan QR Token'}
       </div>
 
@@ -355,7 +359,7 @@ function Scanner() {
           }}
           disabled={phase.kind !== 'scanning'}
         >
-          Enter code manually
+          <Keyboard aria-hidden className="h-5 w-5" /> Enter code manually
         </Button>
       )}
 
@@ -386,7 +390,9 @@ function Scanner() {
 function CameraProblem({ state, detail, onRetry }: { state: CameraState; detail: string; onRetry: () => void }) {
   if (state === 'starting')
     return (
-      <div className="absolute inset-0 flex items-center justify-center text-lg font-semibold text-white">Starting camera…</div>
+      <div className="absolute inset-0 flex items-center justify-center gap-2 text-lg font-semibold text-white">
+        <Loader2 aria-hidden className="h-6 w-6 animate-spin" /> Starting camera…
+      </div>
     );
   const content: Record<Exclude<CameraState, 'starting' | 'on'>, { title: string; body: React.ReactNode }> = {
     denied: {
@@ -413,8 +419,8 @@ function CameraProblem({ state, detail, onRetry }: { state: CameraState; detail:
       <div className="text-xl font-bold">{c.title}</div>
       <div className="text-sm text-slate-200">{c.body}</div>
       {state !== 'insecure' && state !== 'nocamera' && (
-        <button type="button" onClick={onRetry} className="mt-2 min-h-[48px] rounded-xl bg-white px-6 font-semibold text-slate-900">
-          Try again
+        <button type="button" onClick={onRetry} className="mt-2 flex min-h-[48px] items-center gap-2 rounded-xl bg-white px-6 font-semibold text-slate-900">
+          <RefreshCw aria-hidden className="h-4 w-4" /> Try again
         </button>
       )}
     </div>
@@ -447,7 +453,7 @@ function ResultOverlay({ phase, tz, onNext, onRetry }: { phase: Exclude<Phase, {
   if (phase.kind === 'verifying') {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-900/90 p-6 text-white" role="status" aria-live="assertive">
-        <span className="h-16 w-16 animate-spin rounded-full border-4 border-white border-t-transparent" />
+        <Loader2 aria-hidden className="h-16 w-16 animate-spin text-amber-300" />
         <div className="text-2xl font-bold">Verifying token…</div>
         {phase.attempt > 0 && <div className="text-base text-slate-300">Retrying ({phase.attempt} of {AUTO_RETRIES})…</div>}
       </div>
@@ -457,11 +463,11 @@ function ResultOverlay({ phase, tz, onNext, onRetry }: { phase: Exclude<Phase, {
   if (phase.kind === 'network' || phase.kind === 'rejected') {
     const network = phase.kind === 'network';
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-amber-500 p-6 pt-safe text-black" role="alert" aria-live="assertive">
+      <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-amber-400 to-amber-500 p-6 pt-safe text-black" role="alert" aria-live="assertive">
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-          <div className="text-7xl font-black" aria-hidden>
-            !
-          </div>
+          <span className="flex h-28 w-28 items-center justify-center rounded-full bg-black/10">
+            {network ? <WifiOff aria-hidden className="h-16 w-16" /> : <ShieldAlert aria-hidden className="h-16 w-16" />}
+          </span>
           <h2 className="text-3xl font-extrabold">{network ? 'Unable to verify token' : 'Could not verify'}</h2>
           <p className="text-xl font-semibold">
             {network ? 'Unable to verify token. Please check your internet connection.' : phase.message}
@@ -471,8 +477,8 @@ function ResultOverlay({ phase, tz, onNext, onRetry }: { phase: Exclude<Phase, {
         </div>
         <div className="flex flex-col gap-3 pb-safe">
           {network || phase.retryable ? (
-            <button type="button" onClick={onRetry} className="min-h-[64px] rounded-2xl bg-black text-xl font-bold text-white">
-              Retry
+            <button type="button" onClick={onRetry} className="flex min-h-[64px] items-center justify-center gap-2 rounded-2xl bg-black text-xl font-bold text-white">
+              <RefreshCw aria-hidden className="h-6 w-6" /> Retry
             </button>
           ) : null}
           {network || phase.retryable ? (
@@ -491,13 +497,17 @@ function ResultOverlay({ phase, tz, onNext, onRetry }: { phase: Exclude<Phase, {
 
   const r = phase.res;
   const invalid = r.result === 'INVALID';
-  const bg = isSuccess ? 'bg-green-600' : 'bg-red-600';
-  const heading = isSuccess ? '✓ ENTRY ALLOWED' : invalid ? '✕ INVALID TOKEN' : '✕ ENTRY DENIED';
+  const bg = isSuccess ? 'bg-gradient-to-b from-green-500 to-emerald-700' : 'bg-gradient-to-b from-red-500 to-rose-700';
+  const heading = isSuccess ? 'ENTRY ALLOWED' : invalid ? 'INVALID TOKEN' : 'ENTRY DENIED';
+  const ResultIcon = isSuccess ? CheckCircle2 : XCircle;
   const visitors = r.visitorCount ?? 1;
 
   return (
     <div className={cx('fixed inset-0 z-50 flex flex-col overflow-y-auto p-6 pt-safe text-white', bg)} role="alert" aria-live="assertive">
       <div className="flex flex-1 flex-col justify-center gap-4">
+        <span className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-white/20 ring-4 ring-white/40">
+          <ResultIcon aria-hidden className="h-20 w-20" strokeWidth={2.5} />
+        </span>
         <h2 className="text-center text-4xl font-black leading-tight tracking-tight sm:text-5xl">{heading}</h2>
         <p className="text-center text-xl font-semibold">{r.message}</p>
         {isSuccess && visitors > 1 && (
@@ -531,8 +541,9 @@ function ResultOverlay({ phase, tz, onNext, onRetry }: { phase: Exclude<Phase, {
           type="button"
           onClick={onNext}
           autoFocus
-          className={cx('min-h-[72px] w-full rounded-2xl bg-white text-2xl font-black', isSuccess ? 'text-green-700' : 'text-red-700')}
+          className={cx('flex min-h-[72px] w-full items-center justify-center gap-2 rounded-2xl bg-white text-2xl font-black', isSuccess ? 'text-green-700' : 'text-red-700')}
         >
+          <ScanLine aria-hidden className="h-7 w-7" />
           Scan next{isSuccess && countdown > 0 ? ` (${countdown})` : ''}
         </button>
       </div>

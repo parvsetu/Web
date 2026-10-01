@@ -10,6 +10,7 @@ import type { Application, Paged } from '@/lib/types';
 import { RoleSelect } from '../admin/VolunteersTab';
 import { Alert, Badge, Button, Card, Empty, Field, LabeledSelect, Modal, SkeletonList, Textarea } from '../ui';
 import { useOrgEvents, useRoles } from './shared';
+import { Check, X } from 'lucide-react';
 
 export function ApplicationsTab() {
   const org = useOrg();
@@ -59,10 +60,10 @@ export function ApplicationsTab() {
               {a.status === 'PENDING' && canAssign && (
                 <div className="flex gap-2">
                   <Button variant="success" size="sm" onClick={() => setApproving(a)}>
-                    Approve
+                    <Check aria-hidden className="h-4 w-4" /> Approve
                   </Button>
                   <Button variant="ghost" size="sm" className="text-red-700" onClick={() => setRejecting(a)}>
-                    Reject
+                    <X aria-hidden className="h-4 w-4" /> Reject
                   </Button>
                 </div>
               )}
@@ -136,7 +137,7 @@ function ApproveModal({ app, onClose, onDone }: { app: Application; onClose: () 
         {roles.error && <Alert kind="warning">Could not load roles: {roles.error}</Alert>}
         {error && <Alert>{error}</Alert>}
         <Button type="submit" variant="success" loading={busy}>
-          Approve
+          <Check aria-hidden className="h-4 w-4" /> Approve
         </Button>
       </form>
     </Modal>
@@ -169,7 +170,7 @@ function RejectModal({ app, onClose, onDone }: { app: Application; onClose: () =
         </Field>
         {error && <Alert>{error}</Alert>}
         <Button type="submit" variant="danger" loading={busy}>
-          Reject
+          <X aria-hidden className="h-4 w-4" /> Reject
         </Button>
       </form>
     </Modal>

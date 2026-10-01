@@ -8,6 +8,7 @@ import { useAsync } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
 import type { Expense, Paged } from '@/lib/types';
 import { Alert, Button, Card, Empty, LabeledInput, Modal, Pager, SkeletonList, Stat } from '../ui';
+import { Pencil, Plus } from 'lucide-react';
 
 // Suggestions only — the server accepts the category string.
 const CATEGORY_SUGGESTIONS = ['DECORATION', 'PANDAL', 'IDOL', 'PRASAD', 'SOUND_LIGHT', 'SECURITY', 'CLEANING', 'PRINTING', 'TRANSPORT', 'MISC'];
@@ -28,7 +29,7 @@ export function ExpensesTab() {
     <div className="flex flex-col gap-4">
       {can(ev.perms, 'EXPENSE_CREATE') && (
         <div className="flex justify-end">
-          <Button onClick={() => setEditing('new')}>Add expense</Button>
+          <Button onClick={() => setEditing('new')}><Plus aria-hidden className="h-4 w-4" /> Add expense</Button>
         </div>
       )}
       <Card className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -69,7 +70,7 @@ export function ExpensesTab() {
                 <span className="text-lg font-bold tabular-nums">{fmtMoney(x.amount)}</span>
                 {can(ev.perms, 'EXPENSE_UPDATE') && (
                   <Button variant="secondary" size="sm" onClick={() => setEditing(x)}>
-                    Edit
+                    <Pencil aria-hidden className="h-4 w-4" /> Edit
                   </Button>
                 )}
               </div>

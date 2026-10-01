@@ -9,6 +9,7 @@ import { useAsync, useDebounced } from '@/lib/hooks';
 import type { Organization, Paged, PlatformUser } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
 import { Alert, Badge, Button, Card, Empty, Field, LabeledInput, Modal, Pager, SkeletonList, Tabs, Textarea } from '@/components/ui';
+import { Building2, Plus } from 'lucide-react';
 
 export default function PlatformPage() {
   const { me } = useAuth();
@@ -40,7 +41,7 @@ function Orgs() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
-        <Button onClick={() => setCreating(true)}>New organisation</Button>
+        <Button onClick={() => setCreating(true)}><Building2 aria-hidden className="h-4 w-4" /> New organisation</Button>
       </div>
       {q.error && <Alert>{q.error}</Alert>}
       {q.loading && !q.data ? (
@@ -108,7 +109,7 @@ function CreateOrg({ onClose, onDone }: { onClose: () => void; onDone: () => voi
         <LabeledInput label="Slug (optional)" value={form.slug} onChange={set('slug')} hint="Lowercase, e.g. lalbaug-mandal" />
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>
-          Create
+          <Plus aria-hidden className="h-4 w-4" /> Create
         </Button>
       </form>
     </Modal>

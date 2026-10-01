@@ -6,7 +6,11 @@ import { can, canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
 import { EventGate } from '@/components/EventGate';
-import { Alert, Tabs } from '@/components/ui';
+import { BarChart3, Clock, FileBarChart, HandCoins, LayoutDashboard, ReceiptIndianRupee, ScanLine, Settings, Ticket, Users } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { fmtDate } from '@/lib/format';
+import { FestivalBanner } from '@/components/FestivalBanner';
+import { Alert, Badge, Tabs } from '@/components/ui';
 import { OverviewTab } from '@/components/admin/OverviewTab';
 import { TokensTab } from '@/components/admin/TokensTab';
 import { SlotsTab } from '@/components/admin/SlotsTab';
@@ -17,22 +21,22 @@ import { DonationsTab } from '@/components/admin/DonationsTab';
 import { ExpensesTab } from '@/components/admin/ExpensesTab';
 import { EventSettingsTab } from '@/components/admin/EventSettingsTab';
 
-const TABS: { key: string; label: string; anyOf: Permission[] }[] = [
-  { key: 'overview', label: 'Overview', anyOf: ['REPORT_VIEW'] },
-  { key: 'tokens', label: 'Tokens', anyOf: ['TOKEN_VIEW', 'TOKEN_GENERATE'] },
-  { key: 'slots', label: 'Time slots', anyOf: ['SETTINGS_UPDATE'] },
-  { key: 'volunteers', label: 'Volunteers', anyOf: ['VOLUNTEER_VIEW'] },
-  { key: 'scans', label: 'Scans', anyOf: ['REPORT_VIEW'] },
-  { key: 'reports', label: 'Reports', anyOf: ['REPORT_VIEW'] },
-  { key: 'donations', label: 'Donations', anyOf: ['DONATION_VIEW'] },
-  { key: 'expenses', label: 'Expenses', anyOf: ['EXPENSE_VIEW'] },
-  { key: 'settings', label: 'Settings', anyOf: ['EVENT_UPDATE'] },
+const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] }[] = [
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard, anyOf: ['REPORT_VIEW'] },
+  { key: 'tokens', label: 'Tokens', icon: Ticket, anyOf: ['TOKEN_VIEW', 'TOKEN_GENERATE'] },
+  { key: 'slots', label: 'Time slots', icon: Clock, anyOf: ['SETTINGS_UPDATE'] },
+  { key: 'volunteers', label: 'Volunteers', icon: Users, anyOf: ['VOLUNTEER_VIEW'] },
+  { key: 'scans', label: 'Scans', icon: ScanLine, anyOf: ['REPORT_VIEW'] },
+  { key: 'reports', label: 'Reports', icon: FileBarChart, anyOf: ['REPORT_VIEW'] },
+  { key: 'donations', label: 'Donations', icon: HandCoins, anyOf: ['DONATION_VIEW'] },
+  { key: 'expenses', label: 'Expenses', icon: ReceiptIndianRupee, anyOf: ['EXPENSE_VIEW'] },
+  { key: 'settings', label: 'Settings', icon: Settings, anyOf: ['EVENT_UPDATE'] },
 ];
 
 export default function EventAdminPage() {
   const ev = useEvent();
   return (
-    <AppShell title={ev.name} subtitle="Festival dashboard" back={`/e/${ev.eventId}`} wide>
+    <AppShell title={ev.name} subtitle="Festival dashboard" back={`/e/${ev.eventId}`} wide festivalType={ev.festivalType}>
       <EventGate>
         <Admin />
       </EventGate>
@@ -67,6 +71,24 @@ function Admin() {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="no-print">
+        <FestivalBanner
+          compact
+          type={ev.festivalType}
+          title={ev.name}
+          subtitle={
+            <span className="inline-flex items-center gap-1.5">
+              <BarChart3 aria-hidden className="h-4 w-4" /> Festival dashboard{ev.organization?.name ? ` · ${ev.organization.name}` : ''}
+            </span>
+          }
+          meta={
+            <>
+              {ev.startDate && <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-semibold">{fmtDate(ev.startDate)} – {fmtDate(ev.endDate)}</span>}
+              {ev.status && <Badge value={ev.status} className="bg-white/95" />}
+            </>
+          }
+        />
+      </div>
       <Tabs tabs={visible} active={tab} onChange={change} />
       {tab === 'overview' && <OverviewTab />}
       {tab === 'tokens' && <TokensTab />}

@@ -9,6 +9,7 @@ import { can } from '@/lib/permissions';
 import type { PermissionDef, Role } from '@/lib/types';
 import { Alert, Badge, Button, Card, Checkbox, Empty, Field, LabeledInput, Modal, SkeletonList, Textarea } from '../ui';
 import { useRoles } from './shared';
+import { Pencil } from 'lucide-react';
 
 export function RolesTab() {
   const org = useOrg();
@@ -64,7 +65,7 @@ export function RolesTab() {
                 </Button>
               ) : (
                 <Button variant="secondary" size="sm" onClick={() => setEditing(r)}>
-                  Edit
+                  <Pencil aria-hidden className="h-4 w-4" /> Edit
                 </Button>
               )}
               {!r.isSystem && can(org.perms, 'ROLE_DELETE') && (

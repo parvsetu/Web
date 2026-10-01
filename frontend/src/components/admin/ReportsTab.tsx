@@ -9,6 +9,7 @@ import { useAsync } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
 import type { FinanceReport, ScansReport, SummaryReport, TokensReport, VisitorsReport, VolunteerStats } from '@/lib/types';
 import { Alert, BarChart, Button, Card, Empty, LabeledInput, SkeletonList, Stat, Table, Td, Tabs } from '../ui';
+import { FileDown } from 'lucide-react';
 
 type ReportKey = 'summary' | 'tokens' | 'visitors' | 'scans' | 'volunteers' | 'finance';
 
@@ -61,7 +62,7 @@ export function ReportsTab() {
       {canExport && (
         <div className="flex justify-end">
           <Button variant="secondary" size="sm" onClick={exportCsv} loading={exporting}>
-            Export CSV
+            <FileDown aria-hidden className="h-4 w-4" /> Export CSV
           </Button>
         </div>
       )}

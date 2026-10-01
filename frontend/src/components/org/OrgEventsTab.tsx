@@ -12,6 +12,9 @@ import type { EventDetail } from '@/lib/types';
 import { EventForm } from '../EventForm';
 import { Alert, Badge, Button, Card, Empty, Modal, SkeletonList } from '../ui';
 import { useOrgEvents } from './shared';
+import { BarChart3, CalendarDays, CalendarPlus, DoorOpen, MapPin, PartyPopper } from 'lucide-react';
+import { festivalTheme } from '@/lib/festival-theme';
+import { FestivalBadge } from '../FestivalBanner';
 
 export function OrgEventsTab() {
   const org = useOrg();
@@ -24,33 +27,46 @@ export function OrgEventsTab() {
     <div className="flex flex-col gap-3">
       {can(org.perms, 'EVENT_CREATE') && (
         <div className="flex justify-end">
-          <Button onClick={() => setCreating(true)}>New festival</Button>
+          <Button onClick={() => setCreating(true)}><CalendarPlus aria-hidden className="h-4 w-4" /> New festival</Button>
         </div>
       )}
       {q.error && <Alert>{q.error}</Alert>}
       {q.loading && !q.data ? (
         <SkeletonList />
       ) : (q.data ?? []).length === 0 ? (
-        <Empty title="No festivals yet">Create one to start issuing tokens.</Empty>
+        <Empty icon={PartyPopper} title="No festivals yet">Create one to start issuing tokens.</Empty>
       ) : (
         (q.data ?? []).map((e) => (
-          <Card key={e.id} className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-lg font-bold">{e.name}</span>
-                <Badge value={e.status} />
-              </div>
-              <div className="text-sm text-slate-600">
-                {humanize(e.festivalType)} · {fmtDate(e.startDate)} – {fmtDate(e.endDate)}
-                {e.location ? ` · ${e.location}` : ''}
+          <Card key={e.id} className="flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <FestivalBadge type={e.festivalType} className="h-14 w-14" />
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold uppercase tracking-wider" style={{ color: festivalTheme(e.festivalType).ink }}>
+                  {humanize(e.festivalType)}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-lg font-bold">{e.name}</span>
+                  <Badge value={e.status} />
+                </div>
+                <div className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600">
+                  <CalendarDays aria-hidden className="h-4 w-4 text-slate-400" /> {fmtDate(e.startDate)} – {fmtDate(e.endDate)}
+                </div>
+                {e.location && (
+                  <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                    <MapPin aria-hidden className="h-4 w-4 text-slate-400" /> {e.location}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex gap-2">
-              <Link href={`/e/${e.id}`} className="inline-flex min-h-[44px] items-center rounded-xl border border-slate-300 px-3 text-sm font-semibold">
-                Open
+            <div className="grid grid-cols-2 gap-2">
+              <Link href={`/e/${e.id}`} className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-orange-200 px-3 text-sm font-semibold hover:bg-orange-50">
+                <DoorOpen aria-hidden className="h-4 w-4" /> Open
               </Link>
-              <Link href={`/e/${e.id}/admin`} className="inline-flex min-h-[44px] items-center rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white">
-                Dashboard
+              <Link
+                href={`/e/${e.id}/admin`}
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-3 text-sm font-semibold text-white shadow-sm"
+              >
+                <BarChart3 aria-hidden className="h-4 w-4" /> Dashboard
               </Link>
             </div>
           </Card>

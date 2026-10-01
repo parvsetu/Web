@@ -18,6 +18,7 @@ import {
   initialValidity,
   type ValidityState,
 } from '../TokenParts';
+import { Ban, CalendarClock, Layers, Printer, RotateCcw } from 'lucide-react';
 import {
   Alert,
   Badge,
@@ -74,7 +75,7 @@ export function TokensTab() {
     <div className="flex flex-col gap-4">
       {canBulk && (
         <div className="flex justify-end">
-          <Button onClick={() => setBulkOpen(true)}>Bulk generate</Button>
+          <Button onClick={() => setBulkOpen(true)}><Layers aria-hidden className="h-4 w-4" /> Bulk generate</Button>
         </div>
       )}
       {canView ? (
@@ -213,17 +214,17 @@ function TokenDrawer({ tokenId, slots, onClose, onChanged }: { tokenId: string; 
           <div className="flex flex-wrap gap-2">
             {t.status === 'ACTIVE' && can(ev.perms, 'TOKEN_CANCEL') && (
               <Button variant="danger" size="sm" onClick={() => setAction('cancel')}>
-                Cancel token
+                <Ban aria-hidden className="h-4 w-4" /> Cancel token
               </Button>
             )}
             {t.status === 'ACTIVE' && can(ev.perms, 'TOKEN_GENERATE') && (
               <Button variant="secondary" size="sm" onClick={() => setAction('validity')}>
-                Change validity
+                <CalendarClock aria-hidden className="h-4 w-4" /> Change validity
               </Button>
             )}
             {t.status === 'USED' && can(ev.perms, 'TOKEN_REACTIVATE') && (
               <Button variant="secondary" size="sm" onClick={() => setAction('reactivate')}>
-                Reactivate (recovery)
+                <RotateCcw aria-hidden className="h-4 w-4" /> Reactivate (recovery)
               </Button>
             )}
           </div>
@@ -292,7 +293,7 @@ function CancelForm({ token, onDone, onCancel }: { token: Token; onDone: () => v
         {error && <Alert>{error}</Alert>}
         <div className="flex gap-2">
           <Button type="submit" variant="danger" loading={busy}>
-            Cancel token
+            <Ban aria-hidden className="h-4 w-4" /> Cancel token
           </Button>
           <Button variant="ghost" onClick={onCancel}>
             Back
@@ -389,7 +390,7 @@ function ReactivateForm({ token, onDone, onCancel }: { token: Token; onDone: () 
         {error && <Alert>{error}</Alert>}
         <div className="flex gap-2">
           <Button type="submit" variant="danger" loading={busy} disabled={!codeOk || !reasonOk}>
-            Reactivate token
+            <RotateCcw aria-hidden className="h-4 w-4" /> Reactivate token
           </Button>
           <Button variant="ghost" onClick={onCancel}>
             Back
@@ -449,7 +450,7 @@ function PrintSheet({ tokens, onClose }: { tokens: TokenWithQr[]; onClose: () =>
       <div className="no-print flex flex-wrap items-center justify-between gap-2">
         <Alert kind="success">{tokens.length} tokens generated.</Alert>
         <div className="flex gap-2">
-          <Button onClick={() => window.print()}>Print sheet</Button>
+          <Button onClick={() => window.print()}><Printer aria-hidden className="h-4 w-4" /> Print sheet</Button>
           <Button variant="secondary" onClick={onClose}>
             Done
           </Button>

@@ -7,6 +7,7 @@ import { api, errorMessage } from '@/lib/api';
 import { isAwaitingApproval, useAuth } from '@/lib/auth';
 import { fmtDate, humanize } from '@/lib/format';
 import type { PublicEvent } from '@/lib/types';
+import { UserPlus } from 'lucide-react';
 import { Alert, Button, Field, LabeledInput, Select, Textarea } from '@/components/ui';
 import { AuthCard } from '@/components/AuthCard';
 
@@ -99,6 +100,7 @@ export default function RegisterPage() {
         )}
         {error && <Alert>{error}</Alert>}
         <Button type="submit" size="lg" loading={busy}>
+          {!busy && <UserPlus aria-hidden className="h-6 w-6" />}
           Create account
         </Button>
         <p className="text-center text-sm text-slate-600">

@@ -10,6 +10,7 @@ import type { Member, Paged } from '@/lib/types';
 import { RoleSelect } from '../admin/VolunteersTab';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, SkeletonList } from '../ui';
 import { TempPassword, useRoles } from './shared';
+import { Pencil, Save, Trash2, UserPlus } from 'lucide-react';
 
 export function MembersTab() {
   const org = useOrg();
@@ -35,7 +36,7 @@ export function MembersTab() {
       <Alert kind="info">Members have an org-wide role that applies to every festival of this mandal. You can only give roles with permissions you have yourself.</Alert>
       {can(org.perms, 'USER_CREATE') && (
         <div className="flex justify-end">
-          <Button onClick={() => setAdding(true)}>Add member</Button>
+          <Button onClick={() => setAdding(true)}><UserPlus aria-hidden className="h-4 w-4" /> Add member</Button>
         </div>
       )}
       {error && <Alert>{error}</Alert>}
@@ -63,12 +64,12 @@ export function MembersTab() {
                 <div className="flex gap-2">
                   {can(org.perms, 'USER_UPDATE') && (
                     <Button variant="secondary" size="sm" onClick={() => setEditing(m)}>
-                      Edit
+                      <Pencil aria-hidden className="h-4 w-4" /> Edit
                     </Button>
                   )}
                   {can(org.perms, 'USER_DELETE') && (
                     <Button variant="ghost" size="sm" className="text-red-700" onClick={() => remove(m)}>
-                      Remove
+                      <Trash2 aria-hidden className="h-4 w-4" /> Remove
                     </Button>
                   )}
                 </div>
@@ -146,7 +147,7 @@ function AddMember({ onClose, onCreated }: { onClose: () => void; onCreated: () 
           {roles.error && <Alert kind="warning">Could not load roles: {roles.error}</Alert>}
           {error && <Alert>{error}</Alert>}
           <Button type="submit" loading={busy}>
-            Add member
+            <UserPlus aria-hidden className="h-4 w-4" /> Add member
           </Button>
         </form>
       )}
@@ -191,7 +192,7 @@ function EditMember({ m, onClose, onDone }: { m: Member; onClose: () => void; on
         <LabeledInput label="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} />
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>
-          Save
+          <Save aria-hidden className="h-4 w-4" /> Save
         </Button>
       </form>
     </Modal>

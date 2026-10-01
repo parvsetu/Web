@@ -6,6 +6,7 @@ import { useEvent } from '@/lib/event-context';
 import { fmtDateTime, fmtHour, fmtMoney, fmtNum, todayIn } from '@/lib/format';
 import { useAsync } from '@/lib/hooks';
 import type { Dashboard } from '@/lib/types';
+import { Activity, Ban, CheckCircle2, Clock4, History, Hourglass, Landmark, RefreshCw, ScanLine, Ticket, TicketCheck, Users, Wallet, WalletCards } from 'lucide-react';
 import { ScanRowCard } from '../ScanRow';
 import { Alert, BarChart, Button, Card, Empty, LabeledInput, SectionTitle, SkeletonList, Stat, Table, Td } from '../ui';
 
@@ -22,7 +23,7 @@ export function OverviewTab() {
           <LabeledInput label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <Button variant="secondary" onClick={q.reload} aria-label="Refresh">
-          Refresh
+          <RefreshCw aria-hidden className="h-4 w-4" /> Refresh
         </Button>
       </div>
       {q.error && <Alert>{q.error}</Alert>}
@@ -31,26 +32,28 @@ export function OverviewTab() {
       ) : d ? (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Visitors" value={fmtNum(d.today.visitors)} tone="brand" />
-            <Stat label="Entries" value={fmtNum(d.today.entries)} tone="green" />
-            <Stat label="Tokens issued" value={fmtNum(d.today.tokensIssued)} />
-            <Stat label="Used" value={fmtNum(d.today.used)} />
-            <Stat label="Unused" value={fmtNum(d.today.unused)} />
-            <Stat label="Expired" value={fmtNum(d.today.expired)} tone="amber" />
-            <Stat label="Cancelled" value={fmtNum(d.today.cancelled)} tone="red" />
+            <Stat label="Visitors" value={fmtNum(d.today.visitors)} tone="brand" icon={Users} />
+            <Stat label="Entries" value={fmtNum(d.today.entries)} tone="green" icon={CheckCircle2} />
+            <Stat label="Tokens issued" value={fmtNum(d.today.tokensIssued)} tone="blue" icon={Ticket} />
+            <Stat label="Used" value={fmtNum(d.today.used)} tone="purple" icon={TicketCheck} />
+            <Stat label="Unused" value={fmtNum(d.today.unused)} tone="pink" icon={Hourglass} />
+            <Stat label="Expired" value={fmtNum(d.today.expired)} tone="amber" icon={Clock4} />
+            <Stat label="Cancelled" value={fmtNum(d.today.cancelled)} tone="red" icon={Ban} />
           </div>
 
-          <SectionTitle>Whole festival</SectionTitle>
+          <SectionTitle icon={Landmark}>Whole festival</SectionTitle>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Total visitors" value={fmtNum(d.overall.visitors.total)} tone="brand" />
-            <Stat label="Tokens" value={fmtNum(d.overall.tokens.total)} />
-            {d.overall.donations ? <Stat label="Donations" value={fmtMoney(d.overall.donations.total)} tone="green" /> : null}
-            {d.overall.expenses ? <Stat label="Expenses" value={fmtMoney(d.overall.expenses.total)} tone="red" /> : null}
-            {d.overall.balance !== null ? <Stat label="Balance" value={fmtMoney(d.overall.balance)} /> : null}
+            <Stat label="Total visitors" value={fmtNum(d.overall.visitors.total)} tone="brand" icon={Users} />
+            <Stat label="Tokens" value={fmtNum(d.overall.tokens.total)} tone="blue" icon={Ticket} />
+            {d.overall.donations ? <Stat label="Donations" value={fmtMoney(d.overall.donations.total)} tone="green" icon={Wallet} /> : null}
+            {d.overall.expenses ? <Stat label="Expenses" value={fmtMoney(d.overall.expenses.total)} tone="red" icon={WalletCards} /> : null}
+            {d.overall.balance !== null ? (
+              <Stat label="Balance" value={fmtMoney(d.overall.balance)} tone={Number(d.overall.balance) < 0 ? 'red' : 'green'} icon={Landmark} />
+            ) : null}
           </div>
           {d.overall.restricted.length > 0 && <p className="text-xs text-slate-500">Financial figures are hidden for your role.</p>}
 
-          <SectionTitle>Entries by hour</SectionTitle>
+          <SectionTitle icon={Activity}>Entries by hour</SectionTitle>
           <Card>
             <BarChart
               label="Entries by hour"
@@ -58,9 +61,9 @@ export function OverviewTab() {
             />
           </Card>
 
-          <SectionTitle>Volunteer activity</SectionTitle>
+          <SectionTitle icon={Users}>Volunteer activity</SectionTitle>
           {d.volunteerActivity.length === 0 ? (
-            <Empty title="No scans yet" />
+            <Empty icon={ScanLine} title="No scans yet" />
           ) : (
             <Card>
               <Table head={['Volunteer', 'Scans', 'Allowed', 'Denied', 'Last active']}>
@@ -77,7 +80,7 @@ export function OverviewTab() {
             </Card>
           )}
 
-          <SectionTitle>Recent scans</SectionTitle>
+          <SectionTitle icon={History}>Recent scans</SectionTitle>
           {d.recentScans.length === 0 ? (
             <Empty title="No scans yet" />
           ) : (

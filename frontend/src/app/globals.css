@@ -8,7 +8,10 @@
 
 html,
 body {
-  background: #f8fafc;
+  background-color: #fffaf3;
+  /* faint rangoli dots */
+  background-image: radial-gradient(circle at 1px 1px, rgba(234, 88, 12, 0.07) 1px, transparent 0);
+  background-size: 22px 22px;
   color: #0f172a;
   -webkit-tap-highlight-color: transparent;
 }

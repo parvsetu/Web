@@ -9,6 +9,7 @@ import { useAsync, useDebounced } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
 import type { Donation, DonationCreateResponse, Paged, PaymentProvider } from '@/lib/types';
 import { Alert, Badge, Button, Card, Empty, Field, LabeledInput, LabeledSelect, Modal, Pager, SkeletonList, Textarea } from '../ui';
+import { HandCoins, Save } from 'lucide-react';
 
 // API.md doesn't enumerate these; the server validates.
 export const DONATION_METHODS = ['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'ONLINE', 'OTHER'];
@@ -32,7 +33,7 @@ export function DonationsTab() {
     <div className="flex flex-col gap-4">
       {can(ev.perms, 'DONATION_CREATE') && (
         <div className="flex justify-end">
-          <Button onClick={() => setCreating(true)}>Record donation</Button>
+          <Button onClick={() => setCreating(true)}><HandCoins aria-hidden className="h-4 w-4" /> Record donation</Button>
         </div>
       )}
       <Card className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -300,7 +301,7 @@ function UpdateDonation({ donation, onClose, onDone }: { donation: Donation; onC
         <LabeledInput label="Reason for change" value={reason} onChange={(e) => setReason(e.target.value)} />
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>
-          Save
+          <Save aria-hidden className="h-4 w-4" /> Save
         </Button>
       </form>
     </Modal>

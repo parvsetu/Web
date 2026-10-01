@@ -9,6 +9,7 @@ import { can } from '@/lib/permissions';
 import type { Assignment, Paged, Role, Volunteer, VolunteerActivity } from '@/lib/types';
 import { ScanRowCard } from '../ScanRow';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, SectionTitle, SkeletonList, Stat } from '../ui';
+import { Pencil, Save, Trash2, UserPlus } from 'lucide-react';
 
 function assignmentUser(a: Assignment): { id: string; name: string; mobile?: string | null } {
   return {
@@ -66,7 +67,7 @@ export function VolunteersTab() {
         <div className="min-w-[200px] flex-1">
           <LabeledInput label="Filter" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Name, mobile or role" />
         </div>
-        {canAssign && <Button onClick={() => setAdding(true)}>Assign volunteer</Button>}
+        {canAssign && <Button onClick={() => setAdding(true)}><UserPlus aria-hidden className="h-4 w-4" /> Assign volunteer</Button>}
       </div>
       {error && <Alert>{error}</Alert>}
       {q.error && <Alert>{q.error}</Alert>}
@@ -95,12 +96,12 @@ export function VolunteersTab() {
                 </Button>
                 {canAssign && (
                   <Button variant="secondary" size="sm" onClick={() => setEditing(a)}>
-                    Edit
+                    <Pencil aria-hidden className="h-4 w-4" /> Edit
                   </Button>
                 )}
                 {canDelete && (
                   <Button variant="ghost" size="sm" className="text-red-700" onClick={() => remove(a)}>
-                    Remove
+                    <Trash2 aria-hidden className="h-4 w-4" /> Remove
                   </Button>
                 )}
               </div>
@@ -276,7 +277,7 @@ function EditAssignmentModal({ assignment, roles, onClose, onDone }: { assignmen
         <LabeledInput label="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} />
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>
-          Save
+          <Save aria-hidden className="h-4 w-4" /> Save
         </Button>
       </form>
     </Modal>

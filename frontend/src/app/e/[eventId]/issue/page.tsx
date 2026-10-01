@@ -17,12 +17,13 @@ import {
   initialValidity,
   type ValidityState,
 } from '@/components/TokenParts';
-import { Alert, Button, Card, LabeledInput, SkeletonList } from '@/components/ui';
+import { Clock, Plus, Ticket, UserRound } from 'lucide-react';
+import { Alert, Button, Card, LabeledInput, SectionTitle, SkeletonList } from '@/components/ui';
 
 export default function IssuePage() {
   const ev = useEvent();
   return (
-    <AppShell title="Issue token" subtitle={ev.name} back={`/e/${ev.eventId}`}>
+    <AppShell festivalType={ev.festivalType} title="Issue token" subtitle={ev.name} back={`/e/${ev.eventId}`}>
       <EventGate anyOf={['TOKEN_CREATE']}>
         <IssueForm />
       </EventGate>
@@ -81,10 +82,10 @@ function IssueForm() {
     return (
       <div className="flex flex-col gap-4">
         <Alert kind="success">Token issued. Show or print this QR for the visitor.</Alert>
-        <TokenTicket token={issued} eventName={ev.name} tz={ev.timezone} />
+        <TokenTicket token={issued} eventName={ev.name} tz={ev.timezone} festivalType={ev.festivalType} />
         <TokenShareButtons token={issued} eventName={ev.name} tz={ev.timezone} />
         <Button size="lg" onClick={another} className="no-print">
-          Issue another
+          <Plus aria-hidden className="h-6 w-6" /> Issue another
         </Button>
       </div>
     );
@@ -98,6 +99,7 @@ function IssueForm() {
       {ev.status && ev.status !== 'ACTIVE' && ev.status !== 'DRAFT' && (
         <Alert kind="warning">Tokens can only be issued for Draft or Active festivals.</Alert>
       )}
+      <SectionTitle icon={Clock}>When can they enter?</SectionTitle>
       <Card>
         <ValidityPicker
           value={validity}
@@ -109,6 +111,7 @@ function IssueForm() {
           tz={ev.timezone}
         />
       </Card>
+      <SectionTitle icon={UserRound}>Visitor</SectionTitle>
       <Card className="flex flex-col gap-4">
         <VisitorCountInput value={count} onChange={setCount} max={maxVisitors} />
         <LabeledInput label="Visitor name (optional)" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
@@ -116,6 +119,7 @@ function IssueForm() {
       </Card>
       {error && <Alert>{error}</Alert>}
       <Button type="submit" size="lg" loading={busy}>
+        {!busy && <Ticket aria-hidden className="h-6 w-6" />}
         Issue token
       </Button>
     </form>

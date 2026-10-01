@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, Info, Inbox, X, XCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 export function cx(...c: (string | false | null | undefined)[]): string {
   return c.filter(Boolean).join(' ');
@@ -10,11 +12,12 @@ export function cx(...c: (string | false | null | undefined)[]): string {
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 disabled:bg-brand-600/50',
-  secondary: 'bg-white text-slate-900 border border-slate-300 hover:bg-slate-50 active:bg-slate-100 disabled:text-slate-400',
-  danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 disabled:bg-red-600/50',
-  success: 'bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:bg-green-600/50',
-  ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 active:bg-slate-200',
+  primary:
+    'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-md shadow-orange-500/25 hover:brightness-105 active:brightness-95 disabled:opacity-50 disabled:shadow-none',
+  secondary: 'bg-white text-slate-900 border border-orange-200 hover:bg-orange-50 active:bg-orange-100 disabled:text-slate-400',
+  danger: 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-md shadow-red-500/20 hover:brightness-105 active:brightness-95 disabled:opacity-50',
+  success: 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md shadow-green-500/20 hover:brightness-105 active:brightness-95 disabled:opacity-50',
+  ghost: 'bg-transparent text-slate-700 hover:bg-orange-50 active:bg-orange-100',
 };
 
 export function Button({
@@ -55,7 +58,7 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx('rounded-2xl border border-slate-200 bg-white p-4 shadow-sm', className)}>{children}</div>;
+  return <div className={cx('rounded-2xl border border-orange-100 bg-white p-4 shadow-sm shadow-orange-900/5', className)}>{children}</div>;
 }
 
 export function Field({
@@ -84,10 +87,30 @@ export function Field({
 }
 
 const inputCls =
-  'min-h-[48px] w-full rounded-xl border border-slate-300 bg-white px-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/20 disabled:bg-slate-100';
+  'min-h-[48px] w-full rounded-xl border border-orange-200 bg-white px-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/20 disabled:bg-slate-100';
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+  if (props.type === 'password') return <PasswordInput {...props} />;
   return <input {...props} className={cx(inputCls, props.className)} />;
+}
+
+/** Password field with a show/hide (eye) toggle. */
+export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input {...props} type={show ? 'text' : 'password'} className={cx(inputCls, 'pr-12', props.className)} />
+      <button
+        type="button"
+        onClick={() => setShow((v) => !v)}
+        aria-label={show ? 'Hide password' : 'Show password'}
+        aria-pressed={show}
+        className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-slate-500 hover:text-orange-600 focus:outline-none focus-visible:text-orange-600"
+      >
+        {show ? <EyeOff aria-hidden className="h-5 w-5" /> : <Eye aria-hidden className="h-5 w-5" />}
+      </button>
+    </div>
+  );
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
@@ -151,15 +174,17 @@ export function Alert({ kind = 'error', children }: { kind?: 'error' | 'info' | 
     success: 'border-green-300 bg-green-50 text-green-900',
     warning: 'border-amber-300 bg-amber-50 text-amber-900',
   }[kind];
+  const Icon = { error: XCircle, info: Info, success: CheckCircle2, warning: AlertTriangle }[kind];
   return (
-    <div role={kind === 'error' ? 'alert' : 'status'} className={cx('rounded-xl border px-4 py-3 text-sm', cls)}>
-      {children}
+    <div role={kind === 'error' ? 'alert' : 'status'} className={cx('flex items-start gap-2 rounded-xl border px-4 py-3 text-sm', cls)}>
+      <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cx('animate-pulse rounded-xl bg-slate-200', className)} />;
+  return <div className={cx('animate-pulse rounded-xl bg-orange-100/70', className)} />;
 }
 
 export function SkeletonList({ rows = 4 }: { rows?: number }) {
@@ -172,27 +197,53 @@ export function SkeletonList({ rows = 4 }: { rows?: number }) {
   );
 }
 
-export function Empty({ title, children }: { title: string; children?: ReactNode }) {
+export function Empty({ title, children, icon: Icon = Inbox }: { title: string; children?: ReactNode; icon?: LucideIcon }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
+    <div className="rounded-2xl border border-dashed border-orange-200 bg-white/80 px-4 py-10 text-center">
+      <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-500">
+        <Icon aria-hidden className="h-6 w-6" />
+      </span>
       <p className="text-base font-semibold text-slate-700">{title}</p>
       {children && <div className="mt-2 text-sm text-slate-500">{children}</div>}
     </div>
   );
 }
 
-export function Stat({ label, value, tone = 'default' }: { label: string; value: ReactNode; tone?: 'default' | 'green' | 'red' | 'amber' | 'brand' }) {
-  const toneCls = {
-    default: 'text-slate-900',
-    green: 'text-green-700',
-    red: 'text-red-700',
-    amber: 'text-amber-700',
-    brand: 'text-brand-700',
-  }[tone];
+export type StatTone = 'default' | 'green' | 'red' | 'amber' | 'brand' | 'blue' | 'purple' | 'pink' | 'slate';
+
+const STAT_TONES: Record<StatTone, { card: string; icon: string; value: string }> = {
+  default: { card: 'bg-white border-orange-100', icon: 'bg-orange-100 text-orange-600', value: 'text-slate-900' },
+  brand: { card: 'bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200', icon: 'bg-gradient-to-br from-amber-400 to-orange-500 text-white', value: 'text-orange-700' },
+  green: { card: 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200', icon: 'bg-gradient-to-br from-emerald-400 to-green-600 text-white', value: 'text-green-700' },
+  red: { card: 'bg-gradient-to-br from-rose-50 to-red-50 border-rose-200', icon: 'bg-gradient-to-br from-rose-400 to-red-600 text-white', value: 'text-red-700' },
+  amber: { card: 'bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200', icon: 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white', value: 'text-amber-700' },
+  blue: { card: 'bg-gradient-to-br from-sky-50 to-blue-50 border-sky-200', icon: 'bg-gradient-to-br from-sky-400 to-blue-600 text-white', value: 'text-blue-700' },
+  purple: { card: 'bg-gradient-to-br from-violet-50 to-purple-50 border-violet-200', icon: 'bg-gradient-to-br from-violet-400 to-purple-600 text-white', value: 'text-purple-700' },
+  pink: { card: 'bg-gradient-to-br from-pink-50 to-fuchsia-50 border-pink-200', icon: 'bg-gradient-to-br from-pink-400 to-fuchsia-600 text-white', value: 'text-fuchsia-700' },
+  slate: { card: 'bg-gradient-to-br from-slate-50 to-gray-50 border-slate-200', icon: 'bg-gradient-to-br from-slate-400 to-slate-600 text-white', value: 'text-slate-700' },
+};
+
+export function Stat({ label, value, tone = 'default', icon: Icon }: { label: string; value: ReactNode; tone?: StatTone; icon?: LucideIcon }) {
+  const t = STAT_TONES[tone];
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={cx('mt-1 text-2xl font-bold tabular-nums', toneCls)}>{value}</div>
+    <div className={cx('flex min-w-0 items-center gap-2.5 rounded-2xl border p-3 shadow-sm', t.card)}>
+      {Icon && (
+        <span className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm', t.icon)}>
+          <Icon aria-hidden className="h-5 w-5" />
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="text-[11px] font-semibold uppercase leading-tight tracking-wide text-slate-500">{label}</div>
+        <div
+          className={cx(
+            'break-words font-extrabold tabular-nums leading-tight',
+            typeof value === 'string' && value.length > 8 ? 'text-lg' : 'text-2xl',
+            t.value,
+          )}
+        >
+          {value}
+        </div>
+      </div>
     </div>
   );
 }
@@ -221,7 +272,8 @@ const BADGE_TONES: Record<string, string> = {
 export function Badge({ value, children, className }: { value?: string | null; children?: ReactNode; className?: string }) {
   const tone = (value && BADGE_TONES[value]) || 'bg-slate-100 text-slate-700';
   return (
-    <span className={cx('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', tone, className)}>
+    <span className={cx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold', tone, className)}>
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
       {children ?? (value ? value.replace(/_/g, ' ') : '—')}
     </span>
   );
@@ -265,7 +317,7 @@ export function Modal({
           wide ? 'sm:max-w-3xl' : 'sm:max-w-lg',
         )}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-orange-100 bg-gradient-to-r from-orange-50 to-white px-4 py-3">
           <h2 className="text-lg font-bold">{title}</h2>
           <button
             type="button"
@@ -273,7 +325,7 @@ export function Modal({
             aria-label="Close"
             className="flex h-11 w-11 items-center justify-center rounded-full text-2xl text-slate-500 hover:bg-slate-100"
           >
-            ×
+            <X aria-hidden className="h-5 w-5" />
           </button>
         </div>
         <div className="p-4">{children}</div>
@@ -285,6 +337,7 @@ export function Modal({
 export interface TabDef {
   key: string;
   label: string;
+  icon?: LucideIcon;
 }
 
 export function Tabs({ tabs, active, onChange }: { tabs: TabDef[]; active: string; onChange: (k: string) => void }) {
@@ -299,10 +352,13 @@ export function Tabs({ tabs, active, onChange }: { tabs: TabDef[]; active: strin
             aria-selected={active === t.key}
             onClick={() => onChange(t.key)}
             className={cx(
-              'min-h-[44px] whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors',
-              active === t.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50',
+              'inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-all',
+              active === t.key
+                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-md shadow-orange-500/30'
+                : 'bg-white text-slate-700 ring-1 ring-orange-200 hover:bg-orange-50',
             )}
           >
+            {t.icon && <t.icon aria-hidden className="h-4 w-4" />}
             {t.label}
           </button>
         ))}
@@ -317,22 +373,31 @@ export function Pager({ page, pageSize, total, onPage }: { page: number; pageSiz
   return (
     <div className="no-print mt-3 flex items-center justify-between gap-2">
       <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-        ← Prev
+        <ChevronLeft aria-hidden className="h-4 w-4" /> Prev
       </Button>
       <span className="text-sm text-slate-600">
         Page {page} of {pages} · {total} total
       </span>
       <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => onPage(page + 1)}>
-        Next →
+        Next <ChevronRight aria-hidden className="h-4 w-4" />
       </Button>
     </div>
   );
 }
 
-export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
+export function SectionTitle({ children, action, icon: Icon }: { children: ReactNode; action?: ReactNode; icon?: LucideIcon }) {
   return (
     <div className="mb-3 mt-6 flex items-center justify-between gap-2 first:mt-0">
-      <h2 className="text-lg font-bold text-slate-900">{children}</h2>
+      <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+        {Icon ? (
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+            <Icon aria-hidden className="h-4 w-4" />
+          </span>
+        ) : (
+          <span aria-hidden className="h-5 w-1.5 rounded-full bg-gradient-to-b from-amber-400 to-rose-500" />
+        )}
+        {children}
+      </h2>
       {action}
     </div>
   );
@@ -344,12 +409,12 @@ export function BarChart({ data, label }: { data: { key: string; label: string; 
   if (data.length === 0) return <Empty title="No data yet" />;
   return (
     <figure aria-label={label}>
-      <div className="flex h-40 items-end gap-1 overflow-x-auto rounded-xl bg-slate-50 p-2">
+      <div className="flex h-40 items-end gap-1 overflow-x-auto rounded-xl bg-gradient-to-b from-orange-50/60 to-white p-2 ring-1 ring-orange-100">
         {data.map((d) => (
           <div key={d.key} className="flex h-full min-w-[22px] flex-1 flex-col items-center justify-end gap-1" title={`${d.label}: ${d.value}`}>
             <span className="text-[10px] font-semibold tabular-nums text-slate-600">{d.value > 0 ? d.value : ''}</span>
             <div
-              className="w-full rounded-t-md bg-brand-500"
+              className="w-full rounded-t-md bg-gradient-to-t from-orange-500 to-amber-300"
               style={{ height: `${(d.value / max) * 100}%`, minHeight: d.value > 0 ? 3 : 0 }}
             />
             <span className="text-[10px] text-slate-500">{d.label}</span>
@@ -369,7 +434,7 @@ export function Table({ head, children }: { head: ReactNode[]; children: ReactNo
         <thead>
           <tr>
             {head.map((h, i) => (
-              <th key={i} className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold text-slate-600">
+              <th key={i} className="border-b border-orange-200 bg-orange-50/80 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-orange-900/70">
                 {h}
               </th>
             ))}
@@ -382,5 +447,5 @@ export function Table({ head, children }: { head: ReactNode[]; children: ReactNo
 }
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cx('border-b border-slate-100 px-3 py-2 align-top', className)}>{children}</td>;
+  return <td className={cx('border-b border-orange-50 px-3 py-2 align-top', className)}>{children}</td>;
 }

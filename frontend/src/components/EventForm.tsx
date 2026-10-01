@@ -5,6 +5,7 @@ import { api, errorMessage } from '@/lib/api';
 import { DEFAULT_TZ, humanize } from '@/lib/format';
 import { useAsync } from '@/lib/hooks';
 import type { EventBody, EventDetail, EventStatus, FestivalType } from '@/lib/types';
+import { FestivalBadge } from './FestivalBanner';
 import { Alert, Button, Checkbox, Field, LabeledInput, LabeledSelect, Textarea } from './ui';
 
 const STATUSES: EventStatus[] = ['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
@@ -79,15 +80,20 @@ export function EventForm({
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <LabeledInput label="Festival name" value={form.name} onChange={set('name')} placeholder="e.g. Sarvajanik Utsav 2026" />
-      <LabeledSelect label="Festival type" value={form.festivalType} onChange={set('festivalType')}>
-        <option value="">— Choose —</option>
-        {(types.data ?? []).map((t) => (
-          <option key={t.key} value={t.key}>
-            {t.label}
-          </option>
-        ))}
-        {form.festivalType && !types.data?.some((t) => t.key === form.festivalType) && <option value={form.festivalType}>{humanize(form.festivalType)}</option>}
-      </LabeledSelect>
+      <div className="flex items-end gap-3">
+        <div className="min-w-0 flex-1">
+        <LabeledSelect label="Festival type" value={form.festivalType} onChange={set('festivalType')}>
+          <option value="">— Choose —</option>
+          {(types.data ?? []).map((t) => (
+            <option key={t.key} value={t.key}>
+              {t.label}
+            </option>
+          ))}
+          {form.festivalType && !types.data?.some((t) => t.key === form.festivalType) && <option value={form.festivalType}>{humanize(form.festivalType)}</option>}
+        </LabeledSelect>
+        </div>
+        <FestivalBadge type={form.festivalType || null} className="h-14 w-14" />
+      </div>
       {types.error && <Alert kind="warning">Could not load festival types: {types.error}</Alert>}
       <div className="grid grid-cols-2 gap-3">
         <LabeledInput label="Start date" type="date" value={form.startDate} onChange={set('startDate')} />

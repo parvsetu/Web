@@ -1,0 +1,51 @@
+import type { ReactNode } from 'react';
+import { festivalTheme, gradient } from '@/lib/festival-theme';
+import { FestivalArt, Mandala, Toran } from './FestivalArt';
+import { cx } from './ui';
+
+/** Gradient hero with the festival's illustration, a toran and a faint mandala. */
+export function FestivalBanner({
+  type,
+  title,
+  subtitle,
+  meta,
+  compact,
+  children,
+}: {
+  type?: string | null;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  meta?: ReactNode;
+  compact?: boolean;
+  children?: ReactNode;
+}) {
+  const t = festivalTheme(type);
+  return (
+    <section className="relative overflow-hidden rounded-3xl text-white shadow-lg" style={{ background: gradient(t) }}>
+      <Toran className="absolute inset-x-0 top-0 w-full" />
+      <Mandala className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 text-white/15" />
+      <div className={cx('relative flex items-center gap-3', compact ? 'px-4 pb-4 pt-7' : 'px-5 pb-5 pt-8')}>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">{t.label === 'Festival' && type ? type.replace(/_/g, ' ') : t.label}</p>
+          <h1 className={cx('font-extrabold leading-tight drop-shadow-sm', compact ? 'text-xl' : 'text-2xl')}>{title}</h1>
+          {subtitle && <p className="mt-0.5 text-sm text-white/90">{subtitle}</p>}
+          {meta && <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">{meta}</div>}
+        </div>
+        <div className={cx('shrink-0 rounded-full bg-white/95 p-2 shadow-md ring-4 ring-white/30', compact ? 'h-16 w-16' : 'h-24 w-24')}>
+          <FestivalArt type={type} className="h-full w-full" />
+        </div>
+      </div>
+      {children && <div className="relative px-5 pb-5">{children}</div>}
+    </section>
+  );
+}
+
+/** Small round festival badge for lists and cards. */
+export function FestivalBadge({ type, className }: { type?: string | null; className?: string }) {
+  const t = festivalTheme(type);
+  return (
+    <span className={cx('inline-flex shrink-0 items-center justify-center rounded-2xl p-1.5', className)} style={{ background: t.soft }}>
+      <FestivalArt type={type} className="h-full w-full" />
+    </span>
+  );
+}

@@ -5,6 +5,7 @@ import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useOrg } from '@/lib/org-context';
 import { Alert, Button, Card, Field, LabeledInput, SkeletonList, Textarea } from '../ui';
+import { Save } from 'lucide-react';
 
 export function OrgSettingsTab() {
   const org = useOrg();
@@ -51,7 +52,7 @@ function Form() {
         {error && <Alert>{error}</Alert>}
         {ok && <Alert kind="success">Saved.</Alert>}
         <Button type="submit" loading={busy}>
-          Save
+          <Save aria-hidden className="h-4 w-4" /> Save
         </Button>
       </form>
     </Card>
