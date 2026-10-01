@@ -14,7 +14,7 @@ export default function AwaitingPage() {
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
-    if (!loading && me && !isAwaitingApproval(me)) router.replace('/');
+    if (!loading && me && !isAwaitingApproval(me)) router.replace('/dashboard');
   }, [loading, me, router]);
 
   return (

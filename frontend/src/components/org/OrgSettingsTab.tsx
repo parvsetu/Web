@@ -26,7 +26,9 @@ export function OrgSettingsTab() {
 
 function Form() {
   const org = useOrg();
-  const { refresh } = useAuth();
+  const { refresh, me } = useAuth();
+  // Allowed festival types are set by the platform at registration; only the super admin edits them.
+  const canEditFestivals = !!me?.isSuperAdmin;
   const [name, setName] = useState(org.org?.name ?? '');
   const [place, setPlace] = useState({ state: org.org?.state ?? '', city: org.org?.city ?? '' });
   const [address, setAddress] = useState(org.org?.address ?? '');
@@ -42,7 +44,7 @@ function Form() {
     setBusy(true);
     setError(null);
     try {
-      await api.patch(`/organizations/${org.orgId}`, { name: name.trim(), state: place.state, city: place.city.trim(), address: address.trim() || undefined, festivalTypes: festivals });
+      await api.patch(`/organizations/${org.orgId}`, { name: name.trim(), state: place.state, city: place.city.trim(), address: address.trim() || undefined, ...(canEditFestivals ? { festivalTypes: festivals } : {}) });
       setOk(true);
       org.reload();
       void refresh();
@@ -61,7 +63,7 @@ function Form() {
         <Field label="Address (printed on receipts)">
           <Textarea value={address} onChange={(e) => setAddress(e.target.value)} />
         </Field>
-        <FestivalChooser value={festivals} onChange={setFestivals} />
+        {canEditFestivals ? <FestivalChooser value={festivals} onChange={setFestivals} /> : <FestivalList value={festivals} />}
         {error && <Alert>{error}</Alert>}
         {ok && <Alert kind="success">Saved.</Alert>}
         <Button type="submit" loading={busy}>
@@ -72,8 +74,33 @@ function Form() {
   );
 }
 
-/** Pick the festivals/events this mandal celebrates; only these show when creating an event. */
-function FestivalChooser({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+/** Read-only for the mandal: the festival types the platform registered it for. */
+function FestivalList({ value }: { value: string[] }) {
+  const types = useFestivalTypes();
+  const label = (k: string) => types.data?.find((t) => t.key === k)?.label ?? k.replace(/_/g, ' ').toLowerCase();
+  return (
+    <Field label="Registered festival types">
+      <div className="flex flex-col gap-2 rounded-2xl border border-orange-200 bg-orange-50/40 p-3">
+        {value.length ? (
+          <div className="flex flex-wrap gap-2">
+            {value.map((k) => (
+              <span key={k} className="flex min-h-[40px] max-w-full items-center gap-1.5 rounded-full border border-orange-200 bg-white px-2.5 text-sm text-slate-800">
+                <FestivalBadge type={k} className="h-6 w-6" />
+                <span className="truncate">{label(k)}</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-600">All festival types are open to your mandal.</p>
+        )}
+        <p className="text-xs text-slate-500">Set by the Parvsetu team when your mandal was approved. To run another type, contact them — or create the festival with “My event isn’t listed”.</p>
+      </div>
+    </Field>
+  );
+}
+
+/** Super admin: pick the festivals/events this mandal may run; only these show when creating an event. */
+export function FestivalChooser({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const types = useFestivalTypes();
   const [q, setQ] = useState('');
   const list = types.data ?? [];

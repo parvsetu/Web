@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { BadgeCheck, Building2, CalendarDays, ChevronRight, KeyRound, LogOut, Mail, MonitorSmartphone, Phone, Save, ShieldCheck, User, UserCog } from 'lucide-react';
+import { BadgeCheck, Briefcase, Building2, CalendarDays, ChevronRight, KeyRound, LogOut, Mail, MonitorSmartphone, Phone, Save, ShieldCheck, User, UserCog } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
 import { OtpInput } from '@/components/OtpInput';
 import { Alert, Badge, Button, Card, LabeledInput, PasswordInput } from '@/components/ui';
@@ -13,7 +13,7 @@ import type { MeUser } from '@/lib/types';
 
 export default function ProfilePage() {
   return (
-    <AppShell title="My profile" back="/" wide>
+    <AppShell title="My profile" back="/dashboard" wide>
       <Profile />
     </AppShell>
   );
@@ -35,6 +35,7 @@ function Profile() {
             <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs font-semibold">
               {me.isSuperAdmin && <span className="rounded-full bg-white/25 px-2 py-0.5">Platform admin</span>}
               {me.partner && <span className="rounded-full bg-white/25 px-2 py-0.5">Partner · {me.partner.name}</span>}
+              {me.agent && <span className="rounded-full bg-white/25 px-2 py-0.5">Field agent · {me.agent.code}</span>}
               {me.organizations.length > 0 && !me.isSuperAdmin && (
                 <span className="rounded-full bg-white/25 px-2 py-0.5">
                   {me.organizations.length} mandal{me.organizations.length === 1 ? '' : 's'}
@@ -52,7 +53,7 @@ function Profile() {
         </div>
         <div className="flex flex-col gap-4">
           <SecurityCard />
-          {!me.partner && <AccessCard me={me} />}
+          {me.agent ? <AgentCard me={me} /> : !me.partner && <AccessCard me={me} />}
         </div>
       </div>
     </div>
@@ -293,6 +294,25 @@ function SecurityCard() {
   );
 }
 
+/** Field agents: their code and a way back to the agent dashboard (they have no mandal access). */
+function AgentCard({ me }: { me: MeUser }) {
+  const a = me.agent!;
+  return (
+    <Card className="flex flex-col gap-3">
+      <h2 className="flex items-center gap-2 text-lg font-bold"><Briefcase aria-hidden className="h-5 w-5 text-emerald-600" /> Field agent</h2>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span>Referral code</span>
+        <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-mono font-bold tracking-wider text-emerald-900 ring-1 ring-emerald-200">{a.code}</span>
+        <Badge value={a.status} />
+      </div>
+      <Link href="/agent" className="flex min-h-[48px] items-center gap-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 font-semibold text-white">
+        <span className="flex-1">Open agent dashboard</span>
+        <ChevronRight aria-hidden className="h-5 w-5" />
+      </Link>
+    </Card>
+  );
+}
+
 function AccessCard({ me }: { me: MeUser }) {
   const orgs = me.isSuperAdmin ? [] : me.organizations;
   const events = me.events.slice(0, 12);
@@ -344,7 +364,7 @@ function AccessCard({ me }: { me: MeUser }) {
             ))}
           </ul>
           {me.events.length > events.length && (
-            <Link href="/" className="mt-2 inline-flex min-h-[44px] items-center text-sm font-semibold text-orange-700">
+            <Link href="/dashboard" className="mt-2 inline-flex min-h-[44px] items-center text-sm font-semibold text-orange-700">
               All {me.events.length} festivals <ChevronRight aria-hidden className="h-4 w-4" />
             </Link>
           )}

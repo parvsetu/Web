@@ -16,6 +16,7 @@ import { SearchBar } from '../SearchBar';
 import { BarChart3, CalendarDays, CalendarPlus, DoorOpen, MapPin, PartyPopper } from 'lucide-react';
 import { festivalTheme } from '@/lib/festival-theme';
 import { FestivalBadge } from '../FestivalBanner';
+import { ApprovalBadge } from '../registration/FeeStatus';
 
 export function OrgEventsTab() {
   const org = useOrg();
@@ -49,6 +50,7 @@ export function OrgEventsTab() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-lg font-bold">{e.name}</span>
                   <Badge value={e.status} />
+                  {e.approvalStatus && e.approvalStatus !== 'LIVE' && <ApprovalBadge status={e.approvalStatus} />}
                 </div>
                 <div className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600">
                   <CalendarDays aria-hidden className="h-4 w-4 text-slate-400" /> {fmtDate(e.startDate)} – {fmtDate(e.endDate)}
@@ -84,6 +86,7 @@ export function OrgEventsTab() {
             setCreating(false);
             await refresh();
             q.reload();
+            // New festivals start as a draft for platform review: the dashboard shows "Submit for review".
             if (created?.id) router.push(`/e/${created.id}/admin#slots`);
           }}
         />

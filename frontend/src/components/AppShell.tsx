@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, errorMessage, setToken } from '@/lib/api';
 import { useAuth, useRequireAuth } from '@/lib/auth';
-import { ArrowLeft, CalendarHeart, Handshake, HelpCircle, KeyRound, LogOut, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarHeart, ClipboardCheck, Handshake, HelpCircle, KeyRound, LogOut, ShieldCheck, UserRound } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { LogoMark } from './FestivalArt';
 import { Alert, Button, LabeledInput, Modal, SkeletonList, cx } from './ui';
@@ -50,7 +50,7 @@ export function AppShell({
               <ArrowLeft aria-hidden className="h-6 w-6" />
             </button>
           ) : (
-            <Link href="/" aria-label="Parvsetu home" className="flex h-12 shrink-0 items-center gap-2 px-1">
+            <Link href="/dashboard" aria-label="My dashboard" className="flex h-12 shrink-0 items-center gap-2 px-1">
               <LogoMark className="h-9 w-9 drop-shadow-sm" />
               <span className="hidden bg-gradient-to-r from-orange-600 to-rose-600 bg-clip-text text-lg font-extrabold text-transparent sm:inline">Parvsetu</span>
             </Link>
@@ -107,9 +107,18 @@ function UserMenu() {
               <Link href="/partner" className={menuItem} onClick={() => setOpen(false)}>
                 <Handshake aria-hidden className="h-5 w-5 text-fuchsia-500" /> Partner dashboard
               </Link>
+            ) : me.agent ? (
+              <Link href="/agent" className={menuItem} onClick={() => setOpen(false)}>
+                <BriefcaseBusiness aria-hidden className="h-5 w-5 text-emerald-600" /> Agent dashboard
+              </Link>
             ) : (
-              <Link href="/" className={menuItem} onClick={() => setOpen(false)}>
+              <Link href="/dashboard" className={menuItem} onClick={() => setOpen(false)}>
                 <CalendarHeart aria-hidden className="h-5 w-5 text-orange-500" /> My festivals
+              </Link>
+            )}
+            {(me.mandalRegistrations?.length ?? 0) > 0 && (
+              <Link href="/registration" className={menuItem} onClick={() => setOpen(false)}>
+                <ClipboardCheck aria-hidden className="h-5 w-5 text-emerald-600" /> Mandal registration
               </Link>
             )}
             <Link href="/profile" className={menuItem} onClick={() => setOpen(false)}>

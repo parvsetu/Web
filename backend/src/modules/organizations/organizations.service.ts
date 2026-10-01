@@ -8,6 +8,7 @@ import { canonicalState } from '../../common/india-locations';
 import { RolesService } from './roles.service';
 import { presentOrgBrand } from '../../common/org-brand';
 import { UserProvisioningService } from './user-provisioning.service';
+import { FestivalCatalogService } from '../../common/catalog/festival-catalog.service';
 import { AddMemberDto, AuditQuery, CreateOrganizationDto, UpdateMemberDto, UpdateOrganizationDto } from './organizations.dto';
 
 /** Validates a state against the India list; empty string clears it. */
@@ -26,6 +27,7 @@ export class OrganizationsService {
     private readonly audit: AuditService,
     private readonly roles: RolesService,
     private readonly users: UserProvisioningService,
+    private readonly catalog: FestivalCatalogService,
   ) {}
 
   async list(actor: RequestUser, q: SearchPageQuery & { state?: string } = {}) {
@@ -39,7 +41,10 @@ export class OrganizationsService {
     const [items, total] = await Promise.all([
       this.prisma.organization.findMany({
         where, orderBy: { name: 'asc' }, skip, take,
-        select: { id: true, name: true, slug: true, state: true, city: true, address: true, createdAt: true, _count: { select: { events: true } } },
+        select: {
+          id: true, name: true, slug: true, state: true, city: true, address: true, festivalTypes: true, createdAt: true, _count: { select: { events: true } },
+          ...(actor.isSuperAdmin ? { agent: { select: { id: true, name: true, code: true } }, registration: { select: { id: true, source: true } } } : {}),
+        },
       }),
       this.prisma.organization.count({ where }),
     ]);
@@ -56,8 +61,16 @@ export class OrganizationsService {
 
   async create(actor: RequestUser, dto: CreateOrganizationDto) {
     const slug = dto.slug ?? (await this.uniqueSlug(dto.name));
+    const festivalTypes = dto.festivalTypes ? [...new Set(dto.festivalTypes)] : [];
+    await this.catalog.assertKnown(festivalTypes);
+    if (dto.agentId && !(await this.prisma.agent.findUnique({ where: { id: dto.agentId }, select: { id: true } }))) throw new NotFoundException('Agent not found');
     return this.prisma.$transaction(async (tx) => {
-      const org = await tx.organization.create({ data: { name: dto.name.trim(), slug, state: stateOrThrow(dto.state), city: dto.city?.trim(), address: dto.address } });
+      const org = await tx.organization.create({
+        data: {
+          name: dto.name.trim(), slug, state: stateOrThrow(dto.state), city: dto.city?.trim(), address: dto.address, festivalTypes,
+          agentId: dto.agentId ?? null, agentAttributedAt: dto.agentId ? new Date() : null,
+        },
+      });
       await this.audit.log({ organizationId: org.id, actorId: actor.id, action: 'organization.created', entityType: 'Organization', entityId: org.id, after: org }, tx);
       return org;
     });
@@ -65,10 +78,19 @@ export class OrganizationsService {
 
   async update(actor: RequestUser, orgId: string, dto: UpdateOrganizationDto) {
     const before = await this.get(orgId);
+    if (dto.festivalTypes) {
+      const next = [...new Set(dto.festivalTypes)];
+      const same = next.length === before.festivalTypes.length && next.every((k) => before.festivalTypes.includes(k));
+      // The allowed festivals are set by the platform at registration; only the super admin edits them.
+      if (!actor.isSuperAdmin && !same) {
+        throw new ForbiddenException({ statusCode: 403, code: 'FESTIVAL_TYPES_LOCKED', message: 'Your mandal’s festival types are set by the Parvsetu team. Contact them to add one.' });
+      }
+      if (actor.isSuperAdmin) await this.catalog.assertKnown(next);
+    }
     return this.prisma.$transaction(async (tx) => {
       const org = await tx.organization.update({
         where: { id: orgId },
-        data: { name: dto.name, state: dto.state === undefined ? undefined : stateOrThrow(dto.state), city: dto.city?.trim(), address: dto.address, festivalTypes: dto.festivalTypes ? [...new Set(dto.festivalTypes)] : undefined },
+        data: { name: dto.name, state: dto.state === undefined ? undefined : stateOrThrow(dto.state), city: dto.city?.trim(), address: dto.address, festivalTypes: dto.festivalTypes && actor.isSuperAdmin ? [...new Set(dto.festivalTypes)] : undefined },
       });
       const { logoKey: _l, bannerKey: _b, ...plain } = org;
       const after = presentOrgBrand(plain);

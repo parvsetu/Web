@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { assertLive } from '../../common/event-approval';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import * as QRCode from 'qrcode';
@@ -96,6 +97,7 @@ export class TokensService {
   }
 
   private assertCanIssue(event: EventRef) {
+    assertLive(event, 'issue passes');
     if (event.status !== 'DRAFT' && event.status !== 'ACTIVE') {
       throw new ConflictException({ message: `Tokens cannot be issued for a ${event.status.toLowerCase()} event.`, code: 'EVENT_CLOSED' });
     }

@@ -88,6 +88,26 @@ export interface MeUser {
   applications: Application[];
   /** Set for promotional-partner (brand) accounts — they use /partner, not the mandal app. */
   partner?: { id: string; name: string; status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' } | null;
+  /** Set for field-agent accounts — they use /agent, not the mandal app. */
+  agent?: { id: string; name: string; code: string; status: 'ACTIVE' | 'SUSPENDED' } | null;
+  /** Mandal registrations this person applied for (status at /registration). */
+  mandalRegistrations?: { id: string; status: RegistrationStatus; orgName: string; organizationId: string | null; reviewNote: string | null; createdAt: string }[];
+}
+
+export type RegistrationStatus = 'PENDING_VERIFICATION' | 'PENDING_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
+export type ApprovalStatus = 'DRAFT' | 'SUBMITTED' | 'CHANGES_REQUESTED' | 'APPROVED_AWAITING_PAYMENT' | 'LIVE' | 'REJECTED';
+
+/** Platform review / registration-fee state of an event. */
+export interface EventApproval {
+  status: ApprovalStatus;
+  legacy: boolean;
+  feeQuoted: string | null;
+  fee: string | null;
+  feeSource: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  liveAt: string | null;
 }
 
 export interface AuthResponse {
@@ -120,6 +140,9 @@ export interface Organization {
   address?: string | null;
   festivalTypes?: string[];
   createdAt?: string;
+  /** Super admin list only. */
+  agent?: { id: string; name: string; code: string } | null;
+  registration?: { id: string; source: string } | null;
   logoUrl?: string | null;
   bannerUrl?: string | null;
 }
@@ -232,11 +255,15 @@ export interface EventDetail {
   maxVisitorsPerToken: number;
   createdAt: string;
   myPermissions: string[];
+  approvalStatus?: ApprovalStatus;
+  approval?: EventApproval;
 }
 
 export interface EventBody {
   name: string;
-  festivalType: string;
+  /** Omitted when proposing a custom ("not listed") festival. */
+  festivalType?: string;
+  customFestival?: { name: string; group: string; description?: string };
   description?: string;
   location?: string;
   startDate: string;
@@ -653,6 +680,7 @@ export interface PlatformUser {
   isSuperAdmin: boolean;
   createdAt: string;
   partner?: { id: string; name: string; status: string } | null;
+  agent?: { id: string; name: string; code: string; status: string } | null;
   memberships?: { status: string; organization: { id: string; name: string; city: string | null }; role: { key: string; name: string } }[];
   assignments?: { status: string; role: { key: string; name: string }; event: { id: string; name: string; organization: { id: string; name: string } } }[];
 }

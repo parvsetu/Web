@@ -210,6 +210,44 @@ admin preview — so the price a visitor sees is the price charged. Precedence: 
 the winning kind the highest price wins; ties go to the oldest rule. GST slabs are decided on the effective
 per-ticket price. Catalogue `fromPrice` stays the minimum base slot price (it isn't date-specific).
 
+## Registration, review & event fees
+
+The platform controls who publishes. Three entry points file a `MandalRegistration`: the public form (applicant account
+locked until the emailed code; `PENDING_VERIFICATION → PENDING_REVIEW` on verification), a logged-in user, or a field
+agent (contact gets a single-use, hashed set-password token). The super admin approves in one transaction (org + billing
+account + Mandal Admin + allowed `festivalTypes` + events + pay links), requests changes, or rejects — all audited.
+Existing organizations need no registration row; the super admin can still create a mandal directly (with festival types
+and an agent).
+
+`Event.approvalStatus` is the platform gate, separate from the operational `Event.status`:
+`DRAFT → SUBMITTED → APPROVED_AWAITING_PAYMENT → LIVE` (+ `CHANGES_REQUESTED`, `REJECTED`). It is enforced server-side in
+one place per surface: `LIVE_WHERE` on every public query (booking `BOOKABLE`, public event/volunteer lists, landing pages,
+public photos, partner directory), `assertLive` in `TokensService.assertCanIssue` (desk, bulk and donation passes), the
+scan pipeline (step 3: event LIVE, then ACTIVE), and `EventsService` (a not-live event can only be DRAFT/CANCELLED). The
+migration backfilled every existing event as `LIVE` + `feeLegacy` so nothing running stopped; new rows default to `DRAFT`.
+
+Fees are per event (one payment never covers two events): quoted at submission by `resolveEventFee()` (mandal override >
+festival type > catalog group > default) and locked at approval. An `EventFeePayment` carries an opaque random token —
+the shareable `/pay/event-fee/<token>` link — that expires after 14 days. Partial unique indexes allow one open link and
+one PAID/WAIVED row per event. Settling (demo gateway, super-admin cash/bank mark-paid, or waiver) locks payment → event →
+organization and flips the event `LIVE` (draft → ACTIVE) in the same transaction. A refund reverts `LIVE →
+APPROVED_AWAITING_PAYMENT` only while no pass exists. Every declaration (version, who, when, IP) is a `LegalDeclaration`.
+
+Allowed festival types (`Organization.festivalTypes`) are now set by the platform; mandals can't change them (403), and
+event create/type change outside the list is `FESTIVAL_NOT_ALLOWED`. "My event isn't listed" creates a pending
+`CustomFestivalType` reviewed with its event; the super admin may add it to the catalog, which `FestivalCatalogService`
+merges with the code presets for `/public/festival-types` and validation.
+
+## Field agents
+
+Like partners, agents are a user type without memberships (`User.agentId → Agent`), so `AccessService` gives them nothing
+(404) and `/agent/*` goes through `AgentGuard`. Earnings are an append-only ledger (`agent_ledger_entries`: EARNED / PAID /
+REVERSED). `AgentEarningsService.onFeePaid` runs inside the fee-settling transaction after the organization row lock, so
+two simultaneous payments of one mandal serialize; inserts use `ON CONFLICT DO NOTHING` against partial unique indexes
+(one live REGISTRATION referral per mandal, one COMMISSION per payment), so retries can't double-earn and a conflict never
+aborts the payment. The referral is earned on the mandal's first *paid* fee; a refund reverses that payment's entries (the
+referral can then be earned again by a later payment). Payouts lock the agent row and can't exceed what is due.
+
 ## Hardening checklist
 
 - Input validation: global `ValidationPipe` with `whitelist` +

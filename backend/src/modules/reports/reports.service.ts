@@ -358,7 +358,7 @@ export class ReportsService {
     const events = await this.prisma.event.findMany({
       where: { organizationId: orgId },
       orderBy: { startDate: 'desc' },
-      select: { id: true, organizationId: true, name: true, status: true, timezone: true, startDate: true, endDate: true, tokenPrefix: true, maxVisitorsPerToken: true },
+      select: { id: true, organizationId: true, name: true, status: true, approvalStatus: true, timezone: true, startDate: true, endDate: true, tokenPrefix: true, maxVisitorsPerToken: true },
     });
     return Promise.all(events.map((e) => this.summary(e, perms)));
   }

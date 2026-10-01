@@ -126,6 +126,10 @@ export class ScanService {
     if (method === 'MANUAL' && !ctx.perms.has('TOKEN_MANUAL_ENTRY')) {
       return this.deny(base, eventId, null, 'UNAUTHORIZED', 'no TOKEN_MANUAL_ENTRY permission', 403, now);
     }
+    if (ctx.event!.approvalStatus !== 'LIVE') {
+      return this.deny(base, eventId, null, 'UNAUTHORIZED', `event approval is ${ctx.event!.approvalStatus}`, 403, now,
+        'Scanning is closed: this festival is not live yet (platform review and registration fee pending).');
+    }
     if (ctx.event!.status !== 'ACTIVE') {
       return this.deny(base, eventId, null, 'UNAUTHORIZED', `event is ${ctx.event!.status}`, 403, now,
         'Scanning is closed: this event is not active.');

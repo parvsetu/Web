@@ -43,7 +43,7 @@ export default function VolunteerHome() {
     <AppShell
       title={ev.name}
       subtitle={ev.organization?.name}
-      back="/"
+      back="/dashboard"
       festivalType={ev.festivalType}
       wide
     >

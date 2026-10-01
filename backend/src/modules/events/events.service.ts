@@ -6,6 +6,9 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AccessService } from '../../common/access/access.service';
 import { RequestUser } from '../../common/auth/request-user';
 import { defaultPrefixFor } from '../../common/festival-types';
+import { FestivalCatalogService } from '../../common/catalog/festival-catalog.service';
+import { NOT_LIVE_MESSAGE, PRE_LIVE_STATUSES } from '../../common/event-approval';
+import { rupees } from '../billing/billing.service';
 import { presentVenue, venueData } from '../../common/venue';
 import { dateOnly, isValidTimezone, slotCrossesMidnight, ymd } from '../../common/time/validity';
 
@@ -40,8 +43,27 @@ export function presentEvent(e: Event & { organization?: { id: string; name: str
     venueLat: e.venueLat, venueLng: e.venueLng, venueNotes: e.venueNotes, venueContactPhone: e.venueContactPhone,
     venue: presentVenue(e),
     maxVisitorsPerToken: e.maxVisitorsPerToken, createdAt: e.createdAt,
+    approvalStatus: e.approvalStatus,
+    approval: presentApproval(e),
     myPermissions: myPermissions ? [...myPermissions].sort() : undefined,
   };
+}
+
+/** Platform review / fee state of an event, as the mandal sees it. */
+export function presentApproval(e: Pick<Event, 'approvalStatus' | 'feeLegacy' | 'feeQuotedPaise' | 'feePaise' | 'feeSource' | 'submittedAt' | 'reviewedAt' | 'reviewNote' | 'liveAt'>) {
+  return {
+    status: e.approvalStatus, legacy: e.feeLegacy,
+    feeQuoted: e.feeQuotedPaise !== null ? rupees(e.feeQuotedPaise) : null,
+    fee: e.feePaise !== null ? rupees(e.feePaise) : null,
+    feeSource: e.feeSource, submittedAt: e.submittedAt, reviewedAt: e.reviewedAt, reviewNote: e.reviewNote, liveAt: e.liveAt,
+  };
+}
+
+/** Not-yet-live events may only be DRAFT or CANCELLED. */
+function assertStatusAllowed(approvalStatus: string, status?: string) {
+  if (status && approvalStatus !== 'LIVE' && !(PRE_LIVE_STATUSES as readonly string[]).includes(status)) {
+    throw new ConflictException({ statusCode: 409, code: 'EVENT_NOT_LIVE', message: `${NOT_LIVE_MESSAGE} Until then it can only be a draft.` });
+  }
 }
 
 export function presentSlot(s: { id: string; label: string; startTime: string; endTime: string; capacity: number | null; isActive: boolean; sortOrder: number; price: Prisma.Decimal }) {
@@ -56,7 +78,26 @@ export class EventsService {
     private readonly access: AccessService,
     private readonly roles: RolesService,
     private readonly billing: BillingService,
+    private readonly catalog: FestivalCatalogService,
   ) {}
+
+  /**
+   * A mandal may only run the festival types the platform allowed it
+   * (Organization.festivalTypes, set at registration by the super admin; empty
+   * = no restriction) — plus a custom type it proposed itself, while that is
+   * under review. The super admin is not restricted.
+   */
+  async assertFestivalAllowed(actor: RequestUser, orgId: string, festivalType: string) {
+    if (actor.isSuperAdmin) return;
+    const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: orgId }, select: { festivalTypes: true } });
+    if (!org.festivalTypes.length || org.festivalTypes.includes(festivalType)) return;
+    const own = await this.prisma.customFestivalType.findFirst({ where: { key: festivalType, organizationId: orgId, status: { not: 'REJECTED' } }, select: { key: true } });
+    if (own) return;
+    throw new BadRequestException({
+      statusCode: 400, code: 'FESTIVAL_NOT_ALLOWED',
+      message: 'Your mandal is not registered for this festival type. Ask the Parvsetu team to add it, or choose “My event isn’t listed”.',
+    });
+  }
 
   /** Read-only for the mandal: the platform decides the pass layout (AUTO / A4 / thermal). */
   private async withPrintFormat<T extends { organizationId: string }>(e: T) {
@@ -92,15 +133,30 @@ export class EventsService {
 
   async create(actor: RequestUser, orgId: string, dto: CreateEventDto) {
     if (dto.gstEnabled) await this.assertGstin(orgId);
+    // New events always start as a platform DRAFT: set up freely, then submit for review.
+    assertStatusAllowed('DRAFT', dto.status);
+    if (!dto.customFestival && !dto.festivalType) throw new BadRequestException('Choose a festival type, or describe your event under “My event isn’t listed”.');
+    if (dto.festivalType && !dto.customFestival) await this.assertFestivalAllowed(actor, orgId, dto.festivalType);
     const timezone = dto.timezone ?? 'Asia/Kolkata';
     const { s, e } = this.validateDates(dto.startDate, dto.endDate, timezone);
     return this.prisma.$transaction(async (tx) => {
+      // "My event isn't listed": a custom type, reviewed with the event's submission.
+      let festivalType = dto.festivalType!;
+      if (dto.customFestival) {
+        festivalType = await this.catalog.newCustomKey(dto.customFestival.name, tx);
+        await tx.customFestivalType.create({
+          data: {
+            key: festivalType, label: dto.customFestival.name.trim(), group: dto.customFestival.group, description: dto.customFestival.description?.trim() || null,
+            defaultPrefix: defaultPrefixFor(festivalType), organizationId: orgId, createdById: actor.id,
+          },
+        });
+      }
       const ev = await tx.event.create({
         data: {
-          organizationId: orgId, name: dto.name.trim(), festivalType: dto.festivalType,
+          organizationId: orgId, name: dto.name.trim(), festivalType,
           description: dto.description, location: dto.location, startDate: s, endDate: e, timezone, ...venueData(dto),
           ...(await this.defaultPlace(orgId, dto)),
-          status: dto.status ?? 'DRAFT', tokenPrefix: dto.tokenPrefix ?? defaultPrefixFor(dto.festivalType),
+          status: dto.status ?? 'DRAFT', approvalStatus: 'DRAFT', tokenPrefix: dto.tokenPrefix ?? defaultPrefixFor(festivalType),
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen ?? false,
           publicBookingEnabled: dto.publicBookingEnabled ?? false,
           tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
@@ -129,6 +185,14 @@ export class EventsService {
   async update(actor: RequestUser, eventId: string, dto: UpdateEventDto) {
     const before = await this.prisma.event.findUniqueOrThrow({ where: { id: eventId } });
     if (dto.gstEnabled && !before.gstEnabled) await this.assertGstin(before.organizationId);
+    if (dto.status !== before.status) assertStatusAllowed(before.approvalStatus, dto.status);
+    if (dto.festivalType && dto.festivalType !== before.festivalType) {
+      // The fee depends on the type: it can't change while the platform is reviewing / awaiting payment.
+      if (before.approvalStatus === 'SUBMITTED' || before.approvalStatus === 'APPROVED_AWAITING_PAYMENT') {
+        throw new ConflictException({ statusCode: 409, code: 'EVENT_IN_REVIEW', message: 'The festival type can’t be changed while the platform is reviewing this event.' });
+      }
+      await this.assertFestivalAllowed(actor, before.organizationId, dto.festivalType);
+    }
     const timezone = dto.timezone ?? before.timezone;
     const { s, e } = this.validateDates(dto.startDate ?? ymd(before.startDate), dto.endDate ?? ymd(before.endDate), timezone);
     return this.prisma.$transaction(async (tx) => {
@@ -156,9 +220,9 @@ export class EventsService {
   async remove(actor: RequestUser, eventId: string) {
     const ev = await this.prisma.event.findUniqueOrThrow({
       where: { id: eventId },
-      include: { _count: { select: { tokens: true, donations: true, expenses: true } } },
+      include: { _count: { select: { tokens: true, donations: true, expenses: true, feePayments: { where: { status: { in: ['PAID', 'WAIVED', 'REFUNDED'] } } } } } },
     });
-    if (ev.status !== 'DRAFT' || ev._count.tokens + ev._count.donations + ev._count.expenses > 0) {
+    if (ev.status !== 'DRAFT' || ev._count.tokens + ev._count.donations + ev._count.expenses + ev._count.feePayments > 0) {
       throw new ConflictException({ message: 'Only a draft event with no tokens, donations or expenses can be deleted. Cancel it instead.', code: 'EVENT_IN_USE' });
     }
     await this.prisma.$transaction(async (tx) => {

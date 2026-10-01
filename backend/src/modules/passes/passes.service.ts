@@ -23,11 +23,13 @@ import { BillingService } from '../billing/billing.service';
 import { PartnerBillingService } from '../partners/partner-billing.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { CreatePassOrderDto, PassOrderListQuery } from './passes.dto';
+import { LIVE_WHERE } from '../../common/event-approval';
 
 /** How long an unpaid order holds its places. */
 export const ORDER_HOLD_MINUTES = 15;
 
-const BOOKABLE = { publicBookingEnabled: true, status: 'ACTIVE' as const };
+/** Public booking: the mandal switched it on, the event is running, and the platform made it LIVE (reviewed + fee paid). */
+const BOOKABLE = { publicBookingEnabled: true, status: 'ACTIVE' as const, ...LIVE_WHERE };
 
 const orderInclude = {
   event: { select: { id: true, name: true, festivalType: true, timezone: true, ...VENUE_SELECT, organizationId: true, gstSac: true, organization: { select: { name: true, ...ORG_BRAND_SELECT } } } },

@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { Prisma, PrismaClient, TokenStatus } from '@prisma/client';
+import { EventApprovalStatus, Prisma, PrismaClient, TokenStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes, randomUUID } from 'crypto';
 import request from 'supertest';
@@ -64,8 +64,8 @@ export async function systemRoleId(prisma: PrismaClient, key: string) {
   return (await prisma.role.findFirstOrThrow({ where: { organizationId: null, key } })).id;
 }
 
-/** An org with an ACTIVE event spanning yesterday..+5 days, plus a Mandal Admin. */
-export async function makeOrgWithEvent(prisma: PrismaClient, opts: { prefix?: string; status?: 'ACTIVE' | 'DRAFT' | 'COMPLETED' } = {}) {
+/** An org with an ACTIVE, LIVE (reviewed + paid) event spanning yesterday..+5 days, plus a Mandal Admin. */
+export async function makeOrgWithEvent(prisma: PrismaClient, opts: { prefix?: string; status?: 'ACTIVE' | 'DRAFT' | 'COMPLETED'; approvalStatus?: EventApprovalStatus } = {}) {
   const tag = randomBytes(4).toString('hex');
   const org = await prisma.organization.create({ data: { name: `Mandal ${tag}`, slug: `mandal-${tag}` } });
   const today = new Date();
@@ -74,6 +74,7 @@ export async function makeOrgWithEvent(prisma: PrismaClient, opts: { prefix?: st
     data: {
       organizationId: org.id, name: `Festival ${tag}`, festivalType: 'DURGA_PUJA', startDate: day(-1), endDate: day(5),
       timezone: 'Asia/Kolkata', status: opts.status ?? 'ACTIVE', tokenPrefix: opts.prefix ?? 'TST', maxVisitorsPerToken: 10,
+      approvalStatus: opts.approvalStatus ?? 'LIVE',
     },
   });
   // Plenty of prepaid token credit so unrelated tests never hit the limit.

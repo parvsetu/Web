@@ -6,6 +6,7 @@ import { randomBytes } from 'crypto';
 import { DateTime } from 'luxon';
 import { encryptField } from '../src/common/crypto/field-crypto';
 import { ALL_PERMISSIONS, PERMISSIONS, SYSTEM_ROLES, permissionGroup } from '../src/common/permissions';
+import { DECLARATION_VERSION } from '../src/common/legal';
 
 const prisma = new PrismaClient();
 
@@ -29,6 +30,8 @@ export async function seedCatalog(db: PrismaClient = prisma) {
 }
 
 const LOCAL_DEMO_PASSWORD = 'Parvsetu@123';
+/** Demo festivals predate per-event fees: published, treated as paid (fee 0). */
+const LEGACY_LIVE = { approvalStatus: 'LIVE' as const, feeLegacy: true, feePaise: 0, feeSource: 'LEGACY' };
 const IS_PROD = process.env.NODE_ENV === 'production';
 
 async function seedDemo() {
@@ -82,19 +85,19 @@ async function seedDemo() {
     data: {
       organizationId: mandal.id, name: `Durga Puja ${today.year}`, festivalType: 'DURGA_PUJA', location: 'Salt Lake pandal',
       startDate: d(today.minus({ days: 1 })), endDate: d(today.plus({ days: 9 })), timezone: tz, status: 'ACTIVE',
-      tokenPrefix: 'DUR', volunteerRegistrationOpen: true, maxVisitorsPerToken: 6,
+      tokenPrefix: 'DUR', volunteerRegistrationOpen: true, maxVisitorsPerToken: 6, ...LEGACY_LIVE,
     },
   });
   const ganesh = await prisma.event.create({
     data: {
       organizationId: mandal.id, name: `Ganesh Utsav ${today.year}`, festivalType: 'GANESH_UTSAV',
-      startDate: d(today.minus({ days: 30 })), endDate: d(today.minus({ days: 20 })), timezone: tz, status: 'COMPLETED', tokenPrefix: 'GAN',
+      startDate: d(today.minus({ days: 30 })), endDate: d(today.minus({ days: 20 })), timezone: tz, status: 'COMPLETED', tokenPrefix: 'GAN', ...LEGACY_LIVE,
     },
   });
   const navratri = await prisma.event.create({
     data: {
       organizationId: other.id, name: `Navratri ${today.year}`, festivalType: 'NAVRATRI', location: 'GMDC Ground',
-      startDate: d(today), endDate: d(today.plus({ days: 9 })), timezone: tz, status: 'ACTIVE', tokenPrefix: 'NAV', volunteerRegistrationOpen: true,
+      startDate: d(today), endDate: d(today.plus({ days: 9 })), timezone: tz, status: 'ACTIVE', tokenPrefix: 'NAV', volunteerRegistrationOpen: true, ...LEGACY_LIVE,
     },
   });
 
@@ -372,6 +375,7 @@ async function seedMoreEvents() {
       organizationId: org.id, name: def.name, festivalType: def.type, tokenPrefix: def.prefix, description: def.desc, location: def.loc,
       state: 'Maharashtra', city: 'Pune', startDate: d(start), endDate: d(end), timezone: tz, status: def.status,
       publicBookingEnabled: def.status === 'ACTIVE', volunteerRegistrationOpen: true, maxVisitorsPerToken: 6, tokenDurationOptions: [3, 6, 24],
+      ...LEGACY_LIVE,
     } });
     for (const [i, [label, st, en, price]] of def.slots.entries()) {
       await prisma.timeSlot.create({ data: { eventId: ev.id, label, startTime: st, endTime: en, price, capacity: 800, sortOrder: i } });
@@ -459,6 +463,49 @@ async function seedLandingAndPeakPricing() {
   }
 }
 
+/**
+ * Registration control demo: field agent Rakesh Kulkarni (agent@parvsetu.dev /
+ * 9000000030, referral code RAKESH30), a pending self-registration "Shiv Shakti
+ * Mitra Mandal" (Nagpur) referred by him — Ganesh Utsav from the catalog plus a
+ * custom "Tanha Pola" event awaiting review — and sample event-fee pricing
+ * (default ₹499 is the schema default; Ganesh Utsav ₹999; referral ₹200 default).
+ * Every part is guarded by an existence check, so reruns on a live DB are no-ops.
+ */
+async function seedRegistrationControl() {
+  const password = process.env.DEMO_PASSWORD ?? (IS_PROD ? '' : LOCAL_DEMO_PASSWORD);
+  if (password.length < 10) return;
+  if (!(await prisma.eventFeeRate.findUnique({ where: { scope_key: { scope: 'TYPE', key: 'GANESH_UTSAV' } } }))) {
+    await prisma.eventFeeRate.create({ data: { scope: 'TYPE', key: 'GANESH_UTSAV', feePaise: 99900 } });
+    console.log('Sample event fee: Ganesh Utsav ₹999 (others use the ₹499 default).');
+  }
+  let agent = await prisma.agent.findUnique({ where: { code: 'RAKESH30' } });
+  if (!agent && !(await prisma.user.findUnique({ where: { mobile: '9000000030' } }))) {
+    agent = await prisma.agent.create({ data: { name: 'Rakesh Kulkarni', phone: '9000000030', email: 'agent@parvsetu.dev', code: 'RAKESH30' } });
+    await prisma.user.create({ data: { name: 'Rakesh Kulkarni', mobile: '9000000030', email: 'agent@parvsetu.dev', passwordHash: await bcrypt.hash(password, 10), agentId: agent.id, emailVerifiedAt: new Date() } });
+    console.log('Demo field agent created (Rakesh Kulkarni: 9000000030 / agent@parvsetu.dev, code RAKESH30).');
+  }
+  if (!agent || (await prisma.mandalRegistration.findFirst({ where: { orgName: 'Shiv Shakti Mitra Mandal' } }))) return;
+  if (await prisma.user.findUnique({ where: { mobile: '9000000031' } })) return;
+  const applicant = await prisma.user.create({ data: {
+    name: 'Vikas Deshmukh', mobile: '9000000031', email: 'mandal-applicant@parvsetu.dev', passwordHash: await bcrypt.hash(password, 10),
+    requiresEmailVerification: true, emailVerifiedAt: new Date(),
+  } });
+  const year = DateTime.now().setZone('Asia/Kolkata');
+  const ymdIn = (days: number) => year.plus({ days }).toISODate()!;
+  const settings = await prisma.platformSettings.upsert({ where: { id: 'default' }, create: { id: 'default' }, update: {} });
+  const reg = await prisma.mandalRegistration.create({ data: {
+    status: 'PENDING_REVIEW', source: 'SELF', orgName: 'Shiv Shakti Mitra Mandal', state: 'Maharashtra', city: 'Nagpur', address: 'Itwari, near Shaheed Chowk, Nagpur 440002',
+    contactName: 'Vikas Deshmukh', contactMobile: '9000000031', contactEmail: 'mandal-applicant@parvsetu.dev', applicantUserId: applicant.id,
+    agentId: agent.id, referralCode: 'RAKESH30', submittedAt: new Date(), createdById: applicant.id,
+    events: [
+      { festivalType: 'GANESH_UTSAV', custom: null, name: `Shiv Shakti Ganeshotsav ${year.year}`, startDate: ymdIn(20), endDate: ymdIn(30), location: 'Itwari chowk pandal', venueAddress: 'Itwari, Nagpur', quotedFeePaise: 99900, feeSource: 'FESTIVAL_TYPE' },
+      { festivalType: null, custom: { name: 'Tanha Pola', group: 'Regional & Harvest', description: 'Vidarbha children’s festival with decorated wooden bulls (nandi) and a procession.' }, name: `Tanha Pola Utsav ${year.year}`, startDate: ymdIn(45), endDate: ymdIn(45), location: 'Shiv Shakti ground', venueAddress: null, quotedFeePaise: settings.defaultEventFeePaise, feeSource: 'DEFAULT' },
+    ],
+  } });
+  await prisma.legalDeclaration.create({ data: { version: DECLARATION_VERSION, context: 'REGISTRATION', registrationId: reg.id, acceptedById: applicant.id, ipAddress: '127.0.0.1' } });
+  console.log('Demo pending registration created: Shiv Shakti Mitra Mandal (Nagpur), referred by RAKESH30.');
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -471,6 +518,7 @@ async function main() {
     await seedMoreEvents();
     await seedPartners();
     await seedLandingAndPeakPricing();
+    await seedRegistrationControl();
   }
 }
 

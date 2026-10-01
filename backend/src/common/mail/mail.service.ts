@@ -72,6 +72,21 @@ export function otpEmail(kind: 'verify' | 'reset', name: string, code: string, m
   return { subject: `${code} is your Parvsetu ${kind === 'verify' ? 'verification' : 'password reset'} code`, text, html };
 }
 
+/** Branded transactional email: title, greeting, paragraphs and an optional button. */
+export function brandedEmail(opts: { subject: string; title: string; name: string; paragraphs: string[]; cta?: { label: string; url: string }; footer?: string }): Omit<OutgoingMail, 'to'> {
+  const text = [opts.title, '', `Namaste ${opts.name},`, '', ...opts.paragraphs.flatMap((p) => [p, '']), ...(opts.cta ? [`${opts.cta.label}: ${opts.cta.url}`, ''] : []), opts.footer ?? '', '— Parvsetu'].join('\n');
+  const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border:1px solid #fed7aa;border-radius:16px;overflow:hidden">
+  <div style="background:linear-gradient(135deg,#f59e0b,#f97316,#e11d48);color:#fff;padding:20px 24px;font-size:20px;font-weight:bold">🪔 Parvsetu</div>
+  <div style="padding:24px;color:#0f172a">
+    <h2 style="margin:0 0 8px">${escapeHtml(opts.title)}</h2>
+    <p>Namaste ${escapeHtml(opts.name)},</p>
+    ${opts.paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join('')}
+    ${opts.cta ? `<p style="text-align:center;margin:24px 0"><a href="${escapeHtml(opts.cta.url)}" style="background:#ea580c;color:#fff;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:bold">${escapeHtml(opts.cta.label)}</a></p><p style="color:#64748b;font-size:12px;word-break:break-all">${escapeHtml(opts.cta.url)}</p>` : ''}
+    ${opts.footer ? `<p style="color:#64748b;font-size:13px">${escapeHtml(opts.footer)}</p>` : ''}
+  </div></div>`;
+  return { subject: opts.subject, text, html };
+}
+
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }

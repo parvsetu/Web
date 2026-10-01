@@ -59,7 +59,7 @@ export default function PartnerSignupPage() {
         <Mandala className="pointer-events-none absolute -right-24 -top-16 h-96 w-96 text-white/15" />
         <Mandala className="pointer-events-none absolute -bottom-28 -left-24 h-80 w-80 text-white/10" />
         <div className="relative mx-auto flex max-w-xl flex-col gap-7 pt-8 lg:sticky lg:top-0 lg:pt-14">
-          <Link href="/book" aria-label="Parvsetu home — explore events" className="flex w-fit items-center gap-2.5 rounded-2xl pr-2 transition hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/60">
+          <Link href="/" aria-label="Parvsetu home — explore events" className="flex w-fit items-center gap-2.5 rounded-2xl pr-2 transition hover:scale-[1.02] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/60">
             <LogoMark className="h-12 w-12 drop-shadow-lg" />
             <span className="text-2xl font-extrabold tracking-tight drop-shadow-sm">Parvsetu</span>
           </Link>

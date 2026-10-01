@@ -3,8 +3,9 @@
  * always come fresh from the server. Any request to another origin (the API
  * runs on its own origin) or to a path containing /api/ bypasses this worker.
  */
-const VERSION = 'parvsetu-shell-v1';
-const SHELL = ['/', '/login', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'];
+const VERSION = 'parvsetu-shell-v2';
+// '/' is the public explore page; '/dashboard' is the signed-in home (PWA start_url).
+const SHELL = ['/', '/dashboard', '/login', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

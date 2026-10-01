@@ -1,5 +1,5 @@
 /** Mandal festival preferences, event venue/directions on passes, and the "N passes left" allowance. */
-import { bearer, bootApp, makeOrgWithEvent, TestCtx } from './helpers';
+import { bearer, bootApp, makeOrgWithEvent, makeUser, TestCtx } from './helpers';
 
 describe('Festival preferences, venue and pass allowance (e2e)', () => {
   let ctx: TestCtx;
@@ -7,12 +7,19 @@ describe('Festival preferences, venue and pass allowance (e2e)', () => {
   beforeAll(async () => (ctx = await bootApp()));
   afterAll(() => ctx.app.close());
 
-  it('a mandal saves the festivals it celebrates (unknown keys rejected); events see the list', async () => {
+  it('the super admin sets a mandal\'s festivals (unknown keys rejected; the mandal can\'t change them); events see the list', async () => {
     const m = await makeOrgWithEvent(ctx.prisma);
     const auth = bearer(ctx, m.admin);
-    expect((await ctx.http().patch(api(`/organizations/${m.org.id}`)).set('Authorization', auth).send({ festivalTypes: ['NOT_A_FESTIVAL'] })).status).toBe(400);
-    const ok = await ctx.http().patch(api(`/organizations/${m.org.id}`)).set('Authorization', auth).send({ festivalTypes: ['DURGA_PUJA', 'NAVRATRI', 'DURGA_PUJA'] });
+    const sa = bearer(ctx, await makeUser(ctx.prisma, { isSuperAdmin: true }));
+    // Allowed festivals are platform-controlled since mandal registration review.
+    const locked = await ctx.http().patch(api(`/organizations/${m.org.id}`)).set('Authorization', auth).send({ festivalTypes: ['DURGA_PUJA'] });
+    expect(locked.status).toBe(403);
+    expect(locked.body.code).toBe('FESTIVAL_TYPES_LOCKED');
+    expect((await ctx.http().patch(api(`/organizations/${m.org.id}`)).set('Authorization', sa).send({ festivalTypes: ['NOT_A_FESTIVAL'] })).status).toBe(400);
+    const ok = await ctx.http().patch(api(`/organizations/${m.org.id}`)).set('Authorization', sa).send({ festivalTypes: ['DURGA_PUJA', 'NAVRATRI', 'DURGA_PUJA'] });
     expect(ok.status).toBe(200);
+    // Re-sending the same list (e.g. the settings form) is harmless for the mandal.
+    expect((await ctx.http().patch(api(`/organizations/${m.org.id}`)).set('Authorization', auth).send({ festivalTypes: ['NAVRATRI', 'DURGA_PUJA'], city: 'Pune' })).status).toBe(200);
     expect((await ctx.http().get(api(`/organizations/${m.org.id}`)).set('Authorization', auth)).body.festivalTypes).toEqual(['DURGA_PUJA', 'NAVRATRI']);
     expect((await ctx.http().get(api(`/events/${m.event.id}`)).set('Authorization', auth)).body.organization.festivalTypes).toEqual(['DURGA_PUJA', 'NAVRATRI']);
   });

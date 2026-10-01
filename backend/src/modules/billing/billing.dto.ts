@@ -18,6 +18,12 @@ export class PlatformSettingsDto {
   @IsOptional() @Matches(PERCENT) gatewayFeePercent?: string;
   /** Default yearly fee for a mandal landing page (/m/<slug>). */
   @IsOptional() @Matches(RUPEES) landingPageYearlyPrice?: string;
+  /** Default registration fee per event (each event pays separately). */
+  @IsOptional() @Matches(RUPEES) defaultEventFee?: string;
+  /** Field-agent referral: fixed amount per mandal (earned on its first paid event fee). */
+  @IsOptional() @Matches(RUPEES) agentReferralFee?: string;
+  /** Field-agent commission on every paid event fee (%). */
+  @IsOptional() @Matches(PERCENT) agentCommissionPercent?: string;
 }
 
 /** Per-mandal overrides; send null to fall back to the platform default. */
@@ -31,6 +37,8 @@ export class MandalPricingDto {
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsIn(PASS_PRINT_FORMATS) passPrintFormat?: PassPrintSetting | null;
   /** Landing page yearly fee at this mandal. */
   @IsOptional() @ValidateIf((_o, v) => v !== null) @Matches(RUPEES) landingPagePrice?: string | null;
+  /** Per-event registration fee at this mandal (beats the festival-type and default fee). */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @Matches(RUPEES) eventFee?: string | null;
 }
 
 export class AdjustCreditDto {

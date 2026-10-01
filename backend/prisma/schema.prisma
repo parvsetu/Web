@@ -160,6 +160,8 @@ model User {
   requiresEmailVerification Boolean    @default(false)
   /// Set for promotional-partner (brand) accounts; such a user belongs to no Organization.
   partnerId                 String?
+  /// Set for field-agent accounts; such a user belongs to no Organization.
+  agentId                   String?
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
@@ -175,8 +177,12 @@ model User {
   auditLogs        AuditLog[]
   otps             EmailOtp[]
   partner          Partner?               @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  agent            Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  mandalRegistrations MandalRegistration[] @relation("RegistrationApplicant")
+  passwordSetupTokens PasswordSetupToken[]
 
   @@index([partnerId])
+  @@index([agentId])
   @@map("users")
 }
 
@@ -194,6 +200,9 @@ model Organization {
   logoUpdatedAt   DateTime?
   bannerKey       String?
   bannerUpdatedAt DateTime?
+  /// Field agent who brought this mandal in (referral earnings). Set from the registration or by the super admin.
+  agentId         String?
+  agentAttributedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -215,7 +224,12 @@ model Organization {
   storedImages       StoredImage[]
   landingPage        LandingPage?
   landingPurchases   LandingPurchase[]
+  agent              Agent?               @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  registration       MandalRegistration?
+  eventFeePayments   EventFeePayment[]
+  agentLedger        AgentLedgerEntry[]
 
+  @@index([agentId])
   @@map("organizations")
 }
 
@@ -327,10 +341,31 @@ model Event {
   /// Default print layout for passes: A4 | THERMAL_80 | THERMAL_58
   passPrintFormat           String      @default("A4")
   maxVisitorsPerToken       Int         @default(10)
+  /// Platform review/payment state (see common/event-approval.ts). Only LIVE events are public,
+  /// bookable, can issue/scan passes or be set ACTIVE. Event.status stays the operational state.
+  approvalStatus            EventApprovalStatus @default(DRAFT)
+  /// Events that existed before per-event fees (treated as paid, fee 0).
+  feeLegacy                 Boolean     @default(false)
+  /// Fee quoted when submitted for review; locked into feePaise when the super admin approves.
+  feeQuotedPaise            Int?
+  feePaise                  Int?
+  /// Where the quote came from: MANDAL | FESTIVAL_TYPE | GROUP | DEFAULT
+  feeSource                 String?
+  submittedAt               DateTime?
+  submittedById             String?
+  reviewedAt                DateTime?
+  reviewedById              String?
+  /// Changes-requested note / rejection or unpublish reason (shown to the mandal).
+  reviewNote                String?
+  liveAt                    DateTime?
+  /// The registration this event was requested in (null for events added later).
+  registrationId            String?
   createdAt                 DateTime    @default(now())
   updatedAt                 DateTime    @updatedAt
 
   organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feePayments      EventFeePayment[]
+  declarations     LegalDeclaration[]
   timeSlots        TimeSlot[]
   tokens           Token[]
   visitors         Visitor[]
@@ -348,6 +383,7 @@ model Event {
 
   @@index([organizationId])
   @@index([state, city])
+  @@index([approvalStatus, submittedAt])
   @@map("events")
 }
 
@@ -715,6 +751,12 @@ model PlatformSettings {
   defaultPassPrintFormat  String   @default("AUTO")
   /// Yearly fee for a mandal landing page at /m/<slug>, for mandals without an override.
   landingPageYearlyPricePaise Int  @default(99900)
+  /// Registration fee per event (each event is paid separately) when no festival-type / mandal rate applies.
+  defaultEventFeePaise    Int      @default(49900)
+  /// Field-agent referral: fixed amount per mandal, earned when it pays its first event fee.
+  agentReferralFeePaise   Int      @default(20000)
+  /// Field-agent commission on every paid event fee (bps of the fee).
+  agentCommissionBps      Int      @default(0)
   updatedAt               DateTime @updatedAt
   updatedById             String?
 
@@ -735,6 +777,8 @@ model OrgBilling {
   passPrintFormat         String?
   /// Landing page yearly fee at this mandal (null = platform default).
   landingPageYearlyPricePaise Int?
+  /// Per-event registration fee at this mandal (null = festival type / platform default).
+  eventFeePaise           Int?
   totalTokens             Int      @default(0)
   totalSponsorFeesPaise   Int      @default(0)
   totalPersons            Int      @default(0)
@@ -1139,4 +1183,261 @@ model PriceRule {
 
   @@index([eventId])
   @@map("price_rules")
+}
+
+// ─── Platform registration control: mandal registrations, per-event review & fee ───
+// See docs/ARCHITECTURE.md "Registration, review & event fees".
+
+enum EventApprovalStatus {
+  DRAFT
+  SUBMITTED
+  CHANGES_REQUESTED
+  APPROVED_AWAITING_PAYMENT
+  LIVE
+  REJECTED
+}
+
+enum MandalRegistrationStatus {
+  /// Self-registered: waiting for the applicant's email code.
+  PENDING_VERIFICATION
+  PENDING_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+}
+
+enum EventFeeStatus {
+  PENDING
+  PAID
+  WAIVED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+enum AgentStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum AgentLedgerType {
+  EARNED
+  PAID
+  REVERSED
+}
+
+/// A mandal asking to join (self, via a field agent, or entered by the super admin).
+model MandalRegistration {
+  id              String                   @id @default(uuid())
+  status          MandalRegistrationStatus @default(PENDING_REVIEW)
+  /// SELF | AGENT
+  source          String                   @default("SELF")
+  orgName         String
+  state           String?
+  city            String?
+  address         String?
+  contactName     String
+  contactMobile   String
+  contactEmail    String
+  applicantUserId String
+  agentId         String?
+  referralCode    String?
+  /// Requested events: [{ festivalType, custom?: {name, group, description}, name, startDate, endDate, location?, venueAddress?, quotedFeePaise, feeSource }]
+  events          Json
+  reviewNote      String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  submittedAt     DateTime?
+  organizationId  String?                  @unique
+  createdById     String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  applicant    User               @relation("RegistrationApplicant", fields: [applicantUserId], references: [id], onDelete: Cascade)
+  agent        Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  declarations LegalDeclaration[]
+
+  @@index([status, createdAt])
+  @@index([agentId, createdAt])
+  @@index([applicantUserId])
+  @@map("mandal_registrations")
+}
+
+/// "My event isn't listed": a mandal-proposed festival type. Merged into the public catalog only when inCatalog.
+model CustomFestivalType {
+  key            String    @id
+  label          String
+  group          String
+  description    String?
+  defaultPrefix  String
+  /// PENDING | APPROVED | REJECTED
+  status         String    @default("PENDING")
+  inCatalog      Boolean   @default(false)
+  organizationId String?
+  registrationId String?
+  createdById    String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([inCatalog])
+  @@index([organizationId])
+  @@map("custom_festival_types")
+}
+
+/// Super-admin event fee by festival type (scope TYPE) or catalog group (scope GROUP).
+model EventFeeRate {
+  id        String   @id @default(uuid())
+  /// TYPE | GROUP
+  scope     String
+  key       String
+  feePaise  Int
+  updatedAt DateTime @updatedAt
+
+  @@unique([scope, key])
+  @@map("event_fee_rates")
+}
+
+/// One event-fee payment attempt / settlement. The opaque `token` is the public
+/// pay link (/pay/event-fee/<token>). At most one PAID/WAIVED row per event
+/// (partial unique index, migration SQL).
+model EventFeePayment {
+  id               String         @id @default(uuid())
+  eventId          String
+  organizationId   String
+  amountPaise      Int
+  token            String         @unique
+  status           EventFeeStatus @default(PENDING)
+  /// ONLINE | CASH | BANK_TRANSFER | WAIVER
+  method           String?
+  paymentProvider  String?
+  providerOrderId  String?
+  paymentReference String?
+  note             String?
+  expiresAt        DateTime
+  paidAt           DateTime?
+  recordedById     String?
+  refundedAt       DateTime?
+  refundReason     String?
+  refundedById     String?
+  createdById      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, createdAt])
+  @@index([status, paidAt])
+  @@map("event_fee_payments")
+}
+
+/// The content-policy declaration a registrant/submitter ticked (version + who + when + IP).
+model LegalDeclaration {
+  id             String   @id @default(uuid())
+  version        String
+  /// REGISTRATION | EVENT_SUBMISSION
+  context        String
+  registrationId String?
+  eventId        String?
+  acceptedById   String?
+  /// Agent filing on the mandal's behalf.
+  onBehalf       Boolean  @default(false)
+  ipAddress      String?
+  userAgent      String?
+  acceptedAt     DateTime @default(now())
+
+  registration MandalRegistration? @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  event        Event?              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@index([eventId])
+  @@map("legal_declarations")
+}
+
+/// Field agent: visits mandals and registers them; earns referral + optional commission.
+model Agent {
+  id               String      @id @default(uuid())
+  name             String
+  phone            String
+  email            String
+  /// Short unique referral code, e.g. RAKESH7.
+  code             String      @unique
+  status           AgentStatus @default(ACTIVE)
+  /// Per-agent overrides (null = platform default).
+  referralFeePaise Int?
+  commissionBps    Int?
+  createdById      String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  users         User[]
+  registrations MandalRegistration[]
+  organizations Organization[]
+  ledger        AgentLedgerEntry[]
+  payouts       AgentPayout[]
+
+  @@map("agents")
+}
+
+/// Append-only agent earnings ledger. EARNED rows are positive (REGISTRATION or
+/// COMMISSION); a refund adds a REVERSED row and stamps reversedAt on the EARNED
+/// one; payouts are PAID rows. Partial unique indexes (migration SQL) make
+/// earning idempotent: one live REGISTRATION per mandal, one COMMISSION per payment.
+model AgentLedgerEntry {
+  id                String          @id @default(uuid())
+  agentId           String
+  type              AgentLedgerType
+  /// REGISTRATION | COMMISSION | PAYOUT
+  kind              String
+  amountPaise       Int
+  organizationId    String?
+  eventId           String?
+  eventFeePaymentId String?
+  payoutId          String?
+  reversedAt        DateTime?
+  reversesId        String?
+  note              String?
+  createdById       String?
+  createdAt         DateTime        @default(now())
+
+  agent        Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([agentId, createdAt])
+  @@index([organizationId])
+  @@map("agent_ledger_entries")
+}
+
+model AgentPayout {
+  id          String   @id @default(uuid())
+  agentId     String
+  amountPaise Int
+  paidOn      DateTime @db.Date
+  reference   String
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, paidOn])
+  @@map("agent_payouts")
+}
+
+/// Single-use "set your password" link (agent-filed registrations). Only a hash is stored.
+model PasswordSetupToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_setup_tokens")
 }

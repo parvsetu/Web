@@ -45,7 +45,7 @@ const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] 
 export default function OrgAdminPage() {
   const org = useOrg();
   return (
-    <AppShell title={org.name} subtitle="Mandal admin" back="/" wide>
+    <AppShell title={org.name} subtitle="Mandal admin" back="/dashboard" wide>
       <OrgAdmin />
     </AppShell>
   );

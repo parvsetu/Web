@@ -28,6 +28,10 @@ export function EventForm({
   submitLabel: string;
 }) {
   const types = useFestivalTypes();
+  const groups = [...new Set((types.data ?? []).map((t) => t.group))];
+  // Until the platform makes the event LIVE (review + fee) it can only be a draft.
+  const live = !initial || initial.approvalStatus === undefined ? false : initial.approvalStatus === 'LIVE';
+  const [custom, setCustom] = useState({ on: false, name: '', group: '', description: '' });
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     festivalType: initial?.festivalType ?? '',
@@ -72,7 +76,9 @@ export function EventForm({
     setError(null);
     setOk(false);
     if (!form.name.trim()) return setError('Enter a festival name.');
-    if (!form.festivalType) return setError('Choose a festival type.');
+    if (custom.on) {
+      if (custom.name.trim().length < 2 || !custom.group) return setError('Give your event type a name and a category.');
+    } else if (!form.festivalType) return setError('Choose a festival type.');
     const coords = parseCoords(form.venueCoords);
     if (form.venueCoords.trim() && !coords) return setError('Map pin must be "latitude, longitude", e.g. 18.5204, 73.8567.');
     if (form.venuePincode.trim() && !/^\d{6}$/.test(form.venuePincode.trim())) return setError('PIN code must be 6 digits.');
@@ -83,7 +89,9 @@ export function EventForm({
     if (!Number.isInteger(max) || max < 1) return setError('Max visitors per token must be 1 or more.');
     const body: EventBody = {
       name: form.name.trim(),
-      festivalType: form.festivalType,
+      ...(custom.on
+        ? { customFestival: { name: custom.name.trim(), group: custom.group, description: custom.description.trim() || undefined } }
+        : { festivalType: form.festivalType }),
       description: form.description.trim() || undefined,
       location: form.location.trim() || undefined,
       startDate: form.startDate,
@@ -127,14 +135,40 @@ export function EventForm({
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <LabeledInput label="Festival name" value={form.name} onChange={set('name')} placeholder="e.g. Sarvajanik Utsav 2026" />
-      <div className="flex items-end gap-3">
-        <div className="min-w-0 flex-1">
-          <FestivalTypeSelect only={festivalTypes} value={form.festivalType} onChange={(v) => setForm((x) => ({ ...x, festivalType: v }))} />
+      {!initial && (
+        <div role="radiogroup" aria-label="Festival type source" className="grid grid-cols-2 gap-2">
+          {[{ v: false, label: 'From our list' }, { v: true, label: 'My event isn’t listed' }].map((o) => (
+            <button key={String(o.v)} type="button" role="radio" aria-checked={custom.on === o.v} onClick={() => setCustom((c) => ({ ...c, on: o.v }))}
+              className={cx('min-h-[44px] rounded-xl px-2 text-sm font-semibold transition', custom.on === o.v ? 'bg-orange-500 text-white shadow-sm' : 'bg-orange-50 text-orange-900 ring-1 ring-orange-200')}>
+              {o.label}
+            </button>
+          ))}
         </div>
-        <FestivalBadge type={form.festivalType || null} className="h-14 w-14" />
-      </div>
-      {!!festivalTypes?.length && (
-        <p className="-mt-2 text-xs text-slate-500">Showing only your mandal’s festivals. Change the list in Mandal → Settings.</p>
+      )}
+      {custom.on ? (
+        <div className="flex flex-col gap-3 rounded-2xl bg-violet-50/60 p-3 ring-1 ring-violet-200">
+          <p className="text-xs text-violet-900">The Parvsetu team reviews a new event type together with this festival before it can go live.</p>
+          <LabeledInput label="Event type name" value={custom.name} onChange={(e) => setCustom((c) => ({ ...c, name: e.target.value }))} maxLength={80} placeholder="e.g. Marbat procession" />
+          <LabeledSelect label="Category" value={custom.group} onChange={(e) => setCustom((c) => ({ ...c, group: e.target.value }))}>
+            <option value="">— Choose a category —</option>
+            {groups.map((g) => <option key={g} value={g}>{g}</option>)}
+          </LabeledSelect>
+          <Field label="Short description">
+            <Textarea value={custom.description} onChange={(e) => setCustom((c) => ({ ...c, description: e.target.value }))} maxLength={1000} className="min-h-[72px]" />
+          </Field>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-end gap-3">
+            <div className="min-w-0 flex-1">
+              <FestivalTypeSelect only={festivalTypes} value={form.festivalType} onChange={(v) => setForm((x) => ({ ...x, festivalType: v }))} />
+            </div>
+            <FestivalBadge type={form.festivalType || null} className="h-14 w-14" />
+          </div>
+          {!!festivalTypes?.length && (
+            <p className="-mt-2 text-xs text-slate-500">Showing your mandal’s registered festival types (set by the Parvsetu team).</p>
+          )}
+        </>
       )}
       {types.error && <Alert kind="warning">Could not load festival types: {types.error}</Alert>}
       <div className="grid grid-cols-2 gap-3">
@@ -196,10 +230,10 @@ export function EventForm({
         <Textarea value={form.description} onChange={set('description')} />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <LabeledSelect label="Status" value={form.status} onChange={set('status')} hint="Scanning works only when Active.">
+        <LabeledSelect label="Status" value={form.status} onChange={set('status')} hint={live ? 'Scanning works only when Active.' : 'Goes Active automatically once the platform approves it and the fee is paid.'}>
           {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {humanize(s)}
+            <option key={s} value={s} disabled={!live && s !== 'DRAFT' && s !== 'CANCELLED' && s !== form.status}>
+              {humanize(s)}{!live && (s === 'ACTIVE' || s === 'COMPLETED') ? ' (after going live)' : ''}
             </option>
           ))}
         </LabeledSelect>

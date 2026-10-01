@@ -8,10 +8,7 @@ import { PayoutsService } from '../payouts/payouts.service';
 import { MailService } from '../../common/mail/mail.service';
 import { randomBytes, timingSafeEqual } from 'crypto';
 
-/** Public web origin for links in emails (first CORS origin, or PUBLIC_WEB_URL). */
-function siteUrl() {
-  return (process.env.PUBLIC_WEB_URL ?? (process.env.CORS_ORIGINS ?? 'http://localhost:3000').split(',')[0]).trim().replace(/\/+$/, '').replace('*', '');
-}
+import { siteUrl } from '../../common/site-url';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';

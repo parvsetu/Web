@@ -9,6 +9,7 @@ import { RequestUser } from '../../common/auth/request-user';
 import { ymd } from '../../common/time/validity';
 import { ApplyDto, ChangePasswordDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto, VerifyEmailDto, UpdateProfileDto } from './auth.dto';
 import { OtpService, maskEmail } from './otp.service';
+import { activateRegistrations } from '../registrations/activate';
 
 export const BCRYPT_ROUNDS = 10;
 // Compared against when the identifier doesn't exist, so response time
@@ -65,6 +66,7 @@ export class AuthService {
     const ok = user && user.status === 'ACTIVE' && await this.prisma.$transaction(async (tx) => {
       if (!(await this.otp.consume(tx, user.id, 'VERIFY_EMAIL', dto.code))) return false;
       await tx.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
+      await activateRegistrations(tx, user.id);
       return true;
     });
     if (!ok) throw new BadRequestException({ message: 'That code is wrong or has expired. Request a new one.', code: 'INVALID_CODE' });
@@ -94,6 +96,7 @@ export class AuthService {
         // The code arrived by email, so the address is proven too; old sessions are revoked.
         data: { passwordHash, tokenVersion: { increment: 1 }, emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
       });
+      await activateRegistrations(tx, user.id);
       return true;
     });
     if (!ok) throw new BadRequestException({ message: 'That code is wrong or has expired. Request a new one.', code: 'INVALID_CODE' });
@@ -111,6 +114,7 @@ export class AuthService {
     const ok = await this.prisma.$transaction(async (tx) => {
       if (!(await this.otp.consume(tx, actor.id, 'VERIFY_EMAIL', code))) return false;
       await tx.user.update({ where: { id: actor.id }, data: { emailVerifiedAt: new Date() } });
+      await activateRegistrations(tx, actor.id);
       return true;
     });
     if (!ok) throw new BadRequestException({ message: 'That code is wrong or has expired. Request a new one.', code: 'INVALID_CODE' });
@@ -195,7 +199,7 @@ export class AuthService {
   }
 
   async apply(actor: RequestUser, dto: ApplyDto) {
-    if (actor.partnerId) throw new ForbiddenException({ statusCode: 403, message: 'Partner accounts cannot volunteer.', code: 'FORBIDDEN' });
+    if (actor.partnerId || actor.agentId) throw new ForbiddenException({ statusCode: 403, message: 'Partner and agent accounts cannot volunteer.', code: 'FORBIDDEN' });
     await this.assertCanApply(dto.organizationId, dto.eventId);
     const pending = await this.prisma.volunteerApplication.findFirst({
       where: { userId: actor.id, organizationId: dto.organizationId, status: 'PENDING' },
@@ -221,7 +225,7 @@ export class AuthService {
     if (!org) throw new NotFoundException('Organization not found');
     if (eventId) {
       const ev = await this.prisma.event.findFirst({
-        where: { id: eventId, organizationId, volunteerRegistrationOpen: true, status: { in: ['DRAFT', 'ACTIVE'] } },
+        where: { id: eventId, organizationId, volunteerRegistrationOpen: true, status: { in: ['DRAFT', 'ACTIVE'] }, approvalStatus: 'LIVE' },
         select: { id: true },
       });
       if (!ev) throw new NotFoundException('This event is not accepting volunteer registrations');
@@ -234,6 +238,11 @@ export class AuthService {
       select: {
         id: true, name: true, mobile: true, email: true, isSuperAdmin: true, status: true, emailVerifiedAt: true,
         partner: { select: { id: true, name: true, status: true } },
+        agent: { select: { id: true, name: true, code: true, status: true } },
+        mandalRegistrations: {
+          select: { id: true, status: true, orgName: true, organizationId: true, reviewNote: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+        },
         memberships: {
           where: { status: 'ACTIVE' },
           select: {
@@ -287,6 +296,10 @@ export class AuthService {
       isSuperAdmin: user.isSuperAdmin, status: user.status, emailVerified: !!user.emailVerifiedAt,
       // Promotional-partner (brand) account → the frontend routes it to /partner.
       partner: user.partner,
+      // Field-agent account → the frontend routes it to /agent.
+      agent: user.agent,
+      /** Mandal registrations this user applied for (status page at /registration). */
+      mandalRegistrations: user.mandalRegistrations,
       organizations,
       events: eventsOut,
       applications: await this.myApplications(actor),
@@ -297,8 +310,8 @@ export class AuthService {
     return this.jwt.sign({ sub: userId, ver: tokenVersion });
   }
 
-  private toRequestUser(u: { id: string; name: string; isSuperAdmin: boolean; partnerId?: string | null }): RequestUser {
-    return { id: u.id, name: u.name, isSuperAdmin: u.isSuperAdmin, partnerId: u.partnerId ?? null };
+  private toRequestUser(u: { id: string; name: string; isSuperAdmin: boolean; partnerId?: string | null; agentId?: string | null }): RequestUser {
+    return { id: u.id, name: u.name, isSuperAdmin: u.isSuperAdmin, partnerId: u.partnerId ?? null, agentId: u.agentId ?? null };
   }
 }
 

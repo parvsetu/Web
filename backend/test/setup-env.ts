@@ -5,3 +5,4 @@ import { resolve } from 'path';
 config({ path: resolve(__dirname, '../.env.test'), override: true, quiet: true });
 process.env.SCAN_RATE_LIMIT_PER_MIN ??= '100000';
 process.env.RATE_LIMIT_PER_MIN ??= '100000';
+process.env.REGISTER_RATE_LIMIT_PER_MIN ??= '100000';

@@ -105,15 +105,30 @@ export function useRequireAuth(): AuthState {
   return auth;
 }
 
-/** Where a user lands after login: brands go to the partner portal, never the mandal app. */
-export function homeFor(me: MeUser, next = '/'): string {
+/**
+ * Where a user lands after login: brands go to the partner portal and field
+ * agents to the agent dashboard (never the mandal app); a mandal applicant who
+ * has no mandal yet goes to the registration status page.
+ */
+export function homeFor(me: MeUser, next = DASHBOARD): string {
   if (me.partner) return next.startsWith('/partner') ? next : '/partner';
+  if (me.agent) return next.startsWith('/agent') || next.startsWith('/profile') ? next : '/agent';
+  if (isApplicantOnly(me)) return next.startsWith('/registration') || next.startsWith('/profile') ? next : '/registration';
   if (isAwaitingApproval(me)) return '/awaiting';
-  return next;
+  // "/" is the public explore page; a signed-in user's home is the dashboard.
+  return next === '/' ? DASHBOARD : next;
+}
+
+/** The signed-in organiser / volunteer home ("My festivals"). */
+export const DASHBOARD = '/dashboard';
+
+/** Applied to register a mandal but has no mandal or festival access yet. */
+export function isApplicantOnly(me: MeUser): boolean {
+  return !me.partner && !me.agent && !me.isSuperAdmin && me.organizations.length === 0 && me.events.length === 0 && (me.mandalRegistrations?.length ?? 0) > 0;
 }
 
 export function isAwaitingApproval(me: MeUser): boolean {
-  if (me.partner) return false;
+  if (me.partner || me.agent || isApplicantOnly(me)) return false;
   return (
     !me.isSuperAdmin &&
     me.organizations.length === 0 &&

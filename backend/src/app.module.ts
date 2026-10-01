@@ -26,6 +26,8 @@ import { MailModule } from './common/mail/mail.module';
 import { ImagesModule } from './common/images/image-store';
 import { GalleryModule } from './modules/gallery/gallery.module';
 import { LandingModule } from './modules/landing/landing.module';
+import { RegistrationsModule } from './modules/registrations/registrations.module';
+import { AgentsModule } from './modules/agents/agents.module';
 
 @Module({
   imports: [
@@ -51,6 +53,8 @@ import { LandingModule } from './modules/landing/landing.module';
     PartnersModule,
     GalleryModule,
     LandingModule,
+    RegistrationsModule,
+    AgentsModule,
   ],
   providers: [
     // Order matters: authenticate → rate-limit (per user) → authorize.

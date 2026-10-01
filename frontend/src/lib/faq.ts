@@ -34,8 +34,8 @@ export const FAQ: FaqSection[] = [
         id: 'onboard',
         q: 'How does our mandal join?',
         a: [
-          'Contact the Parvsetu team. We create your mandal and its first Mandal Admin account; you then add your festivals, volunteers and settings yourself.',
-          'New mandals get some welcome token credit so you can try issuing passes straight away.',
+          'Register at Join Parvsetu → “Register my mandal / organisation” (or ask a Parvsetu field agent to register you). Choose the festivals you want to run, tick the content-policy declaration and verify your email.',
+          'The Parvsetu team reviews every mandal. Once approved you become its Mandal Admin, and each festival goes live when its registration fee is paid. New mandals also get some welcome token credit.',
         ],
       },
       {
@@ -50,7 +50,8 @@ export const FAQ: FaqSection[] = [
         id: 'cost',
         q: 'What does it cost?',
         a: [
-          'You prepay “token credit”. A small commission per person admitted is taken from that credit for each pass issued; the exact rate is shown in Mandal → Credit.',
+          'Each festival pays a one-time registration fee before it goes live (the amount is shown when you register or submit it).',
+          'Then you prepay “token credit”. A small commission per person admitted is taken from that credit for each pass issued; the exact rate is shown in Mandal → Credit.',
           'For paid online bookings the commission is taken from the payment itself, not from your credit.',
         ],
       },
@@ -66,13 +67,16 @@ export const FAQ: FaqSection[] = [
         q: 'How do I create a festival or event?',
         a: [
           'Mandal admin → Festivals → New festival. Choose the type, dates, venue and token prefix, then add time slots (with prices) in the festival’s admin screen.',
-          'Status starts as Draft; set it to Active when you are ready — scanning only works while a festival is Active.',
+          'A new festival is a draft: set it up, then press “Submit for review”. After the Parvsetu team approves it and the registration fee is paid it goes live (Active) automatically — only then can it be booked, issue passes or scan at the gate.',
         ],
       },
       {
         id: 'only-mine',
-        q: 'The festival list is too long. Can I see only the ones we celebrate?',
-        a: ['Yes. Mandal → Settings → “Festivals & events we celebrate”. Pick yours and only those appear when you create an event. Leave it empty to see everything.'],
+        q: 'Why do I only see some festival types?',
+        a: [
+          'Your mandal’s festival types are set when the Parvsetu team approves your registration, and only those appear when you create an event. Mandal → Settings shows the list.',
+          'To add another type, contact the Parvsetu team — or create the event with “My event isn’t listed” and it is reviewed with that event.',
+        ],
       },
       {
         id: 'not-festival',
@@ -91,6 +95,115 @@ export const FAQ: FaqSection[] = [
         id: 'slots',
         q: 'What are time slots?',
         a: ['Slots split the day (e.g. Morning 9–1, Evening 5–10). Each slot has its own price and optional capacity, and a pass is valid only for its slot window.'],
+      },
+    ],
+  },
+  {
+    id: 'registration',
+    title: 'Registration, review & fees',
+    emoji: '📝',
+    items: [
+      {
+        id: 'register-mandal',
+        q: 'How do we register our mandal?',
+        a: [
+          'Go to Join Parvsetu → “Register my mandal / organisation”. Enter the organisation, contact person, the festivals you want to run (with dates and venue) and tick the declaration. We email a 6-digit code to verify your address.',
+          'A Parvsetu field agent can also register you. You then get an email with a link to set your password.',
+          'Already have a Parvsetu account (e.g. as a volunteer)? Log in first and register from the same page.',
+        ],
+      },
+      {
+        id: 'review',
+        q: 'What happens after we register?',
+        a: [
+          'The Parvsetu team reviews your mandal and festivals. They may approve it, ask for changes (with a note — you edit and resubmit from “Mandal registration”), or reject it with a reason.',
+          'On approval your mandal and festivals are created and you become the Mandal Admin. You can set up slots, prices, venue and volunteers straight away, but nothing is public until the festival’s fee is paid.',
+        ],
+      },
+      {
+        id: 'per-event-fee',
+        q: 'Why do we pay for every festival?',
+        a: [
+          'The registration fee is per festival: each one is reviewed separately and goes live on its own, so one payment can’t cover several festivals.',
+          'The amount depends on the festival type (some cost more than others) and is confirmed when the Parvsetu team approves the festival.',
+        ],
+      },
+      {
+        id: 'pay-fee',
+        q: 'How do we pay the registration fee?',
+        a: [
+          'After approval you get a secure payment link by email (the team can also send it on WhatsApp). It also appears on your “Mandal registration” page and in the festival dashboard.',
+          'Open it and pay — the festival goes live immediately. You can also pay the team by bank transfer or cash; they mark it paid with your reference.',
+          'Links expire after 14 days; ask for a new one if yours has expired.',
+        ],
+      },
+      {
+        id: 'not-listed',
+        q: 'Our event is not in the list. Can we still run it?',
+        a: [
+          'Yes. Choose “My event isn’t listed”, give it a name, pick the closest category and describe it. It is reviewed like any festival and is not published until approved.',
+          'Good ideas may be added to the list for every mandal.',
+        ],
+      },
+      {
+        id: 'later-events',
+        q: 'We are already approved. How do we add another festival?',
+        a: ['Create it under Festivals → New festival, set it up, then “Submit for review” in its dashboard (tick the declaration). It follows the same review → fee → live steps.'],
+      },
+      {
+        id: 'refund-fee',
+        q: 'Can the registration fee be refunded?',
+        a: ['Refunds are decided by the Parvsetu team. If no passes were issued yet the festival goes back to “fee due”; once passes exist the refund is recorded and the festival stays live.'],
+      },
+    ],
+  },
+  {
+    id: 'policy',
+    title: 'Content policy',
+    emoji: '⚖️',
+    items: [
+      {
+        id: 'what-not-allowed',
+        q: 'What kind of events are not allowed?',
+        a: [
+          'No events that violate Indian laws and regulations — e.g. serving or selling liquor/alcohol, gambling, or any other illegal activity — or activities for which the required permissions (police, municipal corporation, fire, sound/loudspeaker, etc.) have not been obtained.',
+          'You tick a declaration about this when registering and every time you submit a festival. See the full content policy page.',
+        ],
+      },
+      {
+        id: 'permissions',
+        q: 'Which permissions do we need?',
+        a: ['It depends on your city and event — usually police, municipal corporation, fire safety and sound/loudspeaker permission, sometimes traffic and electricity. Parvsetu doesn’t issue them; keep copies ready in case the team asks.'],
+      },
+      {
+        id: 'violation',
+        q: 'What happens if a festival breaks the policy?',
+        a: ['The Parvsetu team rejects it, or unpublishes it at any time with a reason. An unpublished festival can’t be booked, issue passes or scan at the gate.'],
+      },
+    ],
+  },
+  {
+    id: 'agents',
+    title: 'Field agents',
+    emoji: '🧭',
+    items: [
+      {
+        id: 'agent-who',
+        q: 'Who are Parvsetu field agents?',
+        a: ['Agents work with the Parvsetu team: they visit mandals, explain the platform and can register a mandal for you. An agent can’t approve anything — the Parvsetu team still reviews every mandal and festival.'],
+      },
+      {
+        id: 'referral-code',
+        q: 'An agent gave us a referral code. Where do we enter it?',
+        a: ['Use their referral link (it fills the code in for you), or type the code in “Agent referral code” on the registration form. It is optional and costs you nothing extra.'],
+      },
+      {
+        id: 'agent-earnings',
+        q: 'How do agents earn? (for agents)',
+        a: [
+          'You earn a fixed referral amount for each mandal you bring in — credited only when that mandal pays its first festival fee — plus, if set, a percentage of every festival fee it pays.',
+          'Your dashboard shows earned, paid and due amounts and every payout. Refunded fees reverse what they earned.',
+        ],
       },
     ],
   },

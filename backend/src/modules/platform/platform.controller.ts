@@ -8,7 +8,7 @@ import { PageQuery, paged, paging } from '../../common/http';
 import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
-const USER_KINDS = ['SUPER_ADMIN', 'MANDAL_MEMBER', 'VOLUNTEER', 'PARTNER', 'NO_ACCESS'] as const;
+const USER_KINDS = ['SUPER_ADMIN', 'MANDAL_MEMBER', 'VOLUNTEER', 'PARTNER', 'AGENT', 'NO_ACCESS'] as const;
 
 class UserListQuery extends PageQuery {
   @IsOptional() @IsString() @MaxLength(100) q?: string;
@@ -29,6 +29,7 @@ const userSelect = { id: true, name: true, mobile: true, email: true, status: tr
 const userListSelect = {
   ...userSelect,
   partner: { select: { id: true, name: true, status: true } },
+  agent: { select: { id: true, name: true, code: true, status: true } },
   memberships: {
     select: { status: true, organization: { select: { id: true, name: true, city: true } }, role: { select: { key: true, name: true } } },
     orderBy: { createdAt: 'asc' },
@@ -58,7 +59,8 @@ export class PlatformController {
       : q.kind === 'MANDAL_MEMBER' ? { memberships: { some: { status: 'ACTIVE' } } }
       : q.kind === 'VOLUNTEER' ? { assignments: { some: { status: 'ACTIVE' } }, memberships: { none: { status: 'ACTIVE' } } }
       : q.kind === 'PARTNER' ? { partnerId: { not: null } }
-      : q.kind === 'NO_ACCESS' ? { isSuperAdmin: false, partnerId: null, memberships: { none: { status: 'ACTIVE' } }, assignments: { none: { status: 'ACTIVE' } } }
+      : q.kind === 'AGENT' ? { agentId: { not: null } }
+      : q.kind === 'NO_ACCESS' ? { isSuperAdmin: false, partnerId: null, agentId: null, memberships: { none: { status: 'ACTIVE' } }, assignments: { none: { status: 'ACTIVE' } } }
       : {};
     const text = q.q
       ? { OR: [{ name: { contains: q.q, mode: 'insensitive' as const } }, { mobile: { contains: q.q } }, { email: { contains: q.q, mode: 'insensitive' as const } }] }

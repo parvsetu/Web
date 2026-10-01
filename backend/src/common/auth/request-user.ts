@@ -4,4 +4,6 @@ export interface RequestUser {
   isSuperAdmin: boolean;
   /** Set for promotional-partner accounts (they have no org memberships). */
   partnerId?: string | null;
+  /** Set for field-agent accounts (no org memberships either). */
+  agentId?: string | null;
 }

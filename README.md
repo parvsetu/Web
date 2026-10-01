@@ -46,12 +46,19 @@ environment instead, and the demo super admin (`9000000001`) is not created.
 | Treasurer | `treasurer@parvsetu.dev` | donations / expenses |
 | Other mandal admin | `navratri-admin@parvsetu.dev` | Navratri Seva Samiti only (isolation demo) |
 | Pending applicant | `applicant@parvsetu.dev` | nothing until approved |
+| Field agent | `agent@parvsetu.dev` / `9000000030` | Rakesh Kulkarni's agent dashboard (`/agent`), referral code `RAKESH30` (link `/register?ref=RAKESH30`); registers mandals, tracks their review/fees and his earnings |
+| Mandal applicant | `mandal-applicant@parvsetu.dev` / `9000000031` | Vikas Deshmukh — the pending self-registration **Shiv Shakti Mitra Mandal** (Nagpur, referred by RAKESH30) with Ganesh Utsav + a custom "Tanha Pola" event; status page at `/registration`. Approve it as the super admin under *Platform → Registrations* |
 | Promotional partner (brand) | `partner@parvsetu.dev` / `9000000020` | Tanishq Jewellers' partner portal (`/partner`): ₹5,000 wallet, an approved campaign on every Jan Utsav Samiti festival this month. A second brand, Amul, has a campaign at Shree Durga Mandal waiting in the super admin's *Promotional partners* queue |
 
 `admin@parvsetu.dev` is also the admin of **Jan Utsav Samiti** (Pune), which has an active paid landing page at
 [`/m/jan-utsav-samiti`](http://localhost:3000/m/jan-utsav-samiti) (paid until one year after the first seed) and
 peak-day pricing on its Diwali Mela (weekends +25%, a dated "Lakshmi Puja peak" +50% on the evening/night slots).
 The seed adds no images — upload a logo/banner in Mandal → Settings and photos in a festival's Photos tab.
+
+Registration control: every festival needs platform review and a per-event registration fee before it goes live
+(sample pricing: ₹499 default, Ganesh Utsav ₹999; agent referral ₹200 per mandal). Demo festivals that existed before
+are treated as already paid. The public explore page is the site home (`/`, alias `/book`); signed-in organisers land
+on `/dashboard`.
 
 ## Tests
 

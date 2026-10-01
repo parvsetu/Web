@@ -1,9 +1,7 @@
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsEmail, IsIn, IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from 'class-validator';
 import { SearchPageQuery } from '../../common/http';
-import { FESTIVAL_TYPES } from '../../common/festival-types';
-
-const FESTIVAL_KEYS = FESTIVAL_TYPES.map((f) => f.key);
+const FESTIVAL_KEY = /^[A-Z][A-Z0-9_]{1,40}$/;
 
 export class CreateOrganizationDto {
   @IsString() @Length(2, 150) name: string;
@@ -11,6 +9,10 @@ export class CreateOrganizationDto {
   @IsOptional() @IsString() @MaxLength(80) state?: string;
   @IsOptional() @IsString() @MaxLength(100) city?: string;
   @IsOptional() @IsString() @MaxLength(500) address?: string;
+  /** Festival types the mandal may run (presets or approved custom types). */
+  @IsOptional() @IsArray() @ArrayMaxSize(200) @Matches(FESTIVAL_KEY, { each: true }) festivalTypes?: string[];
+  /** Field agent who brought the mandal in (referral earnings). */
+  @IsOptional() @IsUUID() agentId?: string;
 }
 
 export class UpdateOrganizationDto {
@@ -18,7 +20,8 @@ export class UpdateOrganizationDto {
   @IsOptional() @IsString() @MaxLength(80) state?: string;
   @IsOptional() @IsString() @MaxLength(100) city?: string;
   @IsOptional() @IsString() @MaxLength(500) address?: string;
-  @IsOptional() @IsArray() @ArrayMaxSize(200) @IsIn(FESTIVAL_KEYS, { each: true }) festivalTypes?: string[];
+  /** Super admin only — a mandal can't change its own allowed festivals. */
+  @IsOptional() @IsArray() @ArrayMaxSize(200) @Matches(FESTIVAL_KEY, { each: true }) festivalTypes?: string[];
 }
 
 export class AddMemberDto {

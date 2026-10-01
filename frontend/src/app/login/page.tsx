@@ -19,7 +19,7 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login') ? next : '/';
+  const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login') ? next : '/dashboard';
 
   useEffect(() => {
     if (!loading && me) router.replace(homeFor(me, safeNext));
@@ -68,13 +68,17 @@ function LoginForm() {
         Log in
       </Button>
       <p className="text-center text-sm text-slate-600">
-        New volunteer?{' '}
-        <Link href="/register" className="font-semibold text-brand-700 underline">
-          Create an account
+        New here?{' '}
+        <Link href="/register?type=volunteer" className="font-semibold text-brand-700 underline">
+          Volunteer sign-up
+        </Link>
+        {' · '}
+        <Link href="/register?type=mandal" className="font-semibold text-brand-700 underline">
+          Register your mandal
         </Link>
       </p>
       <Link
-        href="/book"
+        href="/"
         className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 font-semibold text-orange-800 hover:bg-orange-100"
       >
         <Ticket aria-hidden className="h-5 w-5" /> Visiting a pandal? Book festival passes

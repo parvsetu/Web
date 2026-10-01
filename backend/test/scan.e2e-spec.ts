@@ -20,7 +20,7 @@ describe('Token scanning (e2e)', () => {
     otherEvent = await ctx.prisma.event.create({
       data: {
         organizationId: event.organizationId, name: 'Other festival', festivalType: 'NAVRATRI',
-        startDate: new Date('2026-01-01'), endDate: new Date('2027-12-31'), status: 'ACTIVE', tokenPrefix: 'OTH',
+        startDate: new Date('2026-01-01'), endDate: new Date('2027-12-31'), status: 'ACTIVE', approvalStatus: 'LIVE', tokenPrefix: 'OTH',
       },
     });
     gate = await makeVolunteer(ctx.prisma, event.id, 'VOLUNTEER', 'Rahul');

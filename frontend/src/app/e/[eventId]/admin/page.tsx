@@ -23,6 +23,7 @@ import { PromoteTab } from '@/components/admin/PromoteTab';
 import { ExpensesTab } from '@/components/admin/ExpensesTab';
 import { EventSettingsTab } from '@/components/admin/EventSettingsTab';
 import { PhotosTab } from '@/components/admin/PhotosTab';
+import { EventApprovalCard } from '@/components/admin/EventApprovalCard';
 
 const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] }[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, anyOf: ['REPORT_VIEW'] },
@@ -95,6 +96,7 @@ function Admin() {
           }
         />
       </div>
+      <EventApprovalCard />
       <SideTabsLayout tabs={visible} active={tab} onChange={change}>
       {tab === 'overview' && <OverviewTab />}
       {tab === 'tokens' && <TokensTab />}

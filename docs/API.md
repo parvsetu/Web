@@ -676,3 +676,113 @@ Weekends = Saturday and Sunday of the calendar date.
 - `POST /public/booking/orders` charges the effective price: `unitPrice` is the effective per-person price, the GST
   slab is decided on it (₹90 base +20% = ₹108 → 18% with a ₹100 threshold), and commission/settlement follow the
   order amount. Orders return `priceRuleLabel`. Desk/bulk tokens carry no price, so rules don't apply there.
+
+## Registration control: mandal registrations, per-event review & fees, field agents
+
+Nothing is published until the super admin verifies the mandal **and** each event's registration fee is paid.
+`Event.approvalStatus` (separate from the operational `status`):
+`DRAFT → SUBMITTED → APPROVED_AWAITING_PAYMENT → LIVE`, plus `CHANGES_REQUESTED` (back to the mandal) and `REJECTED`
+(also used for a policy unpublish). Only `LIVE` events are listed/bookable (`/public/booking/*`, `/public/events*`,
+landing pages, public photos, partner directory), can issue passes (`409 EVENT_NOT_LIVE` on desk/bulk/donation passes),
+scan (`403 UNAUTHORIZED`, "not live yet"), or be set `ACTIVE/COMPLETED` (`409 EVENT_NOT_LIVE` — a not-live event may
+only be `DRAFT`/`CANCELLED`). Paying the fee makes the event `LIVE` and a `DRAFT` one `ACTIVE`.
+Events that existed before this feature are `LIVE` with `approval.legacy = true` (fee 0).
+
+Event payloads (`GET /events/:id`, org event lists) add `approvalStatus` and
+`approval: { status, legacy, feeQuoted, fee, feeSource (MANDAL|FESTIVAL_TYPE|GROUP|DEFAULT|ADMIN|LEGACY), submittedAt, reviewedAt, reviewNote, liveAt }`.
+
+**Content policy.** `GET /public/legal/content-policy` → `{ version, rule, declaration, notAllowed[], consequences[] }`.
+Every registration and every event submission needs `declarationAccepted: true` (else `400 DECLARATION_REQUIRED`); a
+`LegalDeclaration { version, context REGISTRATION|EVENT_SUBMISSION, acceptedById, onBehalf, ipAddress, userAgent, acceptedAt }`
+row is stored.
+
+**Fees.** Precedence: mandal override (`OrgBilling.eventFeePaise`) › festival type › catalog group › platform default
+(`PlatformSettings.defaultEventFeePaise`, ₹499). Quoted at submission, locked at approval (the super admin may edit it).
+- `GET /public/event-fee-quote?festivalType=` → `{ fee, source }` (no mandal override).
+- `PUT /platform/billing/settings` adds `defaultEventFee`, `agentReferralFee`, `agentCommissionPercent`;
+  `PATCH /platform/billing/mandals/:orgId` adds `eventFee | null`; `GET /organizations/:orgId/billing` adds `eventFee`.
+- `GET /platform/event-fee-rates` → `{ defaultFee, groups: [{ group, fee|null }], types: [{ key, label, group, custom, fee|null }] }`;
+  `PUT /platform/event-fee-rates` `{ scope: TYPE|GROUP, key, fee: "999" | null }` (null removes; audited).
+- `GET /platform/billing/summary` adds `eventFeesEarned`, `eventFeesPaid` (PAID only — waived/refunded excluded; part of
+  `totalEarned`), `agentEarningsDue`, `agentPayoutsMade`.
+
+### Festival catalog
+- `GET /public/festival-types` = code presets + custom types the super admin added to the catalog (`custom: true`, keys stay UPPER_SNAKE).
+- `PATCH /organizations/:orgId` `festivalTypes` is **super admin only** (a mandal sending a different list → `403 FESTIVAL_TYPES_LOCKED`;
+  re-sending the same list is ignored). Keys must be presets or approved custom types (`400 UNKNOWN_FESTIVAL_TYPE`).
+  `POST /organizations` (super admin) accepts `festivalTypes[]` and `agentId`.
+- Event create/update by a mandal: a type outside a non-empty allowed list → `400 FESTIVAL_NOT_ALLOWED` (changing an existing
+  event's type is checked too; untouched legacy events keep working). `POST /organizations/:orgId/events` accepts
+  `customFestival: { name, group (a catalog group), description? }` instead of `festivalType` ("my event isn't listed"):
+  a `CustomFestivalType` (PENDING) is created for this mandal and reviewed with the event. The festival type can't change while
+  `SUBMITTED` / `APPROVED_AWAITING_PAYMENT` (`409 EVENT_IN_REVIEW`).
+- `GET /platform/custom-festival-types`; `PATCH /platform/custom-festival-types/:key` `{ inCatalog?, label?, status? }`.
+
+### Mandal registration
+- `POST /public/mandal-registrations` (rate limited) `{ orgName, state?, city?, address?, contactName, mobile, email, password,
+  referralCode?, declarationAccepted, events: [{ festivalType | custom: { name, group, description? }, name, startDate, endDate,
+  location?, venueAddress? }] (1–10) }` → `201 { verificationRequired, email, maskedEmail, registrationId }`. Creates the
+  applicant user (locked until the emailed code) and a `PENDING_VERIFICATION` registration; `POST /auth/verify-email` moves it to
+  `PENDING_REVIEW`. `409 MOBILE_TAKEN | EMAIL_TAKEN`; `400 INVALID_REFERRAL_CODE` (unknown or suspended agent).
+- `GET /public/referral/:code` → `{ valid, code, agentName }` (first name only).
+- `POST /me/mandal-registrations` — a logged-in user (verified email, not partner/agent) applies; same body minus contact/password.
+- `GET /me/mandal-registrations` → `MandalRegistration[] = { id, status, source SELF|AGENT, orgName, …, agent, organization,
+  reviewNote, requestedEvents: [{ index, festivalType, custom, name, dates, quotedFee, feeSource }], events: [{ id, name,
+  approvalStatus, fee, payment: FeePayment | null }] }`.
+- `PATCH /me/mandal-registrations/:id` — only while `CHANGES_REQUESTED`; resubmits (`PENDING_REVIEW`), declaration again.
+- `POST /auth/set-password` `{ token, password }` — single-use link (72 h) mailed to the contact of an agent-filed registration;
+  sets the password, verifies the email, returns `{ accessToken, user }`. `400 INVALID_LINK`.
+- `GET /auth/me` adds `agent: { id, name, code, status } | null` and `mandalRegistrations: [{ id, status, orgName, organizationId, reviewNote, createdAt }]`.
+
+Super admin:
+- `GET /platform/mandal-registrations?status&q&page` (oldest first for `PENDING_REVIEW`), `GET /platform/mandal-registrations/:id` (+ `declarations`).
+- `POST /platform/mandal-registrations/:id/approve` `{ slug?, extraFestivalTypes?, events?: [{ index, fee?, addToCatalog? }] }` —
+  one transaction: Organization (agent attribution from the registration) + billing account, applicant → MANDAL_ADMIN,
+  `festivalTypes` = the requested types (+ extras), custom types approved (optionally into the catalog), each event created as
+  `APPROVED_AWAITING_PAYMENT` with its fee locked and a pay link (fee 0 → `LIVE`). Emails the contact the pay links.
+- `POST …/request-changes` `{ note }`, `POST …/reject` `{ reason }` (both emailed, audited).
+
+### Per-event review (approved mandals)
+- `GET /events/:eventId/approval` — EVENT_VIEW@event → `approval + { quote: { fee, source }, customFestival, payments: FeePayment[], canSubmit }`.
+- `POST /events/:eventId/submit` — EVENT_UPDATE@event `{ declarationAccepted }` → from `DRAFT|CHANGES_REQUESTED` to `SUBMITTED`
+  with the fee quoted (`409 EVENT_ALREADY_SUBMITTED` otherwise).
+- Super admin: `GET /platform/event-reviews?status (default SUBMITTED)&q&organizationId`, `GET /platform/events/:eventId/review`,
+  `POST /platform/events/:eventId/approve` `{ fee?, addToCatalog? }`, `…/request-changes` `{ note }`, `…/reject` `{ reason }`,
+  `…/unpublish` `{ reason }` (LIVE → REJECTED, ACTIVE → DRAFT; audited `event.unpublished_policy_violation`).
+
+### Event fee payment
+`FeePayment = { id, amount, status PENDING|PAID|WAIVED|CANCELLED|EXPIRED|REFUNDED, method ONLINE|CASH|BANK_TRANSFER|WAIVER,
+paymentReference, note, expiresAt, paidAt, refundedAt, refundReason, payUrl }` — `payUrl` (`<web>/pay/event-fee/<opaque token>`)
+is set only while the link can be paid (14 days; one open link and at most one PAID/WAIVED row per event, DB-enforced).
+- Public: `GET /public/event-fee/:token` → `{ amount, status, expiresAt, paidAt, event: { name, festivalType, dates, location, city, live },
+  organization, demoPayments }`; `POST /public/event-fee/:token/demo-pay` `{ outcome }` (idempotent: a paid link answers PAID again;
+  `409 FEE_LINK_EXPIRED | FEE_LINK_CLOSED`; `403 PAYMENTS_UNAVAILABLE` without `BOOKING_DEMO_PAYMENTS`).
+- Super admin: `POST /platform/events/:eventId/fee/link` (new link, old one cancelled), `…/fee/email` → `{ sentTo: [masked] }`,
+  `…/fee/mark-paid` `{ method: CASH|BANK_TRANSFER, reference, note? }`, `…/fee/waive` `{ reason }`,
+  `…/fee/refund` `{ reason }` → `{ unpublished, passesIssued, payments }`: with no passes issued the event returns to
+  `APPROVED_AWAITING_PAYMENT` (DRAFT, new link); otherwise the refund is only recorded. All audited (`event_fee.*`).
+
+### Field agents
+Agent accounts are users with `agentId` (no memberships → 404 on every org/event route, 403 on `/platform/*` and `/partner/*`).
+`/agent/*` routes need an agent account (`403 NOT_AN_AGENT`); writes need `ACTIVE` (`403 AGENT_SUSPENDED`).
+- `GET /agent/me` → `{ agent: { id, name, phone, email, code, status, referralLink }, rates: { referralFee, commissionPercent, … },
+  stats: { registered, pending, approved, rejected, mandals, liveMandals, liveEvents }, earnings: { earned, reversed, paid, due } }`.
+- `GET /agent/mandals?status&q&page` → `Paged<MandalRegistration> & { attributed: [...] }` (registrations filed by / referred to the agent,
+  with event + fee status; plus mandals the super admin credited to it).
+- `POST /agent/mandal-registrations` `{ orgName, …, contactName, mobile, email, events, declarationAccepted }` → `PENDING_REVIEW`
+  (source AGENT, declaration `onBehalf`); the contact is emailed a set-password link.
+- `GET /agent/ledger?page`, `GET /agent/payouts?page`.
+
+Earnings (`AgentLedgerEntry`, types EARNED / PAID / REVERSED): a **REGISTRATION** referral (agent override, else
+`agentReferralFee`, ₹200) is earned when the mandal pays a fee and has no live referral yet — i.e. its first paid fee
+(waivers don't count); a **COMMISSION** (`commissionPercent`, default 0%) on every paid fee. Idempotent: mandal row lock + partial
+unique indexes (one live referral per mandal, one commission per payment). A refund reverses what that payment earned.
+Suspended agents don't earn.
+
+Super admin:
+- `GET /platform/agents?status&q&page` (with stats + earnings), `POST /platform/agents` `{ name, phone, email, code?, referralFee?,
+  commissionPercent? }` → `{ agent, temporaryPassword }` (also emailed), `GET /platform/agents/:id` (+ mandals),
+  `PATCH /platform/agents/:id` `{ name?, status?, referralFee? | null, commissionPercent? | null, reason? }`,
+  `GET /platform/agents/:id/ledger|payouts`, `POST /platform/agents/:id/payouts` `{ amount, paidOn, reference, note? }`
+  (`400 PAYOUT_EXCEEDS_DUE`; serialized on the agent row), `POST /platform/organizations/:orgId/agent` `{ agentId | null, reason }`
+  (audited attribution). `GET /organizations` (super admin) rows add `agent` and `registration.source`; `GET /users?kind=AGENT`.

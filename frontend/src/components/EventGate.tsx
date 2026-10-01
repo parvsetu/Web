@@ -14,7 +14,7 @@ export function EventGate({ anyOf, children }: { anyOf?: Permission[]; children:
   if (ev.notFound)
     return (
       <Alert>
-        This festival was not found, or you do not have access to it. <Link href="/" className="underline">Go back</Link>
+        This festival was not found, or you do not have access to it. <Link href="/dashboard" className="underline">Go back</Link>
       </Alert>
     );
   if (anyOf && !canAny(ev.perms, anyOf))

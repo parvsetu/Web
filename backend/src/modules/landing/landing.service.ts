@@ -211,7 +211,7 @@ export class LandingService {
     const lp = presentContent(org.landingPage);
     const today = todayIn('Asia/Kolkata');
     const events = await this.prisma.event.findMany({
-      where: { organizationId: org.id, status: { in: [...PUBLIC_EVENT_STATUSES] } },
+      where: { organizationId: org.id, status: { in: [...PUBLIC_EVENT_STATUSES] }, approvalStatus: 'LIVE' },
       orderBy: { startDate: 'asc' },
       select: {
         id: true, name: true, festivalType: true, description: true, location: true, city: true, startDate: true, endDate: true, status: true,
@@ -233,7 +233,7 @@ export class LandingService {
       pastByYear.set(y, [...(pastByYear.get(y) ?? []), card(e)]);
     }
 
-    const photoWhere: Prisma.EventPhotoWhereInput = { organizationId: org.id, isPublic: true, event: { status: { in: [...PUBLIC_EVENT_STATUSES] } } };
+    const photoWhere: Prisma.EventPhotoWhereInput = { organizationId: org.id, isPublic: true, event: { status: { in: [...PUBLIC_EVENT_STATUSES] }, approvalStatus: 'LIVE' } };
     let photos;
     if (lp.photoIds.length) {
       const rows = await this.prisma.eventPhoto.findMany({ where: { ...photoWhere, id: { in: lp.photoIds } } });

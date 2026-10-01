@@ -13,12 +13,12 @@ import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, 
 
 interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerRate: string; feePerPass: string; gatewayFeePercent: string; defaultPassPrintFormat: string; landingPageYearlyPrice: string }
 interface Summary {
-  commissionEarned: string; partnerFeesEarned: string; promotionalPartnerEarned: string; partnerWalletsOutstanding: string; splitCommissionEarned: string; onlineGross: string; totalEarned: string; landingPageEarned: string; landingPagesSold: number; tokensGenerated: number; personsAdmitted: number;
+  commissionEarned: string; partnerFeesEarned: string; promotionalPartnerEarned: string; eventFeesEarned: string; eventFeesPaid: number; agentEarningsDue: string; agentPayoutsMade: string; partnerWalletsOutstanding: string; splitCommissionEarned: string; onlineGross: string; totalEarned: string; landingPageEarned: string; landingPagesSold: number; tokensGenerated: number; personsAdmitted: number;
   creditOutstanding: string; totalRecharged: string; paidRecharges: number;
   mandals: { total: number; low: number; exhausted: number };
   bySource: { source: string | null; commission: string; tokens: number }[];
 }
-interface MandalRow { id: string; name: string; city: string | null; state: string | null; billing: CreditStatus & { passPrintFormat: string; overrides: Record<string, boolean>; landingPage: { price: string; paidUntil: string | null; active: boolean } } }
+interface MandalRow { id: string; name: string; city: string | null; state: string | null; billing: CreditStatus & { passPrintFormat: string; overrides: Record<string, boolean>; eventFee: string | null; landingPage: { price: string; paidUntil: string | null; active: boolean } } }
 interface TxRow { id: string; createdAt: string; type: string; source: string | null; organization: { name: string }; event: { name: string } | null; amount: string; balanceAfter: string; tokenCount: number; personCount: number; reference: string | null; note: string | null }
 
 const PRINT_SETTINGS = [
@@ -48,10 +48,10 @@ export function BillingAdmin() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">Your platform earnings</p>
             <p className="text-4xl font-black">{fmtMoney(s.totalEarned)}</p>
             <p className="text-sm text-white/90">
-              Pass credit commission {fmtMoney(s.commissionEarned)} · Online split commission {fmtMoney(s.splitCommissionEarned)} · Promotional partners {fmtMoney(s.promotionalPartnerEarned)} · Landing pages {fmtMoney(s.landingPageEarned)}{s.landingPagesSold ? ` (${s.landingPagesSold} sold)` : ''}
+              Event registration fees {fmtMoney(s.eventFeesEarned)}{s.eventFeesPaid ? ` (${s.eventFeesPaid} paid)` : ''} · Pass credit commission {fmtMoney(s.commissionEarned)} · Online split commission {fmtMoney(s.splitCommissionEarned)} · Promotional partners {fmtMoney(s.promotionalPartnerEarned)} · Landing pages {fmtMoney(s.landingPageEarned)}{s.landingPagesSold ? ` (${s.landingPagesSold} sold)` : ''}
               {Number(s.partnerFeesEarned) > 0 ? ` · Legacy sponsor print fees ${fmtMoney(s.partnerFeesEarned)}` : ''}
             </p>
-            <p className="mt-1 text-xs text-white/75">Online payments collected: {fmtMoney(s.onlineGross)} · Partner wallets held: {fmtMoney(s.partnerWalletsOutstanding)}</p>
+            <p className="mt-1 text-xs text-white/75">Online payments collected: {fmtMoney(s.onlineGross)} · Partner wallets held: {fmtMoney(s.partnerWalletsOutstanding)} · Owed to field agents: {fmtMoney(s.agentEarningsDue)} (paid {fmtMoney(s.agentPayoutsMade)})</p>
           </section>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Passes generated" value={s.tokensGenerated.toLocaleString('en-IN')} tone="blue" icon={Ticket} />
@@ -211,6 +211,7 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
   const [print, setPrint] = useState(b.overrides.partnerRate ? b.partnerRatePerPass : '');
   const [format, setFormat] = useState(b.overrides.passPrintFormat ? b.passPrintFormat : '');
   const [landingPrice, setLandingPrice] = useState(b.overrides.landingPagePrice ? b.landingPage.price : '');
+  const [eventFee, setEventFee] = useState(b.eventFee ?? '');
   const [grantYears, setGrantYears] = useState('1');
   const [grantReason, setGrantReason] = useState('');
   const [amount, setAmount] = useState('');
@@ -247,6 +248,7 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
           <LabeledInput label="Low warning (₹)" value={low} onChange={(e) => setLow(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
           <LabeledInput label="Partner rate per pass (₹)" value={print} onChange={(e) => setPrint(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
           <LabeledInput label="Landing page fee / year (₹)" value={landingPrice} onChange={(e) => setLandingPrice(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
+          <LabeledInput label="Event registration fee (₹)" value={eventFee} onChange={(e) => setEventFee(e.target.value.replace(/[^\d.]/g, ''))} placeholder="by festival type" hint="Beats festival-type & default fees" />
           <div className="col-span-2">
             <LabeledSelect label="Pass print format" value={format} onChange={(e) => setFormat(e.target.value)} hint={`Currently: ${b.passPrintFormat}`}>
               <option value="">Platform default</option>
@@ -254,7 +256,7 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
             </LabeledSelect>
           </div>
         </div>
-        <Button variant="secondary" loading={busy} onClick={() => void run(() => api.patch(`/platform/billing/mandals/${m.id}`, { tokenPrice: v(price), commissionPercent: v(pct), lowCreditThreshold: v(low), partnerRate: v(print), passPrintFormat: format || null, landingPagePrice: v(landingPrice) }))}>
+        <Button variant="secondary" loading={busy} onClick={() => void run(() => api.patch(`/platform/billing/mandals/${m.id}`, { tokenPrice: v(price), commissionPercent: v(pct), lowCreditThreshold: v(low), partnerRate: v(print), passPrintFormat: format || null, landingPagePrice: v(landingPrice), eventFee: v(eventFee) }))}>
           <Save aria-hidden className="h-4 w-4" /> Save pricing
         </Button>
         <SectionTitle icon={Globe}>Landing page</SectionTitle>

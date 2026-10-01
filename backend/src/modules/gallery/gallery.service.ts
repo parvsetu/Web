@@ -241,7 +241,7 @@ export class GalleryService {
 
   async publicImage(photoId: string, size: 'thumb' | 'full' = 'full') {
     const p = await this.prisma.eventPhoto.findFirst({
-      where: { id: photoId, isPublic: true, event: { status: { in: [...PUBLIC_EVENT_STATUSES] } } },
+      where: { id: photoId, isPublic: true, event: { status: { in: [...PUBLIC_EVENT_STATUSES] }, approvalStatus: 'LIVE' } },
     }).catch(() => null);
     if (!p) throw new NotFoundException('Photo not found');
     return this.bytes(p, size);
@@ -249,7 +249,7 @@ export class GalleryService {
 
   async publicForEvent(eventId: string, q: PhotoListQuery) {
     const { page, pageSize, skip, take } = paging(q, 24);
-    const where: Prisma.EventPhotoWhereInput = { eventId, isPublic: true, event: { status: { in: [...PUBLIC_EVENT_STATUSES] } } };
+    const where: Prisma.EventPhotoWhereInput = { eventId, isPublic: true, event: { status: { in: [...PUBLIC_EVENT_STATUSES] }, approvalStatus: 'LIVE' } };
     const [rows, total] = await Promise.all([
       this.prisma.eventPhoto.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip, take }),
       this.prisma.eventPhoto.count({ where }),

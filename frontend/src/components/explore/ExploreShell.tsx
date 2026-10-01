@@ -1,14 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, HelpCircle, LogIn, MapPin, Search, Ticket, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, HelpCircle, LayoutDashboard, LogIn, MapPin, Search, Ticket, X } from 'lucide-react';
 import { LogoMark } from '../FestivalArt';
 import { Modal } from '../ui';
 import { CATEGORIES } from '@/lib/explore';
 import { CityPicker } from './CityPicker';
 import { cx } from '@/lib/cx';
+import { getToken } from '@/lib/api';
+import { DASHBOARD, homeFor, useAuth } from '@/lib/auth';
 
 /**
  * Header for the public explore experience: brand, search, city picker and the
@@ -39,12 +41,17 @@ export function ExploreShell({
 }) {
   const [picker, setPicker] = useState(false);
   const [mobileSearch, setMobileSearch] = useState(false);
+  const { me } = useAuth();
+  // Read the session only after mount, so the server HTML and first client render match.
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => setSignedIn(!!getToken()), [me]);
+  const dashboard = me ? homeFor(me) : DASHBOARD;
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-[#f7f5f2]">
       <header className="no-print sticky top-0 z-30 bg-white pt-safe shadow-sm">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
-          <Link href="/book" className="flex shrink-0 items-center gap-2" aria-label="Parvsetu home">
+          <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Parvsetu home">
             <LogoMark className="h-9 w-9" />
             <span className="hidden text-xl font-extrabold tracking-tight text-slate-900 sm:inline">Parvsetu</span>
           </Link>
@@ -76,9 +83,15 @@ export function ExploreShell({
             <Link href="/book/my-passes" className="hidden min-h-[44px] items-center gap-1.5 rounded-xl px-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 sm:inline-flex">
               <Ticket aria-hidden className="h-4 w-4" /> My passes
             </Link>
-            <Link href="/login" className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-rose-500 px-3 text-sm font-semibold text-white shadow-sm hover:bg-rose-600">
-              <LogIn aria-hidden className="h-4 w-4" /> <span className="hidden sm:inline">Organiser login</span><span className="sm:hidden">Login</span>
-            </Link>
+            {signedIn ? (
+              <Link href={dashboard} className="inline-flex min-h-[40px] items-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
+                <LayoutDashboard aria-hidden className="h-4 w-4" /> <span className="hidden sm:inline">My dashboard</span><span className="sm:hidden">Dashboard</span>
+              </Link>
+            ) : (
+              <Link href="/login" className="inline-flex min-h-[40px] items-center gap-1.5 whitespace-nowrap rounded-lg bg-rose-500 px-3 text-sm font-semibold text-white shadow-sm hover:bg-rose-600">
+                <LogIn aria-hidden className="h-4 w-4" /> <span className="hidden sm:inline">Organiser login</span><span className="sm:hidden">Login</span>
+              </Link>
+            )}
           </div>
         </div>
         {mobileSearch && (
@@ -134,15 +147,17 @@ export function ExploreShell({
           </div>
           <div className="flex flex-col gap-2 text-sm">
             <span className="font-semibold uppercase tracking-wide text-slate-500">Visitors</span>
-            <Link href="/book" className="hover:text-white">Explore events</Link>
+            <Link href="/" className="hover:text-white">Explore events</Link>
             <Link href="/book/my-passes" className="hover:text-white">My passes</Link>
             <Link href="/faq#visitors" className="hover:text-white">Help</Link>
           </div>
           <div className="flex flex-col gap-2 text-sm">
             <span className="font-semibold uppercase tracking-wide text-slate-500">Organisers</span>
             <Link href="/login" className="hover:text-white">Mandal login</Link>
+            <Link href="/register?type=mandal" className="hover:text-white">Register your mandal</Link>
+            <Link href="/legal/content-policy" className="hover:text-white">Content policy</Link>
             <Link href="/faq" className="inline-flex items-center gap-1 hover:text-white"><HelpCircle aria-hidden className="h-4 w-4" /> Help &amp; FAQ</Link>
-            <a href="mailto:parvsetu@gmail.com" className="hover:text-white">List your event — parvsetu@gmail.com</a>
+            <a href="mailto:parvsetu@gmail.com" className="break-words hover:text-white">List your event — parvsetu@gmail.com</a>
           </div>
         </div>
         <p className="border-t border-slate-800 py-4 text-center text-xs text-slate-500">© {new Date().getFullYear()} Parvsetu</p>

@@ -1,12 +1,21 @@
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { FESTIVAL_GROUPS } from '../../common/catalog/festival-catalog.service';
 import { VenueFields } from '../../common/venue';
 
 const STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'] as const;
 
+/** "My event isn't listed": proposed as a custom festival type, reviewed by the platform. */
+export class CustomFestivalDto {
+  @IsString() @Length(2, 80) name: string;
+  @IsIn(FESTIVAL_GROUPS, { message: 'group must be one of the catalog categories' }) group: string;
+  @IsOptional() @IsString() @MaxLength(1000) description?: string;
+}
+
 export class CreateEventDto extends VenueFields {
   @IsString() @Length(2, 150) name: string;
-  @IsString() @Matches(/^[A-Z][A-Z0-9_]{1,40}$/, { message: 'festivalType must be an UPPER_SNAKE key, e.g. DURGA_PUJA' }) festivalType: string;
+  @ValidateIf((o) => !o.customFestival) @IsString() @Matches(/^[A-Z][A-Z0-9_]{1,40}$/, { message: 'festivalType must be an UPPER_SNAKE key, e.g. DURGA_PUJA' }) festivalType?: string;
+  @IsOptional() @ValidateNested() @Type(() => CustomFestivalDto) customFestival?: CustomFestivalDto;
   @IsOptional() @IsString() @MaxLength(2000) description?: string;
   @IsOptional() @IsString() @MaxLength(300) location?: string;
   @IsOptional() @IsString() @MaxLength(80) state?: string;

@@ -13,7 +13,7 @@ export function PublicShell({ children, wide, bottomPad }: { children: ReactNode
     <div className="flex min-h-[100dvh] flex-col">
       <header className="no-print sticky top-0 z-30 border-b border-orange-100/80 bg-[#fffaf3]/90 pt-safe backdrop-blur">
         <div className={cx('mx-auto flex h-14 items-center gap-2 px-4', wide ? 'max-w-5xl' : 'max-w-2xl')}>
-          <Link href="/book" className="flex min-h-[44px] items-center gap-2 rounded-xl pr-2 focus:outline-none focus-visible:ring-4 focus-visible:ring-orange-500/30">
+          <Link href="/" className="flex min-h-[44px] items-center gap-2 rounded-xl pr-2 focus:outline-none focus-visible:ring-4 focus-visible:ring-orange-500/30">
             <LogoMark className="h-8 w-8" />
             <span className="text-lg font-extrabold tracking-tight text-slate-900">Parvsetu</span>
           </Link>
@@ -48,7 +48,7 @@ export function PublicShell({ children, wide, bottomPad }: { children: ReactNode
             <span>· Festival passes</span>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 sm:ml-auto">
-            <Link href="/book" className="hover:text-orange-700">
+            <Link href="/" className="hover:text-orange-700">
               Browse festivals
             </Link>
             <Link href="/book/my-passes" className="hover:text-orange-700">
@@ -57,8 +57,14 @@ export function PublicShell({ children, wide, bottomPad }: { children: ReactNode
             <Link href="/login" className="hover:text-orange-700">
               For organisers
             </Link>
+            <Link href="/register?type=mandal" className="hover:text-orange-700">
+              Register your mandal
+            </Link>
             <Link href="/partner/signup" className="hover:text-orange-700">
               Become a promotional partner
+            </Link>
+            <Link href="/legal/content-policy" className="hover:text-orange-700">
+              Content policy
             </Link>
             <Link href="/faq" className="hover:text-orange-700">
               Help &amp; FAQ

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EventStatus } from '@prisma/client';
+import { EventApprovalStatus, EventStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ALL_PERMISSIONS, Permission } from '../permissions';
 import { RequestUser } from '../auth/request-user';
@@ -9,6 +9,7 @@ export interface EventRef {
   organizationId: string;
   name: string;
   status: EventStatus;
+  approvalStatus: EventApprovalStatus;
   timezone: string;
   startDate: Date;
   endDate: Date;
@@ -23,7 +24,7 @@ export interface AccessContext {
 }
 
 const EVENT_REF_SELECT = {
-  id: true, organizationId: true, name: true, status: true, timezone: true,
+  id: true, organizationId: true, name: true, status: true, approvalStatus: true, timezone: true,
   startDate: true, endDate: true, tokenPrefix: true, maxVisitorsPerToken: true,
 } as const;
 

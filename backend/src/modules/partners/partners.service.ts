@@ -223,7 +223,7 @@ export class PartnersService {
   async mandals(q: MandalBrowseQuery) {
     const { page, pageSize, skip, take } = paging(q, 12);
     const today = dateOnly(partnerToday());
-    const live: Prisma.EventWhereInput = { status: { in: ['ACTIVE', 'DRAFT'] }, endDate: { gte: today } };
+    const live: Prisma.EventWhereInput = { status: { in: ['ACTIVE', 'DRAFT'] }, approvalStatus: 'LIVE', endDate: { gte: today } };
     const term = searchTerm(q.q);
     const where: Prisma.OrganizationWhereInput = {
       events: { some: live },
@@ -273,7 +273,7 @@ export class PartnersService {
     if (!org) throw new NotFoundException('Mandal not found');
     if (dto.eventId) {
       const ev = await this.prisma.event.findFirst({
-        where: { id: dto.eventId, organizationId: org.id, status: { in: ['ACTIVE', 'DRAFT'] } },
+        where: { id: dto.eventId, organizationId: org.id, status: { in: ['ACTIVE', 'DRAFT'] }, approvalStatus: 'LIVE' },
         select: { startDate: true, endDate: true },
       });
       if (!ev) throw new NotFoundException('That festival is not open for partners.');

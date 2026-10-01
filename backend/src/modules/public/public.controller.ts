@@ -2,26 +2,29 @@ import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { SponsorsService } from '../sponsors/sponsors.service';
 import { Public } from '../../common/auth/decorators';
-import { EXPENSE_CATEGORIES, FESTIVAL_TYPES } from '../../common/festival-types';
+import { EXPENSE_CATEGORIES } from '../../common/festival-types';
 import { INDIA_STATES } from '../../common/india-locations';
 import { ymd } from '../../common/time/validity';
 import { presentVenue, VENUE_SELECT } from '../../common/venue';
 import { ORG_BRAND_SELECT, presentOrgBrand } from '../../common/org-brand';
 import { PrismaService } from '../../prisma/prisma.service';
+import { LIVE_WHERE } from '../../common/event-approval';
+import { FestivalCatalogService } from '../../common/catalog/festival-catalog.service';
+import { CONTENT_POLICY } from '../../common/legal';
 
 @Public()
 @Controller('public')
 export class PublicController {
-  constructor(private readonly prisma: PrismaService, private readonly sponsors: SponsorsService) {}
+  constructor(private readonly prisma: PrismaService, private readonly sponsors: SponsorsService, private readonly catalog: FestivalCatalogService) {}
 
   /**
    * Shareable festival page data (social previews, posters, promotion).
-   * Only ACTIVE / COMPLETED festivals are public; drafts stay private.
+   * Only LIVE (reviewed + paid) ACTIVE / COMPLETED festivals are public; drafts stay private.
    */
   @Get('events/:eventId')
   async event(@Param('eventId') eventId: string) {
     const e = await this.prisma.event.findFirst({
-      where: { id: eventId, status: { in: ['ACTIVE', 'COMPLETED'] } },
+      where: { id: eventId, status: { in: ['ACTIVE', 'COMPLETED'] }, ...LIVE_WHERE },
       select: {
         id: true, name: true, festivalType: true, description: true, ...VENUE_SELECT,
         startDate: true, endDate: true, timezone: true, status: true, publicBookingEnabled: true, volunteerRegistrationOpen: true,
@@ -47,16 +50,23 @@ export class PublicController {
   @Get('events')
   async events() {
     const events = await this.prisma.event.findMany({
-      where: { volunteerRegistrationOpen: true, status: { in: ['DRAFT', 'ACTIVE'] } },
+      where: { volunteerRegistrationOpen: true, status: { in: ['DRAFT', 'ACTIVE'] }, ...LIVE_WHERE },
       orderBy: { startDate: 'asc' },
       select: { id: true, name: true, festivalType: true, startDate: true, endDate: true, location: true, state: true, city: true, organization: { select: { id: true, name: true } } },
     });
     return events.map((e) => ({ ...e, startDate: ymd(e.startDate), endDate: ymd(e.endDate) }));
   }
 
+  /** Code presets + custom types the super admin added to the catalog. */
   @Get('festival-types')
   festivalTypes() {
-    return FESTIVAL_TYPES;
+    return this.catalog.list();
+  }
+
+  /** The content policy / declaration every registration and event submission must accept. */
+  @Get('legal/content-policy')
+  contentPolicy() {
+    return CONTENT_POLICY;
   }
 
   /** States & UTs of India with their main cities, for State → City dropdowns. */
