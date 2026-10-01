@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { FestivalArt, LogoMark, Mandala, Toran } from './FestivalArt';
 
@@ -13,8 +14,10 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
       <Mandala className="pointer-events-none absolute -left-24 top-32 h-56 w-56 text-white/10" />
 
       <div className="relative mt-10 flex flex-col items-center gap-2 text-white">
-        <LogoMark className="h-16 w-16 drop-shadow-lg" />
-        <span className="text-3xl font-extrabold tracking-tight drop-shadow-sm">Parvsetu</span>
+        <Link href="/book" aria-label="Parvsetu home — explore events" className="flex flex-col items-center gap-2 rounded-2xl p-1 transition hover:scale-[1.03] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/60">
+          <LogoMark className="h-16 w-16 drop-shadow-lg" />
+          <span className="text-3xl font-extrabold tracking-tight drop-shadow-sm">Parvsetu</span>
+        </Link>
         <span className="text-sm font-medium text-white/90">Festival &amp; mandal management</span>
         <div className="mt-3 flex items-center gap-2">
           {SHOWCASE.map((t) => (
