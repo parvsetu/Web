@@ -14,6 +14,7 @@ import { effectiveStatus } from '../tokens/token-presenter';
 import { PaymentProvider } from '../donations/payment-provider';
 import { PASS_GATEWAYS, demoPaymentsEnabled } from './pass-gateways';
 import { SponsorsService } from '../sponsors/sponsors.service';
+import { BillingService } from '../billing/billing.service';
 import { CreatePassOrderDto, PassOrderListQuery } from './passes.dto';
 
 /** How long an unpaid order holds its places. */
@@ -25,7 +26,7 @@ const orderInclude = {
   event: { select: { id: true, name: true, festivalType: true, timezone: true, location: true, organizationId: true, organization: { select: { name: true } } } },
   timeSlot: { select: { label: true } },
   tokens: {
-    select: { tokenCode: true, secureToken: true, status: true, validFrom: true, validUntil: true, usedAt: true, visitorCount: true },
+    select: { tokenCode: true, secureToken: true, status: true, validFrom: true, validUntil: true, usedAt: true, visitorCount: true, sponsorIds: true },
     orderBy: { tokenCode: 'asc' as const },
   },
 } as const;
@@ -48,6 +49,7 @@ export class PassesService {
     private readonly tokens: TokensService,
     private readonly qr: QrSigner,
     private readonly sponsors: SponsorsService,
+    private readonly billing: BillingService,
     @Inject(PASS_GATEWAYS) private readonly gateways: PaymentProvider[],
   ) {}
 
@@ -166,6 +168,13 @@ export class PassesService {
           expiresAt: new Date(Date.now() + ORDER_HOLD_MINUTES * 60_000),
         },
       });
+      // The mandal's commission is held now (refunded if payment fails/expires),
+      // so a paid visitor can never be left without a pass for lack of credit.
+      const perPerson = order.perPersonPasses && order.visitorCount > 1;
+      await this.billing.charge(tx, {
+        organizationId: event.organizationId, eventId: event.id, tokenCount: perPerson ? order.visitorCount : 1,
+        personCount: order.visitorCount, source: 'ONLINE', passOrderId: order.id, reference: `Online order ${order.id.slice(0, 8)}`,
+      });
       if (free) await this.markPaid(tx, order, null);
       return order.id;
     });
@@ -177,17 +186,23 @@ export class PassesService {
       await this.prisma.passOrder.update({ where: { id: orderId }, data: { providerOrderId: payment.providerOrderId } });
     }
     const order = await this.prisma.passOrder.findUniqueOrThrow({ where: { id: orderId }, include: orderInclude });
-    return { ...this.present(order), accessKey: order.accessKey };
+    return { ...(await this.presentWithSponsors(order)), accessKey: order.accessKey };
   }
 
   /** The buyer's view. Unknown id and wrong key are indistinguishable (404). */
   async getOrder(orderId: string, key: string) {
     let order = await this.load(orderId, key);
     if (order.status === 'PENDING' && order.expiresAt <= new Date()) {
-      await this.prisma.passOrder.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { status: 'EXPIRED' } });
+      await this.closeOrder(order.id, 'EXPIRED');
       order = await this.load(orderId, key);
     }
-    return this.present(order);
+    return this.presentWithSponsors(order);
+  }
+
+  /** Adds the partners printed on this order's passes (paid promotion). */
+  private async presentWithSponsors(o: OrderRow) {
+    const ids = [...new Set(o.tokens.flatMap((t) => t.sponsorIds))];
+    return { ...this.present(o), printedSponsors: await this.sponsors.byIds(ids) };
   }
 
   async demoPay(orderId: string, key: string, outcome: 'success' | 'fail') {
@@ -195,7 +210,7 @@ export class PassesService {
     const order = await this.load(orderId, key);
     if (order.paymentProvider !== 'demo') throw new BadRequestException('This order is not a demo payment.');
     if (outcome === 'fail') {
-      await this.prisma.passOrder.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { status: 'FAILED' } });
+      await this.closeOrder(order.id, 'FAILED');
     } else {
       await this.confirmPayment(order.id, `demo_pay_${randomBytes(6).toString('hex')}`);
     }
@@ -208,7 +223,7 @@ export class PassesService {
    * confirmations can never mint two tokens.
    */
   async confirmPayment(orderId: string, paymentReference: string) {
-    await this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM pass_orders WHERE id = ${orderId} FOR UPDATE`;
       const order = await tx.passOrder.findUniqueOrThrow({ where: { id: orderId } });
       if (order.status === 'PAID') return;
@@ -217,10 +232,39 @@ export class PassesService {
       }
       if (order.expiresAt <= new Date()) {
         await tx.passOrder.update({ where: { id: order.id }, data: { status: 'EXPIRED' } });
-        throw new ConflictException({ message: 'This booking expired before payment. Please book again.', code: 'ORDER_EXPIRED' });
+        await this.billing.refundOrder(tx, order.id, 'Order expired before payment');
+        return 'EXPIRED' as const;
       }
       await this.markPaid(tx, order, paymentReference);
     });
+    if (outcome === 'EXPIRED') {
+      throw new ConflictException({ message: 'This booking expired before payment. Please book again.', code: 'ORDER_EXPIRED' });
+    }
+  }
+
+  /** PENDING → FAILED/EXPIRED exactly once, returning the held commission. */
+  async closeOrder(orderId: string, status: 'FAILED' | 'EXPIRED') {
+    await this.prisma.$transaction(async (tx) => {
+      const moved = await tx.passOrder.updateMany({ where: { id: orderId, status: 'PENDING' }, data: { status } });
+      if (moved.count === 1) await this.billing.refundOrder(tx, orderId, status === 'FAILED' ? 'Payment failed' : 'Order expired before payment');
+    });
+  }
+
+  /** Expires abandoned checkouts so their places and held credit come back. */
+  async sweepExpired() {
+    const stale = await this.prisma.passOrder.findMany({ where: { status: 'PENDING', expiresAt: { lte: new Date() } }, select: { id: true }, take: 200 });
+    for (const o of stale) await this.closeOrder(o.id, 'EXPIRED');
+    return stale.length;
+  }
+
+  private sweeper?: NodeJS.Timeout;
+  onModuleInit() {
+    if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+      this.sweeper = setInterval(() => void this.sweepExpired().catch(() => undefined), 60_000);
+    }
+  }
+  onModuleDestroy() {
+    if (this.sweeper) clearInterval(this.sweeper);
   }
 
   private async markPaid(tx: Prisma.TransactionClient, order: PassOrder, paymentReference: string | null) {
@@ -229,12 +273,14 @@ export class PassesService {
     await this.tokens.checkSlotCapacity(tx, order.timeSlotId, order.validFrom, slot.capacity, order.visitorCount, order.id);
     const event = await tx.event.findUniqueOrThrow({ where: { id: order.eventId }, select: { id: true, tokenPrefix: true, startDate: true, organizationId: true } });
     const perPerson = order.perPersonPasses && order.visitorCount > 1;
+    // Partners paid for at order time (fee held with the commission).
+    const held = await tx.creditTransaction.findFirst({ where: { passOrderId: order.id, type: 'TOKEN_FEE' }, select: { sponsorIds: true } });
     const codes: string[] = [];
     for (let i = 0; i < (perPerson ? order.visitorCount : 1); i++) {
       const token = await this.tokens.mintToken(tx, event, {
         timeSlotId: order.timeSlotId, validFrom: order.validFrom, validUntil: order.validUntil,
         visitorCount: perPerson ? 1 : order.visitorCount, visitorName: order.buyerName, visitorMobile: order.buyerMobile,
-        passOrderId: order.id,
+        passOrderId: order.id, sponsorIds: held?.sponsorIds ?? [],
       });
       codes.push(token.tokenCode);
     }

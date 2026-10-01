@@ -270,6 +270,14 @@ async function upgradeDemo() {
       await prisma.timeSlot.updateMany({ where: { eventId: nav.id }, data: { price: '150' } });
     }
   }
+  // Demo mandals start with ₹1,000 prepaid token credit (once).
+  for (const o of [mandal, other].filter(Boolean)) {
+    const exists = await prisma.orgBilling.findUnique({ where: { organizationId: o!.id } });
+    if (!exists) {
+      await prisma.orgBilling.create({ data: { organizationId: o!.id, creditBalancePaise: 100000 } });
+      await prisma.creditTransaction.create({ data: { organizationId: o!.id, type: 'ADJUSTMENT', amountPaise: 100000, balanceAfterPaise: 100000, note: 'Demo credit' } });
+    }
+  }
   const treasurer = await prisma.user.findUnique({ where: { mobile: '9000000006' } });
   if (!(await prisma.expense.findFirst({ where: { organizationId: mandal.id, eventId: null } }))) {
     const y = DateTime.now().setZone('Asia/Kolkata').year;

@@ -22,10 +22,16 @@ export function parseLogo(dataUrl: string): { bytes: Buffer; type: string } {
   return { bytes, type };
 }
 
+export function publicSponsor(s: Sponsor) {
+  const { isActive: _a, sortOrder: _s, passesPrinted: _p, printFees: _f, ...pub } = presentSponsor(s);
+  return pub;
+}
+
 export function presentSponsor(s: Sponsor) {
   return {
     id: s.id, eventId: s.eventId, name: s.name, tier: s.tier, tagline: s.tagline, bannerText: s.bannerText,
-    websiteUrl: s.websiteUrl, isActive: s.isActive, sortOrder: s.sortOrder,
+    websiteUrl: s.websiteUrl, isActive: s.isActive, sortOrder: s.sortOrder, showOnPasses: s.showOnPasses,
+    passesPrinted: s.passesPrinted, printFees: (s.printFeesPaise / 100).toFixed(2),
     logoUrl: s.logo ? `/public/sponsors/${s.id}/logo?v=${s.updatedAt.getTime()}` : null,
   };
 }
@@ -49,10 +55,13 @@ export class SponsorsService {
     const rows = await this.prisma.sponsor.findMany({
       where: { organizationId: ev.organizationId, isActive: true, OR: [{ eventId: null }, { eventId }] },
     });
-    return this.sort(rows).map(({ ...s }) => {
-      const { isActive: _a, sortOrder: _s, ...pub } = presentSponsor(s);
-      return pub;
-    });
+    return this.sort(rows).map(publicSponsor);
+  }
+
+  /** Public view of specific sponsors (those printed on a pass). */
+  async byIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this.sort(await this.prisma.sponsor.findMany({ where: { id: { in: ids } } })).map(publicSponsor);
   }
 
   private async assertEventInOrg(orgId: string, eventId?: string | null) {
@@ -69,7 +78,7 @@ export class SponsorsService {
         data: {
           organizationId: orgId, eventId: dto.eventId ?? null, name: dto.name.trim(), tier: dto.tier ?? 'PARTNER',
           tagline: dto.tagline?.trim() || null, bannerText: dto.bannerText?.trim() || null, websiteUrl: dto.websiteUrl || null,
-          isActive: dto.isActive ?? true, sortOrder: dto.sortOrder ?? 0,
+          isActive: dto.isActive ?? true, sortOrder: dto.sortOrder ?? 0, showOnPasses: dto.showOnPasses ?? false,
           logo: logo?.bytes ?? null, logoType: logo?.type ?? null,
         },
       });
@@ -87,7 +96,7 @@ export class SponsorsService {
       name: dto.name?.trim(), tier: dto.tier, tagline: dto.tagline === undefined ? undefined : dto.tagline.trim() || null,
       bannerText: dto.bannerText === undefined ? undefined : dto.bannerText.trim() || null,
       websiteUrl: dto.websiteUrl === undefined ? undefined : dto.websiteUrl || null,
-      eventId: dto.eventId === undefined ? undefined : dto.eventId, isActive: dto.isActive, sortOrder: dto.sortOrder,
+      eventId: dto.eventId === undefined ? undefined : dto.eventId, isActive: dto.isActive, sortOrder: dto.sortOrder, showOnPasses: dto.showOnPasses,
       ...(logo ? { logo: logo.bytes, logoType: logo.type } : dto.removeLogo ? { logo: null, logoType: null } : {}),
     };
     return this.prisma.$transaction(async (tx) => {

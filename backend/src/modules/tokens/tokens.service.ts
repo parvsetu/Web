@@ -11,6 +11,7 @@ import { normalizeMobile } from '../../common/identity';
 import { paged, paging, userRef } from '../../common/http';
 import { dayRange, slotWindow, ymd } from '../../common/time/validity';
 import { presentToken, tokenSelect } from './token-presenter';
+import { BillingService } from '../billing/billing.service';
 import { BulkGenerateDto, ChangeValidityDto, IssueTokenDto, ReactivateTokenDto, TokenListQuery, ValidityDto } from './tokens.dto';
 
 const MAX_CUSTOM_WINDOW_MS = 31 * 24 * 3600 * 1000;
@@ -28,6 +29,7 @@ export class TokensService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly qr: QrSigner,
+    private readonly billing: BillingService,
   ) {}
 
   // ─── Validity ────────────────────────────────────────────────────────
@@ -147,7 +149,7 @@ export class TokensService {
   async mintToken(
     tx: Prisma.TransactionClient,
     event: { id: string; tokenPrefix: string; startDate: Date },
-    data: { timeSlotId: string; validFrom: Date; validUntil: Date; visitorCount: number; visitorName: string; visitorMobile: string; passOrderId?: string },
+    data: { timeSlotId: string; validFrom: Date; validUntil: Date; visitorCount: number; visitorName: string; visitorMobile: string; passOrderId?: string; sponsorIds?: string[] },
   ) {
     const seq = await this.reserveSeq(tx, event.id, 1);
     const visitor = await tx.visitor.create({ data: { eventId: event.id, name: data.visitorName, mobile: data.visitorMobile } });
@@ -155,7 +157,7 @@ export class TokensService {
       data: {
         eventId: event.id, tokenCode: this.code(event, seq), secureToken: this.qr.newSecureToken(), visitorId: visitor.id,
         timeSlotId: data.timeSlotId, visitorCount: data.visitorCount, validFrom: data.validFrom, validUntil: data.validUntil,
-        passOrderId: data.passOrderId ?? null,
+        passOrderId: data.passOrderId ?? null, sponsorIds: data.sponsorIds ?? [],
       },
     });
   }
@@ -202,6 +204,12 @@ export class TokensService {
       await this.checkCapacity(tx, v, visitorCount);
       const n = perPerson ? visitorCount : 1;
       const first = await this.reserveSeq(tx, event.id, n);
+      // Prepaid credit: same transaction — no credit, no pass.
+      const { sponsorIds } = await this.billing.charge(tx, {
+        organizationId: event.organizationId, eventId: event.id, tokenCount: n, personCount: visitorCount,
+        source: donationId ? 'DONATION' : 'DESK', actorId: actor.id,
+        reference: n === 1 ? this.code(event, first) : `${this.code(event, first)} … ${this.code(event, first + n - 1)}`,
+      });
       const visitor = dto.visitorName || mobile
         ? await tx.visitor.create({ data: { eventId: event.id, name: dto.visitorName?.trim() ?? null, mobile } })
         : null;
@@ -211,7 +219,7 @@ export class TokensService {
           data: {
             eventId: event.id, tokenCode: this.code(event, first + i), secureToken: this.qr.newSecureToken(),
             visitorId: visitor?.id ?? null, timeSlotId: v.timeSlotId, visitorCount: perPerson ? 1 : visitorCount,
-            validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id, donationId: donationId ?? null,
+            validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id, donationId: donationId ?? null, sponsorIds,
           },
         });
         out.push(token.id);
@@ -228,9 +236,13 @@ export class TokensService {
       const v = await this.resolveValidity(tx, event, dto, perms);
       await this.checkCapacity(tx, v, visitorCount * dto.count);
       const first = await this.reserveSeq(tx, event.id, dto.count);
+      const { sponsorIds } = await this.billing.charge(tx, {
+        organizationId: event.organizationId, eventId: event.id, tokenCount: dto.count, personCount: dto.count * visitorCount,
+        source: 'BULK', actorId: actor.id, reference: `${this.code(event, first)} … ${this.code(event, first + dto.count - 1)}`,
+      });
       const rows = Array.from({ length: dto.count }, (_, i) => ({
         id: randomUUID(), eventId: event.id, tokenCode: this.code(event, first + i), secureToken: this.qr.newSecureToken(),
-        timeSlotId: v.timeSlotId, visitorCount, validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id,
+        timeSlotId: v.timeSlotId, visitorCount, validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id, sponsorIds,
       }));
       await tx.token.createMany({ data: rows });
       await this.audit.log({

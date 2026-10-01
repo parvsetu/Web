@@ -13,6 +13,8 @@ export class CreateSponsorDto {
   @IsOptional() @IsUUID() eventId?: string | null;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsInt() @Min(0) @Max(1000) sortOrder?: number;
+  /** Paid promotion: print logo + tagline on every pass (fee per pass from credit). */
+  @IsOptional() @IsBoolean() showOnPasses?: boolean;
   /** data:image/png|jpeg|webp;base64,… (≤ 300 KB decoded). */
   @IsOptional() @IsString() @MaxLength(420_000) logoDataUrl?: string;
 }

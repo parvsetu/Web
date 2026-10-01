@@ -76,6 +76,14 @@ enum SponsorTier {
   PARTNER
 }
 
+enum CreditTxType {
+  RECHARGE
+  TOKEN_FEE
+  REFUND
+  ADJUSTMENT
+  WELCOME
+}
+
 enum ScanMethod {
   QR
   MANUAL
@@ -145,6 +153,9 @@ model Organization {
   auditLogs    AuditLog[]
   expenses     Expense[]
   sponsors     Sponsor[]
+  billing      OrgBilling?
+  creditTransactions CreditTransaction[]
+  creditRecharges    CreditRecharge[]
 
   @@map("organizations")
 }
@@ -373,6 +384,8 @@ model Token {
   passOrderId String?
   donationId  String?
   donation    Donation? @relation(fields: [donationId], references: [id], onDelete: SetNull)
+  /// Partners printed on this pass (snapshot of what was paid for).
+  sponsorIds  String[]  @default([])
   passOrder   PassOrder? @relation(fields: [passOrderId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, tokenCode])
@@ -570,6 +583,10 @@ model Sponsor {
   logoType       String?
   isActive       Boolean     @default(true)
   sortOrder      Int         @default(0)
+  /// Paid promotion: logo + tagline printed on every pass (fee per pass).
+  showOnPasses     Boolean   @default(false)
+  passesPrinted    Int       @default(0)
+  printFeesPaise   Int       @default(0)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -579,4 +596,94 @@ model Sponsor {
   @@index([organizationId, isActive])
   @@index([eventId])
   @@map("sponsors")
+}
+
+// ─── Platform billing: prepaid token credit ─────────────────────────────
+// Money is integer paise. Commission is basis points (100 = 1%).
+// fee per person admitted = round(tokenPrice × commissionBps / 10000).
+
+model PlatformSettings {
+  id                      String   @id @default("default")
+  defaultTokenPricePaise  Int      @default(10000)
+  defaultCommissionBps    Int      @default(100)
+  lowCreditThresholdPaise Int      @default(20000)
+  welcomeCreditPaise      Int      @default(10000)
+  /// Charged per pass, per partner printed on it (partner promotion).
+  sponsorPassFeePaise     Int      @default(50)
+  updatedAt               DateTime @updatedAt
+  updatedById             String?
+
+  @@map("platform_settings")
+}
+
+/// One per mandal. creditBalancePaise has a CHECK (>= 0) — the database
+/// itself refuses any debit that would overdraw.
+model OrgBilling {
+  organizationId          String   @id
+  creditBalancePaise      Int      @default(0)
+  tokenPricePaise         Int?
+  commissionBps           Int?
+  lowCreditThresholdPaise Int?
+  sponsorPassFeePaise     Int?
+  totalTokens             Int      @default(0)
+  totalSponsorFeesPaise   Int      @default(0)
+  totalPersons            Int      @default(0)
+  totalFeesPaise          Int      @default(0)
+  totalRechargedPaise     Int      @default(0)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("org_billing")
+}
+
+/// Append-only ledger: every change to a mandal's credit (+ recharge / − fee).
+model CreditTransaction {
+  id                String       @id @default(uuid())
+  organizationId    String
+  type              CreditTxType
+  amountPaise       Int
+  balanceAfterPaise Int
+  eventId           String?
+  source            String?
+  tokenCount        Int          @default(0)
+  personCount       Int          @default(0)
+  unitFeePaise      Int?
+  sponsorFeePaise   Int          @default(0)
+  sponsorIds        String[]     @default([])
+  tokenPricePaise   Int?
+  commissionBps     Int?
+  reference         String?
+  note              String?
+  passOrderId       String?
+  rechargeId        String?
+  createdById       String?
+  createdAt         DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([type, createdAt])
+  @@index([passOrderId])
+  @@map("credit_transactions")
+}
+
+model CreditRecharge {
+  id              String          @id @default(uuid())
+  organizationId  String
+  amountPaise     Int
+  status          PassOrderStatus @default(PENDING)
+  paymentProvider String
+  providerOrderId String?
+  paymentReference String?
+  createdById     String?
+  paidAt          DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime        @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("credit_recharges")
 }

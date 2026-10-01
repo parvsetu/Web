@@ -76,6 +76,8 @@ export async function makeOrgWithEvent(prisma: PrismaClient, opts: { prefix?: st
       timezone: 'Asia/Kolkata', status: opts.status ?? 'ACTIVE', tokenPrefix: opts.prefix ?? 'TST', maxVisitorsPerToken: 10,
     },
   });
+  // Plenty of prepaid token credit so unrelated tests never hit the limit.
+  await prisma.orgBilling.create({ data: { organizationId: org.id, creditBalancePaise: 1_000_000_000 } });
   const admin = await makeUser(prisma, { name: `Admin ${tag}` });
   await prisma.organizationMember.create({ data: { organizationId: org.id, userId: admin.id, roleId: await systemRoleId(prisma, 'MANDAL_ADMIN') } });
   return { org, event, admin };
