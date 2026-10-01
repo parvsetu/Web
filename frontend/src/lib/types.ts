@@ -354,6 +354,8 @@ export interface Donation {
 
 export interface DonationCreateResponse extends Donation {
   payment?: { provider: string; providerOrderId: string; checkoutUrl?: string; upiUri?: string };
+  /** Entry passes issued with this donation (if requested). */
+  passes?: { id: string; tokenCode: string; qrPayload: string; visitorCount: number; status: string; validFrom: string; validUntil: string }[];
 }
 
 export interface Receipt {

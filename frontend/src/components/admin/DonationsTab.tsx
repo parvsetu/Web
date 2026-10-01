@@ -1,15 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import { useEvent } from '@/lib/event-context';
 import { fmtDateTime, fmtMoney, humanize, isoToLocalInput, localInputToIso } from '@/lib/format';
 import { useAsync, useDebounced } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
-import type { Donation, DonationCreateResponse, Paged, PaymentProvider } from '@/lib/types';
-import { Alert, Badge, Button, Card, Empty, Field, LabeledInput, LabeledSelect, Modal, Pager, SkeletonList, Textarea } from '../ui';
-import { HandCoins, Save } from 'lucide-react';
+import type { Donation, DonationCreateResponse, Paged, PaymentProvider, TimeSlot } from '@/lib/types';
+import { QrImage } from '../QrImage';
+import { ValidityPicker, VisitorCountInput, buildValidity, initialValidity, type ValidityState } from '../TokenParts';
+import { Alert, Badge, Button, Card, Checkbox, Empty, Field, LabeledInput, LabeledSelect, Modal, Pager, SkeletonList, Textarea } from '../ui';
+import { HandCoins, Printer, Save } from 'lucide-react';
 
 // API.md doesn't enumerate these; the server validates.
 export const DONATION_METHODS = ['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'ONLINE', 'OTHER'];
@@ -143,6 +145,15 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
     setForm((x) => ({ ...x, [k]: e.target.value }));
   const provider = providers.data?.find((p) => p.key === form.provider);
   const online = !!provider?.online;
+  const canIssue = can(ev.perms, 'TOKEN_CREATE');
+  const slots = useAsync(() => api.get<TimeSlot[]>(`/events/${ev.eventId}/time-slots`), [ev.eventId], canIssue);
+  const [givePasses, setGivePasses] = useState(false);
+  const [passCount, setPassCount] = useState(1);
+  const [perPerson, setPerPerson] = useState(true);
+  const [validity, setValidity] = useState<ValidityState | null>(null);
+  useEffect(() => {
+    if (slots.data && !validity) setValidity(initialValidity(slots.data, ev.startDate, ev.endDate, ev.timezone));
+  }, [slots.data, validity, ev.startDate, ev.endDate, ev.timezone]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -160,6 +171,11 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
     if (form.paymentReference.trim()) body.paymentReference = form.paymentReference.trim();
     if (form.notes.trim()) body.notes = form.notes.trim();
     if (form.donatedAt && !online) body.donatedAt = localInputToIso(form.donatedAt);
+    if (givePasses && !online && validity) {
+      const v = buildValidity(validity);
+      if (typeof v === 'string') return setError(v);
+      body.passes = { ...v, visitorCount: passCount, ...(passCount > 1 ? { perPerson } : {}) };
+    }
     setBusy(true);
     try {
       const res = await api.post<DonationCreateResponse>(`/events/${ev.eventId}/donations`, body);
@@ -194,6 +210,22 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
                 </a>
               )}
               <p className="text-xs text-slate-500">Order ID: {created.payment.providerOrderId}</p>
+            </div>
+          )}
+          {created.passes && created.passes.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-semibold text-emerald-800">{created.passes.length} entry pass{created.passes.length > 1 ? 'es' : ''} issued to the donor:</p>
+              {created.passes.map((t, i) => (
+                <div key={t.id} className="flex flex-col items-center gap-1 rounded-2xl border border-orange-200 bg-white p-3">
+                  {created.passes!.length > 1 && <span className="text-xs font-bold text-orange-800">Pass {i + 1} of {created.passes!.length}</span>}
+                  <QrImage payload={t.qrPayload} size={220} alt={`QR for ${t.tokenCode}`} />
+                  <span className="font-mono font-bold">{t.tokenCode}</span>
+                  <span className="text-xs text-slate-500">Admits {t.visitorCount} · {fmtDateTime(t.validFrom, ev.timezone)} – {fmtDateTime(t.validUntil, ev.timezone)}</span>
+                </div>
+              ))}
+              <Button variant="secondary" onClick={() => window.print()}>
+                <Printer aria-hidden className="h-4 w-4" /> Print passes
+              </Button>
             </div>
           )}
           {created.paymentStatus === 'SUCCESS' && (
@@ -248,9 +280,36 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
         <Field label="Notes (optional)">
           <Textarea value={form.notes} onChange={set('notes')} />
         </Field>
+        {canIssue && !online && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-orange-200 bg-orange-50/50 p-3">
+            <Checkbox
+              label={<span className="font-semibold">Give entry passes to this donor</span>}
+              checked={givePasses}
+              onChange={setGivePasses}
+            />
+            {givePasses && validity && (
+              <>
+                <VisitorCountInput value={passCount} onChange={setPassCount} max={ev.detail?.maxVisitorsPerToken ?? 10} />
+                {passCount > 1 && (
+                  <Checkbox label={`Separate QR for each person (${passCount} QR codes)`} checked={perPerson} onChange={setPerPerson} />
+                )}
+                <ValidityPicker
+                  value={validity}
+                  onChange={setValidity}
+                  slots={slots.data ?? []}
+                  allowCustom={can(ev.perms, 'TOKEN_GENERATE')}
+                  durationOptions={ev.detail?.tokenDurationOptions ?? []}
+                  startDate={ev.startDate}
+                  endDate={ev.endDate}
+                  tz={ev.timezone}
+                />
+              </>
+            )}
+          </div>
+        )}
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>
-          Save donation
+          <HandCoins aria-hidden className="h-4 w-4" /> Save donation
         </Button>
       </form>
     </Modal>

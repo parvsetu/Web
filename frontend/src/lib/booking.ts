@@ -96,6 +96,7 @@ export const booking = {
   order: (orderId: string, k: string) => call<PassOrder>('GET', `/public/booking/orders/${encodeURIComponent(orderId)}`, { query: { k } }),
   demoPay: (orderId: string, k: string, outcome: 'success' | 'fail') =>
     call<PassOrder>('POST', `/public/booking/orders/${encodeURIComponent(orderId)}/demo-pay`, { body: { k, outcome } }),
+  sponsors: (eventId: string) => call<import('@/components/SponsorStrip').SponsorPublic[]>('GET', `/public/events/${encodeURIComponent(eventId)}/sponsors`),
 };
 
 export function bookingErrorMessage(e: unknown): string {

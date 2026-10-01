@@ -40,6 +40,7 @@ export interface BookingSlot {
 export interface BookableEventDetail extends BookableEvent {
   holdMinutes: number;
   slots: BookingSlot[];
+  sponsors?: import('@/components/SponsorStrip').SponsorPublic[];
 }
 
 export interface AvailabilitySlot {

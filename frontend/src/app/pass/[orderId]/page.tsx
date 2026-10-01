@@ -7,6 +7,7 @@ import { CircleX, Clock3, Hourglass, LinkIcon, RotateCcw, Ticket, TicketPlus, Wa
 import { PublicShell } from '@/components/booking/PublicShell';
 import { PassActions, PassCard } from '@/components/booking/PassCard';
 import { PassCarousel } from '@/components/booking/PassCarousel';
+import { SponsorStrip, type SponsorPublic } from '@/components/SponsorStrip';
 import { Alert, Button, Empty, Skeleton, Spinner } from '@/components/ui';
 import { fmtMoney } from '@/lib/format';
 import { BookingError, booking, bookingErrorMessage, demoPayHref, fmtPassTime, orderPasses, savePass } from '@/lib/booking';
@@ -119,6 +120,7 @@ function PassView() {
             <PassActions order={order} pass={passes[0]} />
           </>
         )}
+        <OrderSponsors eventId={order.event.id} />
         <div className="no-print flex flex-col gap-2 pt-2 text-center text-sm">
           <p className="text-slate-500">Saved under My passes on this phone. Bookmark this page to open it anywhere.</p>
           <div className="flex justify-center gap-4 font-semibold">
@@ -192,6 +194,14 @@ function PassView() {
       </Link>
     </div>
   );
+}
+
+function OrderSponsors({ eventId }: { eventId: string }) {
+  const [list, setList] = useState<SponsorPublic[] | null>(null);
+  useEffect(() => {
+    booking.sponsors(eventId).then(setList).catch(() => setList(null));
+  }, [eventId]);
+  return <SponsorStrip sponsors={list} title="Festival partners" />;
 }
 
 function FooterLinks() {

@@ -219,10 +219,10 @@ const ART: Record<string, Art> = {
   CHHATH_PUJA: Chhath,
 };
 
-export function FestivalArt({ type, className, title }: { type?: string | null; className?: string; title?: string }) {
+export function FestivalArt({ type, className, title, size }: { type?: string | null; className?: string; title?: string; size?: number }) {
   const Comp = (type && ART[type]) || Marigold;
   return (
-    <svg viewBox="0 0 64 64" className={className} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true} aria-label={title}>
+    <svg viewBox="0 0 64 64" width={size} height={size} className={className} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true} aria-label={title}>
       <Comp />
     </svg>
   );

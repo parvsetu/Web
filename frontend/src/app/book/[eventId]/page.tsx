@@ -6,6 +6,7 @@ import type { FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, CalendarX, Clock, CreditCard, MapPin, QrCode, RotateCcw, ShieldCheck, Ticket, Users } from 'lucide-react';
 import { FestivalBanner } from '@/components/FestivalBanner';
+import { SponsorStrip } from '@/components/SponsorStrip';
 import { PublicShell } from '@/components/booking/PublicShell';
 import { DateChips, PeopleStepper, SlotCard, Step, slotState } from '@/components/booking/BookingParts';
 import { placeLine } from '@/components/booking/EventCard';
@@ -249,6 +250,7 @@ export default function BookEventPage() {
           }
         />
         {event.description && <p className="px-1 text-slate-700">{event.description}</p>}
+        <SponsorStrip sponsors={event.sponsors} compact />
 
         {festivalOver ? (
           <Empty title="This festival has ended" icon={CalendarX}>
