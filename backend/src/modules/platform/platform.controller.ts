@@ -1,5 +1,6 @@
 import { Body, Controller, ForbiddenException, Get, Param, Patch, Query } from '@nestjs/common';
-import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { Prisma } from '@prisma/client';
 import { CurrentUser } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
 import { SuperAdminOnly } from '../../common/access/permission.guard';
@@ -7,8 +8,13 @@ import { PageQuery, paged, paging } from '../../common/http';
 import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
+const USER_KINDS = ['SUPER_ADMIN', 'MANDAL_MEMBER', 'VOLUNTEER', 'PARTNER', 'NO_ACCESS'] as const;
+
 class UserListQuery extends PageQuery {
   @IsOptional() @IsString() @MaxLength(100) q?: string;
+  /** Members of / volunteers at this mandal. */
+  @IsOptional() @IsUUID() organizationId?: string;
+  @IsOptional() @IsIn(USER_KINDS) kind?: (typeof USER_KINDS)[number];
 }
 
 class UpdateUserDto {
@@ -19,6 +25,23 @@ class UpdateUserDto {
 
 const userSelect = { id: true, name: true, mobile: true, email: true, status: true, isSuperAdmin: true, createdAt: true } as const;
 
+/** List view: who the user is to each mandal — org-level role and per-festival assignments. */
+const userListSelect = {
+  ...userSelect,
+  partner: { select: { id: true, name: true, status: true } },
+  memberships: {
+    select: { status: true, organization: { select: { id: true, name: true, city: true } }, role: { select: { key: true, name: true } } },
+    orderBy: { createdAt: 'asc' },
+  },
+  assignments: {
+    select: {
+      status: true, role: { select: { key: true, name: true } },
+      event: { select: { id: true, name: true, organization: { select: { id: true, name: true } } } },
+    },
+    orderBy: { createdAt: 'desc' },
+  },
+} as const;
+
 @SuperAdminOnly()
 @Controller('users')
 export class PlatformController {
@@ -27,11 +50,22 @@ export class PlatformController {
   @Get()
   async list(@Query() q: UserListQuery) {
     const { page, pageSize, skip, take } = paging(q);
-    const where = q.q
+    const inOrg = q.organizationId
+      ? { OR: [{ memberships: { some: { organizationId: q.organizationId } } }, { assignments: { some: { event: { organizationId: q.organizationId } } } }] }
+      : {};
+    const kind: Prisma.UserWhereInput =
+      q.kind === 'SUPER_ADMIN' ? { isSuperAdmin: true }
+      : q.kind === 'MANDAL_MEMBER' ? { memberships: { some: { status: 'ACTIVE' } } }
+      : q.kind === 'VOLUNTEER' ? { assignments: { some: { status: 'ACTIVE' } }, memberships: { none: { status: 'ACTIVE' } } }
+      : q.kind === 'PARTNER' ? { partnerId: { not: null } }
+      : q.kind === 'NO_ACCESS' ? { isSuperAdmin: false, partnerId: null, memberships: { none: { status: 'ACTIVE' } }, assignments: { none: { status: 'ACTIVE' } } }
+      : {};
+    const text = q.q
       ? { OR: [{ name: { contains: q.q, mode: 'insensitive' as const } }, { mobile: { contains: q.q } }, { email: { contains: q.q, mode: 'insensitive' as const } }] }
       : {};
+    const where: Prisma.UserWhereInput = { AND: [text, inOrg, kind] };
     const [items, total] = await Promise.all([
-      this.prisma.user.findMany({ where, select: userSelect, orderBy: { createdAt: 'desc' }, skip, take }),
+      this.prisma.user.findMany({ where, select: userListSelect, orderBy: { createdAt: 'desc' }, skip, take }),
       this.prisma.user.count({ where }),
     ]);
     return paged(items, total, page, pageSize);

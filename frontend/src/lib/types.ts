@@ -652,4 +652,7 @@ export interface PlatformUser {
   status: string;
   isSuperAdmin: boolean;
   createdAt: string;
+  partner?: { id: string; name: string; status: string } | null;
+  memberships?: { status: string; organization: { id: string; name: string; city: string | null }; role: { key: string; name: string } }[];
+  assignments?: { status: string; role: { key: string; name: string }; event: { id: string; name: string; organization: { id: string; name: string } } }[];
 }
