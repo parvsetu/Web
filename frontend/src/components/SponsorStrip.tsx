@@ -44,19 +44,43 @@ function Wrap({ s, children, className }: { s: SponsorPublic; children: React.Re
   );
 }
 
-/** Partners printed on a pass (paid promotion): compact logo + tagline row, print-friendly. */
-export function PassSponsors({ sponsors }: { sponsors: SponsorPublic[] | null | undefined }) {
-  if (!sponsors || sponsors.length === 0) return null;
+/** A platform promotional partner (brand) printed on a pass — paid by the brand, not the mandal. */
+export interface PartnerPublic {
+  id: string;
+  partnerId: string;
+  name: string;
+  message: string;
+  tagline: string | null;
+  websiteUrl: string | null;
+  logoUrl: string | null;
+}
+
+/**
+ * What is printed on a pass: the mandal's own sponsors and the platform's
+ * promotional partners, as a compact logo + line row. Print-friendly: plain
+ * text and logos only (thermal print hides decorative svgs).
+ */
+export function PassSponsors({ sponsors, partners }: { sponsors?: SponsorPublic[] | null; partners?: PartnerPublic[] | null }) {
+  const items = [
+    ...(sponsors ?? []).map((s) => ({ key: s.id, name: s.name, line: s.tagline ?? s.bannerText, logo: sponsorLogoSrc(s) })),
+    ...(partners ?? []).map((p) => ({ key: `p-${p.id}`, name: p.name, line: p.message || p.tagline, logo: p.logoUrl ? `${API_URL}${p.logoUrl}` : null })),
+  ];
+  if (items.length === 0) return null;
   return (
     <div className="w-full border-t border-dashed border-slate-300 pt-2">
       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">In association with</p>
       <div className="mt-1 flex flex-wrap items-center justify-center gap-3">
-        {sponsors.map((s) => (
-          <div key={s.id} className="flex max-w-[200px] items-center gap-2 text-left">
-            <Logo s={s} className="h-9 w-9 shrink-0 rounded-lg" />
+        {items.map((s) => (
+          <div key={s.key} className="flex max-w-[220px] items-center gap-2 text-left">
+            {s.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={s.logo} alt={`${s.name} logo`} className="h-9 w-9 shrink-0 rounded-lg object-contain" loading="lazy" />
+            ) : (
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/70 text-sm font-black text-orange-700">{s.name.slice(0, 2).toUpperCase()}</span>
+            )}
             <div className="min-w-0">
               <div className="truncate text-xs font-bold text-slate-800">{s.name}</div>
-              {(s.tagline || s.bannerText) && <div className="line-clamp-2 text-[10px] leading-tight text-slate-500">{s.tagline ?? s.bannerText}</div>}
+              {s.line && <div className="line-clamp-2 text-[10px] leading-tight text-slate-500">{s.line}</div>}
             </div>
           </div>
         ))}

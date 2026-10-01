@@ -29,7 +29,7 @@ const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] 
   { key: 'members', label: 'Members', icon: UserCog, anyOf: ['USER_VIEW'] },
   { key: 'roles', label: 'Roles', icon: KeyRound, anyOf: ['ROLE_VIEW'] },
   { key: 'accounts', label: 'Accounts & P/L', icon: Wallet, anyOf: ['EXPENSE_VIEW'] },
-  { key: 'sponsors', label: 'Partners', icon: Handshake, anyOf: ['EVENT_VIEW'] },
+  { key: 'sponsors', label: 'Sponsors', icon: Handshake, anyOf: ['EVENT_VIEW'] },
   { key: 'credit', label: 'Pass credit', icon: CreditCard, anyOf: ['SETTINGS_VIEW'] },
   { key: 'payouts', label: 'Payouts & bank', icon: Landmark, anyOf: ['SETTINGS_VIEW'] },
   { key: 'audit', label: 'Audit log', icon: History, anyOf: ['AUDIT_VIEW'] },

@@ -2,9 +2,9 @@
 
 import { useRef, useState } from 'react';
 import { Handshake, ImagePlus, Pencil, Plus, Save, Ticket, Trash2 } from 'lucide-react';
-import { fmtMoney } from '@/lib/format';
 import { api, errorMessage } from '@/lib/api';
 import { useAsync } from '@/lib/hooks';
+import { logoToDataUrl } from '@/lib/logo';
 import { useOrg } from '@/lib/org-context';
 import { can } from '@/lib/permissions';
 import { SponsorStrip, sponsorLogoSrc, type SponsorPublic } from '../SponsorStrip';
@@ -27,34 +27,6 @@ const TIERS: { key: Sponsor['tier']; label: string }[] = [
   { key: 'SILVER', label: 'Silver' },
   { key: 'PARTNER', label: 'Partner' },
 ];
-
-/** Downscale an image file to ≤512px and encode as PNG/WebP under ~280 KB. */
-async function logoToDataUrl(file: File): Promise<string> {
-  if (!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error('Choose a PNG, JPG or WebP image.');
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = () => reject(new Error('Could not read that image.'));
-      i.src = url;
-    });
-    for (const max of [512, 384, 256]) {
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      const c = document.createElement('canvas');
-      c.width = Math.max(1, Math.round(img.width * scale));
-      c.height = Math.max(1, Math.round(img.height * scale));
-      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
-      for (const [type, q] of [['image/png', undefined], ['image/webp', 0.9], ['image/webp', 0.75]] as const) {
-        const data = c.toDataURL(type, q);
-        if (data.startsWith(`data:${type}`) && data.length * 0.75 < 280_000) return data;
-      }
-    }
-    throw new Error('That image is too large even after resizing. Try a simpler logo.');
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 export function SponsorsTab() {
   const org = useOrg();
@@ -79,8 +51,8 @@ export function SponsorsTab() {
   return (
     <div className="flex flex-col gap-4">
       <Alert kind="info">
-        Partners&apos; banners and logos appear on your public festival page, the pass-booking page, every visitor&apos;s pass and the volunteer app. Title and
-        Platinum partners get the large banner.
+        Partners&apos; banners and logos appear on your public festival page, the pass-booking page and the volunteer app. Title and
+        Platinum partners get the large banner. Printing your own sponsors on visitors&apos; passes is <strong>free</strong> — no credit is used.
       </Alert>
       {canEdit && (
         <div className="flex justify-end">
@@ -117,7 +89,7 @@ export function SponsorsTab() {
                 <div className="text-xs text-slate-500">{evName(s.eventId)}</div>
                 {s.showOnPasses && (
                   <div className="mt-1 inline-flex flex-wrap items-center gap-1.5 rounded-full bg-fuchsia-50 px-2.5 py-0.5 text-xs font-semibold text-fuchsia-800">
-                    <Ticket aria-hidden className="h-3.5 w-3.5" /> Printed on {s.passesPrinted.toLocaleString('en-IN')} passes · {fmtMoney(s.printFees)} print fees
+                    <Ticket aria-hidden className="h-3.5 w-3.5" /> Printed on {s.passesPrinted.toLocaleString('en-IN')} passes
                   </div>
                 )}
               </div>
@@ -167,7 +139,6 @@ function SponsorModal({ sponsor, events, onClose, onSaved }: { sponsor: Sponsor 
     isActive: sponsor?.isActive ?? true,
     showOnPasses: sponsor?.showOnPasses ?? false,
   });
-  const credit = useAsync(() => api.get<{ partnerPrintFeePerPass: string }>(`/organizations/${org.orgId}/billing`), [org.orgId]);
   const [logo, setLogo] = useState<string | null>(null);
   const [removeLogo, setRemoveLogo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -251,12 +222,12 @@ function SponsorModal({ sponsor, events, onClose, onSaved }: { sponsor: Sponsor 
         <Checkbox label="Active (shown to visitors)" checked={form.isActive} onChange={(v) => setForm((x) => ({ ...x, isActive: v }))} />
         <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50/60 p-3">
           <Checkbox
-            label={<span className="font-semibold">Print logo &amp; tagline on every pass (paid promotion)</span>}
+            label={<span className="font-semibold">Print logo &amp; tagline on every pass (free)</span>}
             checked={form.showOnPasses}
             onChange={(v) => setForm((x) => ({ ...x, showOnPasses: v }))}
           />
           <p className="mt-1 text-xs text-slate-600">
-            {credit.data ? `${fmtMoney(credit.data.partnerPrintFeePerPass)} per pass is taken from your pass credit while this is on` : 'A print fee per pass is taken from your pass credit while this is on'} — charge your partner for it. Up to 3 partners are printed per pass.
+            Showing your own sponsors on passes costs you nothing — no pass credit is used. Up to 3 sponsors are printed per pass.
           </p>
         </div>
         {error && <Alert>{error}</Alert>}

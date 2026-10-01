@@ -57,6 +57,9 @@ export function PublicShell({ children, wide, bottomPad }: { children: ReactNode
             <Link href="/login" className="hover:text-orange-700">
               For organisers
             </Link>
+            <Link href="/partner/signup" className="hover:text-orange-700">
+              Become a promotional partner
+            </Link>
             <Link href="/faq" className="hover:text-orange-700">
               Help &amp; FAQ
             </Link>

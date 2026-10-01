@@ -115,6 +115,29 @@ enum DonationMethod {
   OTHER
 }
 
+enum PartnerStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum PartnerCampaignStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  PAUSED
+  ENDED
+  CANCELLED
+}
+
+enum PartnerTxType {
+  RECHARGE
+  PASS_PRINT
+  REFUND
+  ADJUSTMENT
+}
+
 enum PaymentStatus {
   PENDING
   SUCCESS
@@ -123,61 +146,66 @@ enum PaymentStatus {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  name         String
-  mobile       String     @unique
-  email        String?    @unique
-  passwordHash String
-  isSuperAdmin Boolean    @default(false)
-  status       UserStatus @default(ACTIVE)
+  id                        String     @id @default(uuid())
+  name                      String
+  mobile                    String     @unique
+  email                     String?    @unique
+  passwordHash              String
+  isSuperAdmin              Boolean    @default(false)
+  status                    UserStatus @default(ACTIVE)
   // Bumped on password change / disable — invalidates outstanding JWTs.
-  tokenVersion Int        @default(0)
-  emailVerifiedAt DateTime?
+  tokenVersion              Int        @default(0)
+  emailVerifiedAt           DateTime?
   // Self-registered accounts must verify their email before they can log in.
-  requiresEmailVerification Boolean @default(false)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  requiresEmailVerification Boolean    @default(false)
+  /// Set for promotional-partner (brand) accounts; such a user belongs to no Organization.
+  partnerId                 String?
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
 
-  memberships       OrganizationMember[]
-  assignments       EventAssignment[]    @relation("AssignmentUser")
-  applications      VolunteerApplication[] @relation("ApplicationUser")
-  scanLogs          ScanLog[]
-  tokensUsed        Token[]              @relation("TokenUsedBy")
-  tokensIssued      Token[]              @relation("TokenIssuedBy")
-  tokensCancelled   Token[]              @relation("TokenCancelledBy")
-  donationsCreated  Donation[]
-  expensesCreated   Expense[]
-  auditLogs         AuditLog[]
-  otps              EmailOtp[]
+  memberships      OrganizationMember[]
+  assignments      EventAssignment[]      @relation("AssignmentUser")
+  applications     VolunteerApplication[] @relation("ApplicationUser")
+  scanLogs         ScanLog[]
+  tokensUsed       Token[]                @relation("TokenUsedBy")
+  tokensIssued     Token[]                @relation("TokenIssuedBy")
+  tokensCancelled  Token[]                @relation("TokenCancelledBy")
+  donationsCreated Donation[]
+  expensesCreated  Expense[]
+  auditLogs        AuditLog[]
+  otps             EmailOtp[]
+  partner          Partner?               @relation(fields: [partnerId], references: [id], onDelete: SetNull)
 
+  @@index([partnerId])
   @@map("users")
 }
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  state     String?
-  city      String?
-  address   String?
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  state         String?
+  city          String?
+  address       String?
   /// Festival/event types this mandal celebrates; the event form lists only these. Empty = show all.
   festivalTypes String[] @default([])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  members      OrganizationMember[]
-  events       Event[]
-  roles        Role[]
-  applications VolunteerApplication[]
-  auditLogs    AuditLog[]
-  expenses     Expense[]
-  sponsors     Sponsor[]
-  billing      OrgBilling?
-  payoutAccount PayoutAccount?
-  settlements  PaymentSettlement[]
-  payouts      Payout[]
+  members            OrganizationMember[]
+  events             Event[]
+  roles              Role[]
+  applications       VolunteerApplication[]
+  auditLogs          AuditLog[]
+  expenses           Expense[]
+  sponsors           Sponsor[]
+  billing            OrgBilling?
+  payoutAccount      PayoutAccount?
+  settlements        PaymentSettlement[]
+  payouts            Payout[]
   creditTransactions CreditTransaction[]
   creditRecharges    CreditRecharge[]
+  partnerCampaigns   PartnerCampaign[]
 
   @@map("organizations")
 }
@@ -194,15 +222,15 @@ model Permission {
 }
 
 model Role {
-  id             String        @id @default(uuid())
+  id             String   @id @default(uuid())
   // null = system role (template usable by every organization, immutable via API)
   organizationId String?
   key            String
   name           String
   description    String?
-  isSystem       Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  isSystem       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   organization Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   permissions  RolePermission[]
@@ -293,18 +321,19 @@ model Event {
   createdAt                 DateTime    @default(now())
   updatedAt                 DateTime    @updatedAt
 
-  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  timeSlots    TimeSlot[]
-  tokens       Token[]
-  visitors     Visitor[]
-  assignments  EventAssignment[]
-  applications VolunteerApplication[]
-  scanLogs     ScanLog[]
-  donations    Donation[]
-  expenses     Expense[]
-  auditLogs    AuditLog[]
-  passOrders   PassOrder[]
-  sponsors     Sponsor[]
+  organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  timeSlots        TimeSlot[]
+  tokens           Token[]
+  visitors         Visitor[]
+  assignments      EventAssignment[]
+  applications     VolunteerApplication[]
+  scanLogs         ScanLog[]
+  donations        Donation[]
+  expenses         Expense[]
+  auditLogs        AuditLog[]
+  passOrders       PassOrder[]
+  sponsors         Sponsor[]
+  partnerCampaigns PartnerCampaign[]
 
   @@index([organizationId])
   @@index([state, city])
@@ -314,14 +343,14 @@ model Event {
 // Event-scoped role: a volunteer assigned to Ganesh Utsav 2026 gets nothing on
 // Durga Puja 2026 unless separately assigned.
 model EventAssignment {
-  id         String           @id @default(uuid())
-  eventId    String
-  userId     String
-  roleId     String
-  status     MembershipStatus @default(ACTIVE)
+  id           String           @id @default(uuid())
+  eventId      String
+  userId       String
+  roleId       String
+  status       MembershipStatus @default(ACTIVE)
   assignedById String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user  User  @relation("AssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -417,20 +446,22 @@ model Token {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  event      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  visitor    Visitor?  @relation(fields: [visitorId], references: [id], onDelete: SetNull)
-  timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id], onDelete: SetNull)
-  issuedBy   User?     @relation("TokenIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
-  usedBy     User?     @relation("TokenUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
-  cancelledBy User?    @relation("TokenCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
-  scanLogs   ScanLog[]
+  event              Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  visitor            Visitor?   @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  timeSlot           TimeSlot?  @relation(fields: [timeSlotId], references: [id], onDelete: SetNull)
+  issuedBy           User?      @relation("TokenIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+  usedBy             User?      @relation("TokenUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  cancelledBy        User?      @relation("TokenCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  scanLogs           ScanLog[]
   // Set when the token was minted by an online pass order / issued for a donation.
-  passOrderId String?
-  donationId  String?
-  donation    Donation? @relation(fields: [donationId], references: [id], onDelete: SetNull)
+  passOrderId        String?
+  donationId         String?
+  donation           Donation?  @relation(fields: [donationId], references: [id], onDelete: SetNull)
   /// Partners printed on this pass (snapshot of what was paid for).
-  sponsorIds  String[]  @default([])
-  passOrder   PassOrder? @relation(fields: [passOrderId], references: [id], onDelete: SetNull)
+  sponsorIds         String[]   @default([])
+  /// Platform promotional-partner campaigns printed on this pass (snapshot of what was paid for).
+  partnerCampaignIds String[]   @default([])
+  passOrder          PassOrder? @relation(fields: [passOrderId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, tokenCode])
   @@index([passOrderId])
@@ -497,8 +528,8 @@ model Donation {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
-  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  event     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
   passes    Token[]
 
   @@unique([eventId, receiptNo])
@@ -513,15 +544,15 @@ model Expense {
   id             String   @id @default(uuid())
   organizationId String
   eventId        String?
-  category    String
-  description String
-  amount      Decimal  @db.Decimal(12, 2)
-  expenseDate DateTime @db.Date
-  vendor      String?
-  receiptRef  String?
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  category       String
+  description    String
+  amount         Decimal  @db.Decimal(12, 2)
+  expenseDate    DateTime @db.Date
+  vendor         String?
+  receiptRef     String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   event        Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -638,9 +669,9 @@ model Sponsor {
   isActive       Boolean     @default(true)
   sortOrder      Int         @default(0)
   /// Paid promotion: logo + tagline printed on every pass (fee per pass).
-  showOnPasses     Boolean   @default(false)
-  passesPrinted    Int       @default(0)
-  printFeesPaise   Int       @default(0)
+  showOnPasses   Boolean     @default(false)
+  passesPrinted  Int         @default(0)
+  printFeesPaise Int         @default(0)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -662,10 +693,13 @@ model PlatformSettings {
   defaultCommissionBps    Int      @default(100)
   lowCreditThresholdPaise Int      @default(20000)
   welcomeCreditPaise      Int      @default(10000)
-  /// Charged per pass, per partner printed on it (partner promotion).
+  /// Default promotional-partner rate per printed pass (paid by the partner, not the mandal).
   sponsorPassFeePaise     Int      @default(50)
   /// Gateway fee deducted from the mandal's share on online payments (bps).
   gatewayFeeBps           Int      @default(0)
+  /// Pass print layout for mandals without an override: AUTO | A4 | THERMAL_80 | THERMAL_58.
+  /// AUTO = A4 when a pass carries 2+ ads (sponsors + platform partners), else THERMAL_80.
+  defaultPassPrintFormat  String   @default("AUTO")
   updatedAt               DateTime @updatedAt
   updatedById             String?
 
@@ -680,7 +714,10 @@ model OrgBilling {
   tokenPricePaise         Int?
   commissionBps           Int?
   lowCreditThresholdPaise Int?
+  /// Partner rate per pass at this mandal (null = platform default).
   sponsorPassFeePaise     Int?
+  /// Pass print layout, set by the super admin (null = platform default). The mandal can't change it.
+  passPrintFormat         String?
   totalTokens             Int      @default(0)
   totalSponsorFeesPaise   Int      @default(0)
   totalPersons            Int      @default(0)
@@ -696,26 +733,28 @@ model OrgBilling {
 
 /// Append-only ledger: every change to a mandal's credit (+ recharge / − fee).
 model CreditTransaction {
-  id                String       @id @default(uuid())
-  organizationId    String
-  type              CreditTxType
-  amountPaise       Int
-  balanceAfterPaise Int
-  eventId           String?
-  source            String?
-  tokenCount        Int          @default(0)
-  personCount       Int          @default(0)
-  unitFeePaise      Int?
-  sponsorFeePaise   Int          @default(0)
-  sponsorIds        String[]     @default([])
-  tokenPricePaise   Int?
-  commissionBps     Int?
-  reference         String?
-  note              String?
-  passOrderId       String?
-  rechargeId        String?
-  createdById       String?
-  createdAt         DateTime     @default(now())
+  id                 String       @id @default(uuid())
+  organizationId     String
+  type               CreditTxType
+  amountPaise        Int
+  balanceAfterPaise  Int
+  eventId            String?
+  source             String?
+  tokenCount         Int          @default(0)
+  personCount        Int          @default(0)
+  unitFeePaise       Int?
+  sponsorFeePaise    Int          @default(0)
+  sponsorIds         String[]     @default([])
+  /// Platform partner campaigns charged (to the partner's wallet) for these passes.
+  partnerCampaignIds String[]     @default([])
+  tokenPricePaise    Int?
+  commissionBps      Int?
+  reference          String?
+  note               String?
+  passOrderId        String?
+  rechargeId         String?
+  createdById        String?
+  createdAt          DateTime     @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -726,17 +765,17 @@ model CreditTransaction {
 }
 
 model CreditRecharge {
-  id              String          @id @default(uuid())
-  organizationId  String
-  amountPaise     Int
-  status          PassOrderStatus @default(PENDING)
-  paymentProvider String
-  providerOrderId String?
+  id               String          @id @default(uuid())
+  organizationId   String
+  amountPaise      Int
+  status           PassOrderStatus @default(PENDING)
+  paymentProvider  String
+  providerOrderId  String?
   paymentReference String?
-  createdById     String?
-  paidAt          DateTime?
-  expiresAt       DateTime
-  createdAt       DateTime        @default(now())
+  createdById      String?
+  paidAt           DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime        @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -833,4 +872,117 @@ model Payout {
 
   @@index([organizationId, paidAt])
   @@map("payouts")
+}
+
+// ─── Promotional partners (brands) ─────────────────────────────────────
+// Brands deal with the PLATFORM, not the mandal: the super admin approves the
+// account and each campaign, the partner pays per pass printed with its logo
+// from a prepaid wallet, and the platform keeps 100% of it. walletBalancePaise
+// has a CHECK (>= 0). See PartnerBillingService.
+
+model Partner {
+  id                  String        @id @default(uuid())
+  name                String
+  legalName           String?
+  gstin               String?
+  contactName         String
+  contactEmail        String
+  contactPhone        String
+  websiteUrl          String?
+  tagline             String?
+  logo                Bytes?
+  logoType            String?
+  status              PartnerStatus @default(PENDING)
+  reviewNote          String?
+  reviewedAt          DateTime?
+  walletBalancePaise  Int           @default(0)
+  totalRechargedPaise Int           @default(0)
+  totalSpentPaise     Int           @default(0)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  users        User[]
+  campaigns    PartnerCampaign[]
+  transactions PartnerWalletTransaction[]
+  recharges    PartnerRecharge[]
+
+  @@index([status, createdAt])
+  @@map("partners")
+}
+
+/// A partner's request to be printed on one mandal's passes (eventId null =
+/// every festival of that mandal). ratePaise is locked once APPROVED.
+model PartnerCampaign {
+  id             String                @id @default(uuid())
+  partnerId      String
+  organizationId String
+  eventId        String?
+  /// Short promo line printed on the pass (≤ 120 chars).
+  message        String
+  startDate      DateTime              @db.Date
+  endDate        DateTime              @db.Date
+  maxPasses      Int?
+  ratePaise      Int
+  status         PartnerCampaignStatus @default(REQUESTED)
+  passesPrinted  Int                   @default(0)
+  spentPaise     Int                   @default(0)
+  reviewNote     String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  approvedAt     DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  partner      Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([partnerId, createdAt])
+  @@index([status, createdAt])
+  @@map("partner_campaigns")
+}
+
+/// Append-only partner wallet ledger (+ recharge / − pass print / + refund).
+model PartnerWalletTransaction {
+  id                String        @id @default(uuid())
+  partnerId         String
+  type              PartnerTxType
+  amountPaise       Int
+  balanceAfterPaise Int
+  campaignId        String?
+  organizationId    String?
+  eventId           String?
+  passOrderId       String?
+  rechargeId        String?
+  tokenCount        Int           @default(0)
+  note              String?
+  createdById       String?
+  createdAt         DateTime      @default(now())
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, createdAt])
+  @@index([passOrderId])
+  @@index([type, createdAt])
+  @@map("partner_wallet_transactions")
+}
+
+model PartnerRecharge {
+  id               String          @id @default(uuid())
+  partnerId        String
+  amountPaise      Int
+  status           PassOrderStatus @default(PENDING)
+  paymentProvider  String
+  providerOrderId  String?
+  paymentReference String?
+  createdById      String?
+  paidAt           DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime        @default(now())
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, createdAt])
+  @@map("partner_recharges")
 }

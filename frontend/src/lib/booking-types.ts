@@ -74,6 +74,7 @@ export interface PassOrder {
   printFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   /** Partners printed on these passes (paid promotion). */
   printedSponsors?: import('@/components/SponsorStrip').SponsorPublic[];
+  printedPartners?: import('@/components/SponsorStrip').PartnerPublic[];
   id: string;
   status: PassOrderStatus;
   amount: string;

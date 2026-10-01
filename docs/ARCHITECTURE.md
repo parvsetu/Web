@@ -155,6 +155,23 @@ Adding Razorpay or similar is one new class in `buildProviders()`. Receipt
 numbers come from an atomic per-event counter and are assigned only once
 payment is confirmed.
 
+## Promotional partners
+
+Brands (`Partner`) are a platform-level tenant beside mandals: a partner user has `User.partnerId` and no
+memberships, so `AccessService` gives it nothing on any org/event (404), and `/partner/*` routes go through
+`PartnerGuard` (read vs write by partner status). Only the super admin approves partner accounts and campaigns.
+
+Money flow: a brand prepays a wallet (`partners.walletBalancePaise`, CHECK >= 0, ledger in
+`partner_wallet_transactions`). `BillingService.charge` — called in the same transaction as every pass — first
+debits the mandal's commission (org row lock; 402 if short), then `PartnerBillingService.charge` prints up to two
+eligible campaigns: lock partner rows (sorted by id), then campaign rows (sorted by id), conditional wallet debit,
+conditional campaign increment (status + cap), compensate the debit if the increment fails. A partner can only
+ever be *skipped*; it never fails the pass. The fixed lock order (org → partners → campaigns, also used by order
+refunds) keeps concurrent issuers across mandals sharing one brand deadlock-free. Printed campaign ids are
+snapshotted on the token and on the held credit row (online orders mint at payment time and refund on
+failure/expiry, once). The mandal is no longer charged for printing its own sponsors. Pass print layout is a
+platform setting per mandal (`AUTO` = A4 with 2+ ads), resolved server-side per pass.
+
 ## Hardening checklist
 
 - Input validation: global `ValidationPipe` with `whitelist` +

@@ -113,25 +113,25 @@ describe('Prepaid token credit (e2e)', () => {
     await ctx.http().put(api('/platform/billing/settings')).set('Authorization', sa).send({ defaultCommissionPercent: '1', defaultTokenPrice: '100' });
   });
 
-  it('partner promotion: printing partners on passes costs the print fee per pass per partner', async () => {
+  it('the mandal\'s own sponsors are printed on passes free: only the commission is deducted', async () => {
     const m = await mandal(10);
-    await ctx.prisma.orgBilling.update({ where: { organizationId: m.org.id }, data: { sponsorPassFeePaise: 50 } }); // ₹0.50
+    // The partner rate is what platform promotional partners pay — never the mandal.
+    await ctx.prisma.orgBilling.update({ where: { organizationId: m.org.id }, data: { sponsorPassFeePaise: 50 } });
     const a = await ctx.http().post(api(`/organizations/${m.org.id}/sponsors`)).set('Authorization', m.auth).send({ name: 'Tanishq', tier: 'GOLD', showOnPasses: true });
     await ctx.http().post(api(`/organizations/${m.org.id}/sponsors`)).set('Authorization', m.auth).send({ name: 'Sweets', showOnPasses: true });
     await ctx.http().post(api(`/organizations/${m.org.id}/sponsors`)).set('Authorization', m.auth).send({ name: 'Not printed' });
 
-    // 2 per-person passes: commission 2 × ₹1 + print 2 passes × 2 partners × ₹0.50 = ₹4
+    // 2 per-person passes: commission 2 × ₹1, printing free.
     const t = await issue(m, { visitorCount: 2, perPerson: true });
     expect(t.status).toBe(201);
     expect(t.body.tokens[0].sponsorIds).toHaveLength(2);
     const st = await ctx.http().get(api(`/organizations/${m.org.id}/billing`)).set('Authorization', m.auth);
-    expect(st.body).toMatchObject({ balance: '6.00', partnerPrintFeePerPass: '0.50', totals: { fees: '2.00', partnerFees: '2.00' } });
+    expect(st.body).toMatchObject({ balance: '8.00', partnerRatePerPass: '0.50', totals: { fees: '2.00', partnerFees: '0.00' } });
     const list = await ctx.http().get(api(`/organizations/${m.org.id}/sponsors`)).set('Authorization', m.auth);
-    expect(list.body.find((x: { id: string }) => x.id === a.body.id)).toMatchObject({ passesPrinted: 2, printFees: '1.00' });
+    expect(list.body.find((x: { id: string }) => x.id === a.body.id)).toMatchObject({ passesPrinted: 2, printFees: '0.00' });
 
-    // A batch whose print fee would overdraw is refused as a whole.
-    expect((await ctx.http().post(api(`/events/${m.event.id}/tokens/bulk`)).set('Authorization', m.auth).send({ count: 4, durationHours: 3 })).status).toBe(402);
-    const sum = await ctx.http().get(api('/platform/billing/summary')).set('Authorization', sa);
-    expect(Number(sum.body.partnerFeesEarned)).toBeGreaterThanOrEqual(2);
+    // The remaining ₹8 covers exactly 8 more passes — sponsors add nothing.
+    expect((await ctx.http().post(api(`/events/${m.event.id}/tokens/bulk`)).set('Authorization', m.auth).send({ count: 9, durationHours: 3 })).status).toBe(402);
+    expect((await ctx.http().post(api(`/events/${m.event.id}/tokens/bulk`)).set('Authorization', m.auth).send({ count: 8, durationHours: 3 })).status).toBe(201);
   });
 });

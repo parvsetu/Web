@@ -4,7 +4,7 @@ import { VenueCard } from '@/components/VenueDetails';
 import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { CircleX, Clock3, Hourglass, LinkIcon, RotateCcw, Ticket, TicketPlus, Wallet } from 'lucide-react';
+import { CircleX, Clock3, FileDown, Hourglass, LinkIcon, RotateCcw, Ticket, TicketPlus, Wallet } from 'lucide-react';
 import { PublicShell } from '@/components/booking/PublicShell';
 import { PassActions, PassCard } from '@/components/booking/PassCard';
 import { PassCarousel } from '@/components/booking/PassCarousel';
@@ -125,7 +125,7 @@ function PassView() {
         <VenueCard venue={order.event.venue} className="no-print" />
         <OrderSponsors eventId={order.event.id} />
         <TaxInvoice order={order} />
-        <PrintChooser initial={order.printFormat ?? 'A4'} />
+        <PrintChooser initial={order.printFormat ?? 'THERMAL_80'} ads={(order.printedSponsors?.length ?? 0) + (order.printedPartners?.length ?? 0)} />
         <div className="no-print flex flex-col gap-2 pt-2 text-center text-sm">
           <p className="text-slate-500">Saved under My passes on this phone. Bookmark this page to open it anywhere.</p>
           <div className="flex justify-center gap-4 font-semibold">
@@ -230,13 +230,20 @@ function TaxInvoice({ order }: { order: PassOrder }) {
   );
 }
 
-function PrintChooser({ initial }: { initial: PrintFormat }) {
+/** Defaults to the layout the platform chose for this pass; A4 with several ads also offers "Save as PDF". */
+function PrintChooser({ initial, ads }: { initial: PrintFormat; ads: number }) {
   const [format, setFormat] = useState<PrintFormat>(initial);
   return (
     <div className="no-print flex flex-col gap-2 rounded-2xl border border-orange-100 bg-white p-3">
       <PrintFormatStyle format={format} />
       <p className="text-sm font-semibold text-slate-700">Print format</p>
       <PrintFormatPicker value={format} onChange={setFormat} />
+      {format === 'A4' && ads >= 2 && (
+        <Button variant="secondary" onClick={() => window.print()}>
+          <FileDown aria-hidden className="h-5 w-5" /> Save as PDF
+        </Button>
+      )}
+      {format === 'A4' && ads >= 2 && <p className="text-xs text-slate-500">This pass carries partner logos, so an A4 page keeps them clear. Choose “Save as PDF” as the printer.</p>}
     </div>
   );
 }

@@ -113,7 +113,7 @@ export function PassCard({ order, pass, index = 0, total = 1 }: { order: PassOrd
         </Row>
       </dl>
         <div className="px-5 pb-1">
-          <PassSponsors sponsors={order.printedSponsors} />
+          <PassSponsors sponsors={order.printedSponsors} partners={order.printedPartners} />
         </div>
       <p className="border-t border-dashed border-slate-200 px-5 py-3 text-center text-sm font-semibold text-slate-600">
         Show this QR at the gate. One-time entry.

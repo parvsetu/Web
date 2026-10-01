@@ -25,6 +25,7 @@ export class CreateEventDto extends VenueFields {
   @IsOptional() @IsInt() @Min(1) @Max(1_000_000) gstSlabThreshold?: number;
   @IsOptional() @IsIn(['CUSTOMER', 'MANDAL']) gstBearer?: 'CUSTOMER' | 'MANDAL';
   @IsOptional() @Matches(/^\d{4,8}$/, { message: 'SAC/HSN code must be 4–8 digits' }) gstSac?: string;
+  /** Deprecated — ignored (the platform sets the pass layout per mandal); still accepted so old clients don't 400. */
   @IsOptional() @IsIn(['A4', 'THERMAL_80', 'THERMAL_58']) passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   @IsOptional() @IsArray() @ArrayMaxSize(12) @IsInt({ each: true }) @Min(1, { each: true }) @Max(744, { each: true }) tokenDurationOptions?: number[];
   @IsOptional() @IsInt() @Min(1) @Max(100) maxVisitorsPerToken?: number;
@@ -51,6 +52,7 @@ export class UpdateEventDto extends VenueFields {
   @IsOptional() @IsInt() @Min(1) @Max(1_000_000) gstSlabThreshold?: number;
   @IsOptional() @IsIn(['CUSTOMER', 'MANDAL']) gstBearer?: 'CUSTOMER' | 'MANDAL';
   @IsOptional() @Matches(/^\d{4,8}$/, { message: 'SAC/HSN code must be 4–8 digits' }) gstSac?: string;
+  /** Deprecated — ignored (the platform sets the pass layout per mandal); still accepted so old clients don't 400. */
   @IsOptional() @IsIn(['A4', 'THERMAL_80', 'THERMAL_58']) passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   @IsOptional() @IsArray() @ArrayMaxSize(12) @IsInt({ each: true }) @Min(1, { each: true }) @Max(744, { each: true }) tokenDurationOptions?: number[];
   @IsOptional() @IsInt() @Min(1) @Max(100) maxVisitorsPerToken?: number;

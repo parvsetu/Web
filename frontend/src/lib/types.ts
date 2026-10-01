@@ -85,6 +85,8 @@ export interface MeUser {
   organizations: MeOrganization[];
   events: MeEvent[];
   applications: Application[];
+  /** Set for promotional-partner (brand) accounts — they use /partner, not the mandal app. */
+  partner?: { id: string; name: string; status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' } | null;
 }
 
 export interface AuthResponse {
@@ -214,7 +216,8 @@ export interface EventDetail {
   gstSlabThreshold?: number;
   gstBearer?: 'CUSTOMER' | 'MANDAL';
   gstSac?: string;
-  passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
+  /** Set by the platform per mandal (read-only here). AUTO = A4 with 2+ ads on the pass, else thermal 80 mm. */
+  passPrintFormat?: 'AUTO' | 'A4' | 'THERMAL_80' | 'THERMAL_58';
   venueAddress?: string | null;
   venueLandmark?: string | null;
   venuePincode?: string | null;
@@ -248,7 +251,6 @@ export interface EventBody {
   gstSlabThreshold?: number;
   gstBearer?: 'CUSTOMER' | 'MANDAL';
   gstSac?: string;
-  passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   venueAddress?: string;
   venueLandmark?: string;
   venuePincode?: string;
@@ -280,6 +282,10 @@ export type EffectiveTokenStatus = TokenStatus | 'NOT_YET_VALID';
 
 export interface Token {
   sponsorIds?: string[];
+  /** Platform promotional partners printed on this pass (desk / bulk / single-token views). */
+  printedPartners?: import('@/components/SponsorStrip').PartnerPublic[];
+  /** Effective print layout for this pass (resolved by the server). */
+  printFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   id: string;
   tokenCode: string;
   status: TokenStatus;
@@ -390,6 +396,10 @@ export interface DonationCreateResponse extends Donation {
   payment?: { provider: string; providerOrderId: string; checkoutUrl?: string; upiUri?: string };
   /** Entry passes issued with this donation (if requested). */
   passes?: { id: string; tokenCode: string; qrPayload: string; visitorCount: number; status: string; validFrom: string; validUntil: string }[];
+  /** Printed on those passes: the mandal's sponsors + platform promotional partners. */
+  printedSponsors?: import('@/components/SponsorStrip').SponsorPublic[];
+  printedPartners?: import('@/components/SponsorStrip').PartnerPublic[];
+  printFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58' | null;
 }
 
 /** Legal identity printed on a receipt (only when the mandal's payout account is VERIFIED). */

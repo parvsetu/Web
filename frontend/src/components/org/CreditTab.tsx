@@ -17,7 +17,8 @@ export interface CreditStatus {
   tokenPrice: string;
   commissionPercent: string;
   feePerPass: string;
-  partnerPrintFeePerPass: string;
+  /** What promotional partners pay per pass at this mandal (never charged to the mandal). */
+  partnerRatePerPass: string;
   tokensLeft: number | null;
   lowCreditThreshold: string;
   totals: { tokens: number; persons: number; fees: string; partnerFees: string; recharged: string };
@@ -86,8 +87,6 @@ export interface EventAllowance {
   balance: string;
   feePerPass: string;
   commissionPerPass: string;
-  partnerPrintFeePerPass: string;
-  printedPartners: number;
   tokensLeft: number | null;
 }
 
@@ -110,7 +109,7 @@ export function IssueAllowance({ data, className }: { data: EventAllowance | nul
         )}
         <p className="text-xs opacity-80">
           Credit {fmtMoney(data.balance)}
-          {data.tokensLeft !== null && <> · {fmtMoney(data.feePerPass)} per person{data.printedPartners > 0 ? ` (incl. ${fmtMoney(data.partnerPrintFeePerPass)} partner printing)` : ''}</>}
+          {data.tokensLeft !== null && <> · {fmtMoney(data.feePerPass)} per person</>}
           {' · '}group passes use one per person
         </p>
       </div>
@@ -168,7 +167,7 @@ export function CreditTab() {
             <Stat label="Token price" value={fmtMoney(s.tokenPrice)} tone="blue" icon={BadgeIndianRupee} />
             <Stat label="Platform commission" value={`${Number(s.commissionPercent)}%`} tone="purple" icon={Percent} />
             <Stat label="Charge per person" value={fmtMoney(s.feePerPass)} tone="brand" icon={Ticket} />
-            <Stat label="Partner print fee / pass" value={fmtMoney(s.partnerPrintFeePerPass)} tone="pink" icon={CreditCard} />
+            <Stat label="Sponsors on passes" value="Free" tone="pink" icon={CreditCard} />
             <Stat label="Passes generated" value={s.totals.tokens} tone="green" icon={Ticket} />
             <Stat label="People admitted" value={s.totals.persons} tone="slate" icon={Ticket} />
             <Stat label="Commission paid" value={fmtMoney(s.totals.fees)} tone="red" icon={Percent} />
@@ -176,8 +175,7 @@ export function CreditTab() {
           </div>
           <p className="text-xs text-slate-500">
             Every pass — desk, bulk, online or with a donation — uses {fmtMoney(s.feePerPass)} per person admitted
-            ({Number(s.commissionPercent)}% of the {fmtMoney(s.tokenPrice)} token price)
-            {Number(s.partnerPrintFeePerPass) > 0 ? `, plus ${fmtMoney(s.partnerPrintFeePerPass)} per pass for each partner printed on it` : ''}.
+            ({Number(s.commissionPercent)}% of the {fmtMoney(s.tokenPrice)} token price). Showing your own sponsors on passes is free.
             A warning shows below {fmtMoney(s.lowCreditThreshold)}; generation stops when the credit runs out.
           </p>
         </>
@@ -224,7 +222,7 @@ export function CreditTab() {
                 <Td>
                   <div className="font-semibold">{TYPE_LABEL[t.type]}{t.source ? ` · ${SOURCE_LABEL[t.source] ?? t.source}` : ''}</div>
                   <div className="text-xs text-slate-500">
-                    {[t.event?.name, t.reference, t.note, t.partnersPrinted ? `${t.partnersPrinted} partner(s) printed · ${fmtMoney(t.partnerFee)}` : null].filter(Boolean).join(' · ')}
+                    {[t.event?.name, t.reference, t.note, t.partnersPrinted ? `${t.partnersPrinted} sponsor(s) printed${Number(t.partnerFee) ? ` · ${fmtMoney(t.partnerFee)}` : ' free'}` : null].filter(Boolean).join(' · ')}
                   </div>
                 </Td>
                 <Td>{t.tokenCount ? `${t.tokenCount} (${t.personCount} people)` : '—'}</Td>

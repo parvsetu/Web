@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { paged, paging } from '../../common/http';
+import { PartnerBillingService } from '../partners/partner-billing.service';
 
 type Db = Prisma.TransactionClient | PrismaService;
 
@@ -16,6 +17,21 @@ export function unitFeePaise(tokenPricePaise: number, commissionBps: number) {
 }
 
 export type CreditState = 'OK' | 'LOW' | 'EXHAUSTED';
+
+export const PASS_PRINT_FORMATS = ['AUTO', 'A4', 'THERMAL_80', 'THERMAL_58'] as const;
+export type PassPrintSetting = (typeof PASS_PRINT_FORMATS)[number];
+export type PassPrintFormat = Exclude<PassPrintSetting, 'AUTO'>;
+
+/**
+ * The layout a pass prints in. The super admin sets it per mandal (partner ads
+ * print on passes, so the mandal can't choose). AUTO: a pass carrying 2+ ads
+ * (mandal sponsors + platform partners) gets an A4 page so the logos stay
+ * legible; otherwise a thermal 80 mm strip.
+ */
+export function resolvePrintFormat(setting: string | null | undefined, adCount: number): PassPrintFormat {
+  if (setting === 'A4' || setting === 'THERMAL_80' || setting === 'THERMAL_58') return setting;
+  return adCount >= 2 ? 'A4' : 'THERMAL_80';
+}
 
 export interface ChargeInput {
   organizationId: string;
@@ -43,10 +59,14 @@ export const EXHAUSTED_MESSAGE = 'Your token credit has been exhausted. Online P
  * If no row comes back the whole transaction (and therefore the pass) is
  * rolled back with 402 CREDIT_EXHAUSTED. Concurrent issuers serialize on the
  * row; a CHECK (credit >= 0) constraint is the final backstop.
+ *
+ * The mandal pays only the commission. Its own sponsors are printed free;
+ * platform promotional partners are charged to THEIR wallets
+ * (PartnerBillingService) in the same transaction, after the org row lock.
  */
 @Injectable()
 export class BillingService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly partners: PartnerBillingService) {}
 
   async settings(db: Db = this.prisma) {
     return db.platformSettings.upsert({ where: { id: 'default' }, create: { id: 'default' }, update: {} });
@@ -74,11 +94,18 @@ export class BillingService {
       tokenPricePaise, commissionBps,
       lowCreditThresholdPaise: b?.lowCreditThresholdPaise ?? s.lowCreditThresholdPaise,
       unitFeePaise: unitFeePaise(tokenPricePaise, commissionBps),
+      /** What a promotional PARTNER pays per pass printed at this mandal (never the mandal). */
       sponsorPassFeePaise: b?.sponsorPassFeePaise ?? s.sponsorPassFeePaise,
+      passPrintFormat: (b?.passPrintFormat ?? s.defaultPassPrintFormat) as PassPrintSetting,
     };
   }
 
-  /** Partners whose logo/tagline is printed on this festival's passes (max 3, by tier). */
+  /** Effective print layout for a pass at this mandal carrying `adCount` ads. */
+  async printFormat(db: Db, organizationId: string, adCount: number) {
+    return resolvePrintFormat((await this.rates(db, organizationId)).passPrintFormat, adCount);
+  }
+
+  /** The mandal's own sponsors printed on this festival's passes (max 3, by tier) — free for the mandal. */
   async passSponsors(db: Db, organizationId: string, eventId?: string | null) {
     const rows = await db.sponsor.findMany({
       where: { organizationId, isActive: true, showOnPasses: true, OR: [{ eventId: null }, ...(eventId ? [{ eventId }] : [])] },
@@ -93,8 +120,8 @@ export class BillingService {
     const r = await this.rates(tx, c.organizationId);
     const sponsorIds = await this.passSponsors(tx, c.organizationId, c.eventId);
     const commission = c.includeCommission === false ? 0 : r.unitFeePaise * c.personCount;
-    // Partner promotion: per printed pass, per partner on it.
-    const sponsorFee = r.sponsorPassFeePaise * c.tokenCount * sponsorIds.length;
+    // Showing the mandal's own sponsors on passes is free; only the commission is charged.
+    const sponsorFee = 0;
     const fee = commission + sponsorFee;
     const rows = await tx.$queryRaw<{ creditBalancePaise: number }[]>`
       UPDATE org_billing SET
@@ -116,33 +143,47 @@ export class BillingService {
         tokensLeft: r.unitFeePaise > 0 ? Math.floor(balance / r.unitFeePaise) : null,
       }, 402);
     }
+    // Platform partners pay from their own wallets; never fails the pass.
+    const partnerCampaignIds = await this.partners.charge(tx, {
+      organizationId: c.organizationId, eventId: c.eventId, tokenCount: c.tokenCount, passOrderId: c.passOrderId, actorId: c.actorId,
+    });
     await tx.creditTransaction.create({
       data: {
         organizationId: c.organizationId, type: 'TOKEN_FEE', amountPaise: -fee, balanceAfterPaise: rows[0].creditBalancePaise,
         eventId: c.eventId ?? null, source: c.source, tokenCount: c.tokenCount, personCount: c.personCount,
         unitFeePaise: c.includeCommission === false ? 0 : r.unitFeePaise, tokenPricePaise: r.tokenPricePaise, commissionBps: r.commissionBps,
-        sponsorFeePaise: sponsorFee, sponsorIds,
+        sponsorFeePaise: sponsorFee, sponsorIds, partnerCampaignIds,
         reference: c.reference?.slice(0, 300) ?? null, passOrderId: c.passOrderId ?? null, createdById: c.actorId ?? null,
       },
     });
     if (sponsorIds.length) {
       await tx.sponsor.updateMany({
         where: { id: { in: sponsorIds } },
-        data: { passesPrinted: { increment: c.tokenCount }, printFeesPaise: { increment: r.sponsorPassFeePaise * c.tokenCount } },
+        data: { passesPrinted: { increment: c.tokenCount } },
       });
     }
-    return { feePaise: fee, balancePaise: rows[0].creditBalancePaise, sponsorIds };
+    return { feePaise: fee, balancePaise: rows[0].creditBalancePaise, sponsorIds, partnerCampaignIds };
   }
 
   private leftText(balance: number, unit: number) {
     return unit > 0 ? `Credit left covers ${Math.floor(balance / unit)} more.` : '';
   }
 
-  /** Returns a held online-order fee when the order fails or expires (once). */
+  /**
+   * Returns a held online-order fee when the order fails or expires (once),
+   * and what partners paid to be printed on it. Lock order matches charge():
+   * org row first, then partner rows.
+   */
   async refundOrder(tx: Prisma.TransactionClient, passOrderId: string, why: string) {
+    await this.refundMandal(tx, passOrderId, why);
+    await this.partners.refundOrder(tx, passOrderId, why);
+  }
+
+  private async refundMandal(tx: Prisma.TransactionClient, passOrderId: string, why: string) {
     const fee = await tx.creditTransaction.findFirst({ where: { passOrderId, type: 'TOKEN_FEE' } });
-    if (!fee || fee.amountPaise === 0) return;
+    if (!fee) return;
     if (await tx.creditTransaction.findFirst({ where: { passOrderId, type: 'REFUND' } })) return;
+    if (fee.amountPaise === 0 && !fee.sponsorIds.length) return;
     const back = -fee.amountPaise;
     const rows = await tx.$queryRaw<{ creditBalancePaise: number }[]>`
       UPDATE org_billing SET "creditBalancePaise" = "creditBalancePaise" + ${back},
@@ -158,7 +199,8 @@ export class BillingService {
       },
     });
     if (fee.sponsorIds.length && fee.tokenCount) {
-      const each = fee.sponsorFeePaise / fee.sponsorIds.length;
+      // Legacy rows may still carry a print fee (mandals were charged before partners existed).
+      const each = Math.round(fee.sponsorFeePaise / fee.sponsorIds.length);
       await tx.sponsor.updateMany({
         where: { id: { in: fee.sponsorIds } },
         data: { passesPrinted: { decrement: fee.tokenCount }, printFeesPaise: { decrement: each } },
@@ -182,20 +224,18 @@ export class BillingService {
   // ─── Status / history ──────────────────────────────────────────────
 
   /**
-   * How many single-person passes this event can still issue from credit: each one costs the
-   * commission plus the partner printing fee for every partner printed on this event's passes.
+   * How many single-person passes this event can still issue from credit: each one costs only
+   * the commission (sponsors on passes are free for the mandal; platform partners pay their own way).
    */
-  async eventAllowance(organizationId: string, eventId: string) {
+  async eventAllowance(organizationId: string, _eventId: string) {
     const st = await this.status(organizationId);
-    const [b, r, sponsors] = await Promise.all([
+    const [b, r] = await Promise.all([
       this.prisma.orgBilling.findUniqueOrThrow({ where: { organizationId } }),
       this.rates(this.prisma, organizationId),
-      this.passSponsors(this.prisma, organizationId, eventId),
     ]);
-    const perPass = r.unitFeePaise + r.sponsorPassFeePaise * sponsors.length;
+    const perPass = r.unitFeePaise;
     return {
-      state: st.state, message: st.message, balance: st.balance, feePerPass: rupees(perPass),
-      commissionPerPass: rupees(r.unitFeePaise), partnerPrintFeePerPass: rupees(r.sponsorPassFeePaise * sponsors.length), printedPartners: sponsors.length,
+      state: st.state, message: st.message, balance: st.balance, feePerPass: rupees(perPass), commissionPerPass: rupees(r.unitFeePaise),
       tokensLeft: perPass > 0 ? Math.floor(b.creditBalancePaise / perPass) : null,
     };
   }
@@ -217,11 +257,14 @@ export class BillingService {
       tokenPrice: rupees(r.tokenPricePaise),
       commissionPercent: (r.commissionBps / 100).toFixed(2),
       feePerPass: rupees(r.unitFeePaise),
-      partnerPrintFeePerPass: rupees(r.sponsorPassFeePaise),
+      /** Partner rate per pass at this mandal — paid by promotional partners, not the mandal. */
+      partnerRatePerPass: rupees(r.sponsorPassFeePaise),
+      /** Pass print layout chosen by the platform (AUTO = by number of ads). */
+      passPrintFormat: r.passPrintFormat,
       tokensLeft,
       lowCreditThreshold: rupees(r.lowCreditThresholdPaise),
       totals: { tokens: b.totalTokens, persons: b.totalPersons, fees: rupees(b.totalFeesPaise), partnerFees: rupees(b.totalSponsorFeesPaise), recharged: rupees(b.totalRechargedPaise) },
-      overrides: { tokenPrice: b.tokenPricePaise !== null, commission: b.commissionBps !== null, lowCreditThreshold: b.lowCreditThresholdPaise !== null, partnerPrintFee: b.sponsorPassFeePaise !== null },
+      overrides: { tokenPrice: b.tokenPricePaise !== null, commission: b.commissionBps !== null, lowCreditThreshold: b.lowCreditThresholdPaise !== null, partnerRate: b.sponsorPassFeePaise !== null, passPrintFormat: b.passPrintFormat !== null },
     };
   }
 
@@ -310,36 +353,38 @@ export class BillingService {
 
   // ─── Super admin ───────────────────────────────────────────────────
 
-  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerPrintFee?: string; gatewayFeePercent?: string }) {
+  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerRate?: string; gatewayFeePercent?: string; defaultPassPrintFormat?: PassPrintSetting }) {
     const before = await this.settings();
     const data: Prisma.PlatformSettingsUpdateInput = { updatedById: actorId };
     if (dto.defaultTokenPrice !== undefined) data.defaultTokenPricePaise = toPaise(dto.defaultTokenPrice);
     if (dto.defaultCommissionPercent !== undefined) data.defaultCommissionBps = Math.round(Number(dto.defaultCommissionPercent) * 100);
     if (dto.lowCreditThreshold !== undefined) data.lowCreditThresholdPaise = toPaise(dto.lowCreditThreshold);
     if (dto.welcomeCredit !== undefined) data.welcomeCreditPaise = toPaise(dto.welcomeCredit);
-    if (dto.partnerPrintFee !== undefined) data.sponsorPassFeePaise = toPaise(dto.partnerPrintFee);
+    if (dto.partnerRate !== undefined) data.sponsorPassFeePaise = toPaise(dto.partnerRate);
+    if (dto.defaultPassPrintFormat !== undefined) data.defaultPassPrintFormat = dto.defaultPassPrintFormat;
     if (dto.gatewayFeePercent !== undefined) data.gatewayFeeBps = Math.round(Number(dto.gatewayFeePercent) * 100);
     const after = await this.prisma.platformSettings.update({ where: { id: 'default' }, data });
     await this.audit.log({ actorId, action: 'billing.settings_updated', entityType: 'PlatformSettings', entityId: 'default', before, after });
     return this.presentSettings(after);
   }
 
-  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; updatedAt: Date }) {
+  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; defaultPassPrintFormat: string; updatedAt: Date }) {
     return {
       defaultTokenPrice: rupees(s.defaultTokenPricePaise), defaultCommissionPercent: (s.defaultCommissionBps / 100).toFixed(2),
       lowCreditThreshold: rupees(s.lowCreditThresholdPaise), welcomeCredit: rupees(s.welcomeCreditPaise),
-      feePerPass: rupees(unitFeePaise(s.defaultTokenPricePaise, s.defaultCommissionBps)), partnerPrintFee: rupees(s.sponsorPassFeePaise), gatewayFeePercent: (s.gatewayFeeBps / 100).toFixed(2), updatedAt: s.updatedAt,
+      feePerPass: rupees(unitFeePaise(s.defaultTokenPricePaise, s.defaultCommissionBps)), partnerRate: rupees(s.sponsorPassFeePaise), gatewayFeePercent: (s.gatewayFeeBps / 100).toFixed(2), defaultPassPrintFormat: s.defaultPassPrintFormat, updatedAt: s.updatedAt,
     };
   }
 
   /** Per-mandal pricing overrides; null resets to the platform default. */
-  async updateMandal(actorId: string, organizationId: string, dto: { tokenPrice?: string | null; commissionPercent?: string | null; lowCreditThreshold?: string | null; partnerPrintFee?: string | null }) {
+  async updateMandal(actorId: string, organizationId: string, dto: { tokenPrice?: string | null; commissionPercent?: string | null; lowCreditThreshold?: string | null; partnerRate?: string | null; passPrintFormat?: PassPrintSetting | null }) {
     await this.ensureAccount(this.prisma, organizationId);
     const data: Prisma.OrgBillingUpdateInput = {};
     if (dto.tokenPrice !== undefined) data.tokenPricePaise = dto.tokenPrice === null ? null : toPaise(dto.tokenPrice);
     if (dto.commissionPercent !== undefined) data.commissionBps = dto.commissionPercent === null ? null : Math.round(Number(dto.commissionPercent) * 100);
     if (dto.lowCreditThreshold !== undefined) data.lowCreditThresholdPaise = dto.lowCreditThreshold === null ? null : toPaise(dto.lowCreditThreshold);
-    if (dto.partnerPrintFee !== undefined) data.sponsorPassFeePaise = dto.partnerPrintFee === null ? null : toPaise(dto.partnerPrintFee);
+    if (dto.partnerRate !== undefined) data.sponsorPassFeePaise = dto.partnerRate === null ? null : toPaise(dto.partnerRate);
+    if (dto.passPrintFormat !== undefined) data.passPrintFormat = dto.passPrintFormat;
     const before = await this.prisma.orgBilling.findUniqueOrThrow({ where: { organizationId } });
     const after = await this.prisma.orgBilling.update({ where: { organizationId }, data });
     await this.audit.log({ organizationId, actorId, action: 'billing.mandal_pricing_updated', entityType: 'OrgBilling', entityId: organizationId, before, after });
@@ -360,19 +405,26 @@ export class BillingService {
 
   async summary() {
     const split = await this.prisma.paymentSettlement.aggregate({ _sum: { commissionPaise: true, grossPaise: true, gatewayFeePaise: true } });
-    const [agg, recharges, byType, accounts] = await Promise.all([
+    const [agg, recharges, byType, accounts, partnerNet, wallets] = await Promise.all([
       this.prisma.orgBilling.aggregate({ _sum: { totalSponsorFeesPaise: true, totalFeesPaise: true, totalTokens: true, totalPersons: true, creditBalancePaise: true, totalRechargedPaise: true } }),
       this.prisma.creditRecharge.count({ where: { status: 'PAID' } }),
       this.prisma.creditTransaction.groupBy({ by: ['source'], where: { type: 'TOKEN_FEE' }, _sum: { amountPaise: true, tokenCount: true } }),
       this.prisma.organization.findMany({ select: { id: true } }),
+      // Partner earnings: what partners paid for printed passes, net of refunds (100% platform).
+      this.prisma.partnerWalletTransaction.aggregate({ where: { type: { in: ['PASS_PRINT', 'REFUND'] } }, _sum: { amountPaise: true } }),
+      this.prisma.partner.aggregate({ _sum: { walletBalancePaise: true } }),
     ]);
+    const partnerEarned = -(partnerNet._sum.amountPaise ?? 0);
     const states = await Promise.all(accounts.map((a) => this.status(a.id).then((s) => s.state)));
     return {
       commissionEarned: rupees(agg._sum.totalFeesPaise ?? 0),
+      /** Legacy: print fees mandals paid before promotional partners existed. */
       partnerFeesEarned: rupees(agg._sum.totalSponsorFeesPaise ?? 0),
+      promotionalPartnerEarned: rupees(partnerEarned),
+      partnerWalletsOutstanding: rupees(wallets._sum.walletBalancePaise ?? 0),
       splitCommissionEarned: rupees(split._sum.commissionPaise ?? 0),
       onlineGross: rupees(split._sum.grossPaise ?? 0),
-      totalEarned: rupees((agg._sum.totalFeesPaise ?? 0) + (agg._sum.totalSponsorFeesPaise ?? 0) + (split._sum.commissionPaise ?? 0)),
+      totalEarned: rupees((agg._sum.totalFeesPaise ?? 0) + (agg._sum.totalSponsorFeesPaise ?? 0) + (split._sum.commissionPaise ?? 0) + partnerEarned),
       tokensGenerated: agg._sum.totalTokens ?? 0,
       personsAdmitted: agg._sum.totalPersons ?? 0,
       creditOutstanding: rupees(agg._sum.creditBalancePaise ?? 0),

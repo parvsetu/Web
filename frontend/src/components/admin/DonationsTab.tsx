@@ -9,6 +9,7 @@ import { useAsync, useDebounced } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
 import type { Donation, DonationCreateResponse, Paged, PaymentProvider, TimeSlot } from '@/lib/types';
 import { QrImage } from '../QrImage';
+import { PassSponsors } from '../SponsorStrip';
 import { ValidityPicker, VisitorCountInput, buildValidity, initialValidity, type ValidityState } from '../TokenParts';
 import { Alert, Badge, Button, Card, Checkbox, Empty, Field, LabeledInput, LabeledSelect, Modal, Pager, SkeletonList, Textarea } from '../ui';
 import { HandCoins, Printer, ReceiptText, Save } from 'lucide-react';
@@ -234,6 +235,7 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
                   <QrImage payload={t.qrPayload} size={220} alt={`QR for ${t.tokenCode}`} />
                   <span className="font-mono font-bold">{t.tokenCode}</span>
                   <span className="text-xs text-slate-500">Admits {t.visitorCount} · {fmtDateTime(t.validFrom, ev.timezone)} – {fmtDateTime(t.validUntil, ev.timezone)}</span>
+                  <PassSponsors sponsors={created.printedSponsors} partners={created.printedPartners} />
                 </div>
               ))}
               <Button variant="secondary" onClick={() => window.print()}>

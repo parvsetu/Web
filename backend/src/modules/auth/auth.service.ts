@@ -153,6 +153,7 @@ export class AuthService {
   }
 
   async apply(actor: RequestUser, dto: ApplyDto) {
+    if (actor.partnerId) throw new ForbiddenException({ statusCode: 403, message: 'Partner accounts cannot volunteer.', code: 'FORBIDDEN' });
     await this.assertCanApply(dto.organizationId, dto.eventId);
     const pending = await this.prisma.volunteerApplication.findFirst({
       where: { userId: actor.id, organizationId: dto.organizationId, status: 'PENDING' },
@@ -190,6 +191,7 @@ export class AuthService {
       where: { id: actor.id },
       select: {
         id: true, name: true, mobile: true, email: true, isSuperAdmin: true, status: true, emailVerifiedAt: true,
+        partner: { select: { id: true, name: true, status: true } },
         memberships: {
           where: { status: 'ACTIVE' },
           select: {
@@ -241,6 +243,8 @@ export class AuthService {
     return {
       id: user.id, name: user.name, mobile: user.mobile, email: user.email,
       isSuperAdmin: user.isSuperAdmin, status: user.status, emailVerified: !!user.emailVerifiedAt,
+      // Promotional-partner (brand) account → the frontend routes it to /partner.
+      partner: user.partner,
       organizations,
       events: eventsOut,
       applications: await this.myApplications(actor),
@@ -251,8 +255,8 @@ export class AuthService {
     return this.jwt.sign({ sub: userId, ver: tokenVersion });
   }
 
-  private toRequestUser(u: { id: string; name: string; isSuperAdmin: boolean }): RequestUser {
-    return { id: u.id, name: u.name, isSuperAdmin: u.isSuperAdmin };
+  private toRequestUser(u: { id: string; name: string; isSuperAdmin: boolean; partnerId?: string | null }): RequestUser {
+    return { id: u.id, name: u.name, isSuperAdmin: u.isSuperAdmin, partnerId: u.partnerId ?? null };
   }
 }
 

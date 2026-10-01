@@ -1,5 +1,6 @@
 import { IsIn, IsOptional, IsString, Length, Matches, ValidateIf } from 'class-validator';
 import { PageQuery } from '../../common/http';
+import { PASS_PRINT_FORMATS, PassPrintSetting } from './billing.service';
 
 const RUPEES = /^\d{1,8}(\.\d{1,2})?$/;
 const PERCENT = /^(100(\.0{1,2})?|\d{1,2}(\.\d{1,2})?)$/;
@@ -9,8 +10,10 @@ export class PlatformSettingsDto {
   @IsOptional() @Matches(PERCENT, { message: 'defaultCommissionPercent must be 0–100 with up to 2 decimals' }) defaultCommissionPercent?: string;
   @IsOptional() @Matches(RUPEES) lowCreditThreshold?: string;
   @IsOptional() @Matches(RUPEES) welcomeCredit?: string;
-  /** Per pass, per partner printed on it. */
-  @IsOptional() @Matches(RUPEES) partnerPrintFee?: string;
+  /** Default promotional-partner rate per printed pass (paid by the partner). */
+  @IsOptional() @Matches(RUPEES) partnerRate?: string;
+  /** Pass layout for mandals without an override (AUTO = A4 with 2+ ads, else thermal 80 mm). */
+  @IsOptional() @IsIn(PASS_PRINT_FORMATS) defaultPassPrintFormat?: PassPrintSetting;
   /** Gateway fee taken from the mandal's share of online payments (%). */
   @IsOptional() @Matches(PERCENT) gatewayFeePercent?: string;
 }
@@ -20,7 +23,10 @@ export class MandalPricingDto {
   @IsOptional() @ValidateIf((_o, v) => v !== null) @Matches(RUPEES) tokenPrice?: string | null;
   @IsOptional() @ValidateIf((_o, v) => v !== null) @Matches(PERCENT) commissionPercent?: string | null;
   @IsOptional() @ValidateIf((_o, v) => v !== null) @Matches(RUPEES) lowCreditThreshold?: string | null;
-  @IsOptional() @ValidateIf((_o, v) => v !== null) @Matches(RUPEES) partnerPrintFee?: string | null;
+  /** Partner rate per pass at this mandal. */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @Matches(RUPEES) partnerRate?: string | null;
+  /** Pass print layout — only the super admin sets it. */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsIn(PASS_PRINT_FORMATS) passPrintFormat?: PassPrintSetting | null;
 }
 
 export class AdjustCreditDto {

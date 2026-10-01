@@ -46,6 +46,7 @@ environment instead, and the demo super admin (`9000000001`) is not created.
 | Treasurer | `treasurer@parvsetu.dev` | donations / expenses |
 | Other mandal admin | `navratri-admin@parvsetu.dev` | Navratri Seva Samiti only (isolation demo) |
 | Pending applicant | `applicant@parvsetu.dev` | nothing until approved |
+| Promotional partner (brand) | `partner@parvsetu.dev` / `9000000020` | Tanishq Jewellers' partner portal (`/partner`): ₹5,000 wallet, an approved campaign on every Jan Utsav Samiti festival this month. A second brand, Amul, has a campaign at Shree Durga Mandal waiting in the super admin's *Promotional partners* queue |
 
 ## Tests
 

@@ -10,15 +10,22 @@ import type { CreditStatus } from '../org/CreditTab';
 import { SearchBar } from '../SearchBar';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SectionTitle, SkeletonList, Stat, Table, Td, cx } from '../ui';
 
-interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerPrintFee: string; feePerPass: string; gatewayFeePercent: string }
+interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerRate: string; feePerPass: string; gatewayFeePercent: string; defaultPassPrintFormat: string }
 interface Summary {
-  commissionEarned: string; partnerFeesEarned: string; splitCommissionEarned: string; onlineGross: string; totalEarned: string; tokensGenerated: number; personsAdmitted: number;
+  commissionEarned: string; partnerFeesEarned: string; promotionalPartnerEarned: string; partnerWalletsOutstanding: string; splitCommissionEarned: string; onlineGross: string; totalEarned: string; tokensGenerated: number; personsAdmitted: number;
   creditOutstanding: string; totalRecharged: string; paidRecharges: number;
   mandals: { total: number; low: number; exhausted: number };
   bySource: { source: string | null; commission: string; tokens: number }[];
 }
-interface MandalRow { id: string; name: string; city: string | null; state: string | null; billing: CreditStatus & { overrides: Record<string, boolean> } }
+interface MandalRow { id: string; name: string; city: string | null; state: string | null; billing: CreditStatus & { passPrintFormat: string; overrides: Record<string, boolean> } }
 interface TxRow { id: string; createdAt: string; type: string; source: string | null; organization: { name: string }; event: { name: string } | null; amount: string; balanceAfter: string; tokenCount: number; personCount: number; reference: string | null; note: string | null }
+
+const PRINT_SETTINGS = [
+  { key: 'AUTO', label: 'Auto — A4 with 2+ ads, else thermal 80 mm' },
+  { key: 'A4', label: 'A4 page (PDF-friendly)' },
+  { key: 'THERMAL_80', label: 'Thermal 80 mm' },
+  { key: 'THERMAL_58', label: 'Thermal 58 mm' },
+];
 
 const STATE_STYLE = { OK: 'bg-green-100 text-green-800', LOW: 'bg-amber-100 text-amber-800', EXHAUSTED: 'bg-red-100 text-red-800' };
 
@@ -40,9 +47,10 @@ export function BillingAdmin() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">Your platform earnings</p>
             <p className="text-4xl font-black">{fmtMoney(s.totalEarned)}</p>
             <p className="text-sm text-white/90">
-              Pass credit commission {fmtMoney(s.commissionEarned)} · Online split commission {fmtMoney(s.splitCommissionEarned)} · Partner printing {fmtMoney(s.partnerFeesEarned)}
+              Pass credit commission {fmtMoney(s.commissionEarned)} · Online split commission {fmtMoney(s.splitCommissionEarned)} · Promotional partners {fmtMoney(s.promotionalPartnerEarned)}
+              {Number(s.partnerFeesEarned) > 0 ? ` · Legacy sponsor print fees ${fmtMoney(s.partnerFeesEarned)}` : ''}
             </p>
-            <p className="mt-1 text-xs text-white/75">Online payments collected: {fmtMoney(s.onlineGross)}</p>
+            <p className="mt-1 text-xs text-white/75">Online payments collected: {fmtMoney(s.onlineGross)} · Partner wallets held: {fmtMoney(s.partnerWalletsOutstanding)}</p>
           </section>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Passes generated" value={s.tokensGenerated.toLocaleString('en-IN')} tone="blue" icon={Ticket} />
@@ -149,8 +157,8 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
     setOk(false);
     setBusy(true);
     try {
-      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerPrintFee, gatewayFeePercent } = f!;
-      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerPrintFee, gatewayFeePercent });
+      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat } = f!;
+      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat });
       setForm(saved);
       setOk(true);
       onSaved();
@@ -168,7 +176,10 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
         <LabeledInput label="Default token price (₹)" inputMode="decimal" value={f.defaultTokenPrice} onChange={set('defaultTokenPrice')} />
         <LabeledInput label="Commission per token (%)" inputMode="decimal" value={f.defaultCommissionPercent} onChange={set('defaultCommissionPercent')} />
         <LabeledInput label="Low-credit warning below (₹)" inputMode="decimal" value={f.lowCreditThreshold} onChange={set('lowCreditThreshold')} />
-        <LabeledInput label="Partner print fee per pass (₹)" inputMode="decimal" value={f.partnerPrintFee} onChange={set('partnerPrintFee')} hint="Per partner printed on a pass" />
+        <LabeledInput label="Default partner rate per pass (₹)" inputMode="decimal" value={f.partnerRate} onChange={set('partnerRate')} hint="Paid by promotional partners (brands) per pass printed — never by the mandal" />
+        <LabeledSelect label="Default pass print format" value={f.defaultPassPrintFormat ?? 'AUTO'} onChange={(e) => setForm({ ...f, defaultPassPrintFormat: e.target.value })} hint="Mandals can't change this — partner ads print on passes">
+          {PRINT_SETTINGS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+        </LabeledSelect>
         <LabeledInput label="Welcome credit for new mandals (₹)" inputMode="decimal" value={f.welcomeCredit} onChange={set('welcomeCredit')} />
         <LabeledInput label="Gateway fee taken from the mandal's share (%)" inputMode="decimal" value={f.gatewayFeePercent ?? ''} onChange={set('gatewayFeePercent')} hint="Applied to each paid online pass before the mandal's net" />
       </div>
@@ -191,7 +202,8 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
   const [price, setPrice] = useState(b.overrides.tokenPrice ? b.tokenPrice : '');
   const [pct, setPct] = useState(b.overrides.commission ? b.commissionPercent : '');
   const [low, setLow] = useState(b.overrides.lowCreditThreshold ? b.lowCreditThreshold : '');
-  const [print, setPrint] = useState(b.overrides.partnerPrintFee ? b.partnerPrintFeePerPass : '');
+  const [print, setPrint] = useState(b.overrides.partnerRate ? b.partnerRatePerPass : '');
+  const [format, setFormat] = useState(b.overrides.passPrintFormat ? b.passPrintFormat : '');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -224,9 +236,15 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
           <LabeledInput label="Token price (₹)" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
           <LabeledInput label="Commission (%)" value={pct} onChange={(e) => setPct(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
           <LabeledInput label="Low warning (₹)" value={low} onChange={(e) => setLow(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
-          <LabeledInput label="Partner print fee (₹)" value={print} onChange={(e) => setPrint(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
+          <LabeledInput label="Partner rate per pass (₹)" value={print} onChange={(e) => setPrint(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
+          <div className="col-span-2">
+            <LabeledSelect label="Pass print format" value={format} onChange={(e) => setFormat(e.target.value)} hint={`Currently: ${b.passPrintFormat}`}>
+              <option value="">Platform default</option>
+              {PRINT_SETTINGS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </LabeledSelect>
+          </div>
         </div>
-        <Button variant="secondary" loading={busy} onClick={() => void run(() => api.patch(`/platform/billing/mandals/${m.id}`, { tokenPrice: v(price), commissionPercent: v(pct), lowCreditThreshold: v(low), partnerPrintFee: v(print) }))}>
+        <Button variant="secondary" loading={busy} onClick={() => void run(() => api.patch(`/platform/billing/mandals/${m.id}`, { tokenPrice: v(price), commissionPercent: v(pct), lowCreditThreshold: v(low), partnerRate: v(print), passPrintFormat: format || null }))}>
           <Save aria-hidden className="h-4 w-4" /> Save pricing
         </Button>
         <SectionTitle icon={Handshake}>Add or deduct credit</SectionTitle>

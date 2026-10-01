@@ -21,6 +21,7 @@ import { PassesModule } from './modules/passes/passes.module';
 import { SponsorsModule } from './modules/sponsors/sponsors.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
+import { PartnersModule } from './modules/partners/partners.module';
 import { MailModule } from './common/mail/mail.module';
 
 @Module({
@@ -43,6 +44,7 @@ import { MailModule } from './common/mail/mail.module';
     SponsorsModule,
     BillingModule,
     PayoutsModule,
+    PartnersModule,
   ],
   providers: [
     // Order matters: authenticate → rate-limit (per user) → authorize.

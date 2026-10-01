@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { ApiError, errorMessage } from '@/lib/api';
-import { isAwaitingApproval, useAuth } from '@/lib/auth';
-import { LogIn, Ticket } from 'lucide-react';
+import { homeFor, useAuth } from '@/lib/auth';
+import { Handshake, LogIn, Ticket } from 'lucide-react';
 import { Alert, Button, LabeledInput } from '@/components/ui';
 import { AuthCard } from '@/components/AuthCard';
 
@@ -22,7 +22,7 @@ function LoginForm() {
   const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login') ? next : '/';
 
   useEffect(() => {
-    if (!loading && me) router.replace(isAwaitingApproval(me) ? '/awaiting' : safeNext);
+    if (!loading && me) router.replace(homeFor(me, safeNext));
   }, [loading, me, router, safeNext]);
 
   async function submit(e: React.FormEvent) {
@@ -32,7 +32,7 @@ function LoginForm() {
     setBusy(true);
     try {
       const user = await login(identifier.trim(), password);
-      router.replace(isAwaitingApproval(user) ? '/awaiting' : safeNext);
+      router.replace(homeFor(user, safeNext));
     } catch (err) {
       if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
         const email = (err.body as { email?: string } | null)?.email ?? '';
@@ -78,6 +78,12 @@ function LoginForm() {
         className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 font-semibold text-orange-800 hover:bg-orange-100"
       >
         <Ticket aria-hidden className="h-5 w-5" /> Visiting a pandal? Book festival passes
+      </Link>
+      <Link
+        href="/partner/signup"
+        className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-50 to-fuchsia-50 font-semibold text-violet-800 ring-1 ring-violet-200 hover:from-violet-100 hover:to-fuchsia-100"
+      >
+        <Handshake aria-hidden className="h-5 w-5" /> Brands: become a promotional partner
       </Link>
     </form>
   );

@@ -26,7 +26,8 @@ describe('GST on passes (e2e)', () => {
     expect(on.body.code).toBe('GSTIN_REQUIRED');
     await ctx.prisma.payoutAccount.update({ where: { organizationId: m.org.id }, data: { gstin: '27AAATS1234Z1Z5' } });
     const ok = await ctx.http().patch(api(`/events/${m.event.id}`)).set('Authorization', m.auth).send({ publicBookingEnabled: true, gstEnabled: true, gstMode: 'FLAT', gstRatePercent: 18, gstBearer: 'CUSTOMER', passPrintFormat: 'THERMAL_80' });
-    expect(ok.body).toMatchObject({ gstEnabled: true, gstMode: 'FLAT', gstRatePercent: 18, gstBearer: 'CUSTOMER', passPrintFormat: 'THERMAL_80' });
+    // passPrintFormat from a mandal is ignored now: the platform sets it (default AUTO → thermal 80 mm without 2+ ads).
+    expect(ok.body).toMatchObject({ gstEnabled: true, gstMode: 'FLAT', gstRatePercent: 18, gstBearer: 'CUSTOMER', passPrintFormat: 'AUTO' });
     const paid = await m.buy();
     expect(paid).toMatchObject({ amount: '118.00', gst: { taxable: '100.00', amount: '18.00', cgst: '9.00', sgst: '9.00', ratePercent: 18 }, printFormat: 'THERMAL_80', issuer: { gstin: '27AAATS1234Z1Z5' } });
     expect(paid.invoiceNo).toMatch(/-INV-\d{4}-00001$/);

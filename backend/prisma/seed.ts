@@ -212,6 +212,7 @@ Demo data created (${seq} Durga Puja tokens). Demo password: ${IS_PROD ? '(DEMO_
   other mandal admin 9000000007  navratri-admin@parvsetu.dev (Navratri Seva Samiti — isolated)
   pending applicant  9000000008  applicant@parvsetu.dev
   more gate staff    9000000009 / 9000000010, supervisor 9000000011
+  promotional partner 9000000020 partner@parvsetu.dev        (Tanishq Jewellers — brand portal /partner)
 ${superAdmin ? `super admin id: ${superAdmin.id}` : ''}`);
 }
 
@@ -379,6 +380,53 @@ async function seedMoreEvents() {
   console.log('More sample events created under Jan Utsav Samiti (Pune).');
 }
 
+/**
+ * Demo promotional partners (brands that pay the platform per printed pass):
+ * Tanishq (login partner@parvsetu.dev, ₹5,000 wallet, an APPROVED campaign on
+ * every Jan Utsav Samiti festival this month) and Amul (a REQUESTED campaign
+ * at Shree Durga Mandal waiting in the super admin queue). Idempotent.
+ */
+async function seedPartners() {
+  if (await prisma.user.findUnique({ where: { mobile: '9000000020' } })) return;
+  const jan = await prisma.organization.findUnique({ where: { slug: 'jan-utsav-samiti' } });
+  const durga = await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } });
+  if (!jan || !durga) return;
+  const password = process.env.DEMO_PASSWORD ?? (IS_PROD ? '' : LOCAL_DEMO_PASSWORD);
+  if (password.length < 10) return;
+  const settings = await prisma.platformSettings.upsert({ where: { id: 'default' }, create: { id: 'default' }, update: {} });
+  const rate = async (orgId: string) => (await prisma.orgBilling.findUnique({ where: { organizationId: orgId } }))?.sponsorPassFeePaise ?? settings.sponsorPassFeePaise;
+  const month = DateTime.now().setZone('Asia/Kolkata');
+  const d = (dt: DateTime) => new Date(`${dt.toISODate()}T00:00:00.000Z`);
+  const now = new Date();
+
+  const tanishq = await prisma.partner.create({ data: {
+    name: 'Tanishq Jewellers', legalName: 'Titan Company Ltd (demo)', contactName: 'Riya Kapoor', contactEmail: 'partner@parvsetu.dev', contactPhone: '9000000020',
+    websiteUrl: 'https://www.tanishq.co.in', tagline: 'Festive gold & diamond jewellery', status: 'ACTIVE', reviewedAt: now, reviewNote: 'Demo partner',
+    walletBalancePaise: 500000, totalRechargedPaise: 500000,
+  } });
+  await prisma.partnerWalletTransaction.create({ data: { partnerId: tanishq.id, type: 'RECHARGE', amountPaise: 500000, balanceAfterPaise: 500000, note: 'Demo wallet' } });
+  await prisma.user.create({ data: {
+    name: 'Riya Kapoor', mobile: '9000000020', email: 'partner@parvsetu.dev', passwordHash: await bcrypt.hash(password, 10), partnerId: tanishq.id, emailVerifiedAt: now,
+  } });
+  await prisma.partnerCampaign.create({ data: {
+    partnerId: tanishq.id, organizationId: jan.id, eventId: null, message: 'Show this pass at Tanishq Shivajinagar for 10% off making charges',
+    startDate: d(month.startOf('month')), endDate: d(month.endOf('month')), maxPasses: 5000, ratePaise: await rate(jan.id),
+    status: 'APPROVED', approvedAt: now, reviewedAt: now, reviewNote: 'Demo campaign',
+  } });
+
+  const amul = await prisma.partner.create({ data: {
+    name: 'Amul', contactName: 'Amul Marketing', contactEmail: 'amul@partners.parvsetu.dev', contactPhone: '9000000021', websiteUrl: 'https://amul.com',
+    tagline: 'The Taste of India', status: 'ACTIVE', reviewedAt: now, walletBalancePaise: 100000, totalRechargedPaise: 100000,
+  } });
+  await prisma.partnerWalletTransaction.create({ data: { partnerId: amul.id, type: 'RECHARGE', amountPaise: 100000, balanceAfterPaise: 100000, note: 'Demo wallet' } });
+  const durgaEvent = await prisma.event.findFirst({ where: { organizationId: durga.id, festivalType: 'DURGA_PUJA' } });
+  await prisma.partnerCampaign.create({ data: {
+    partnerId: amul.id, organizationId: durga.id, eventId: durgaEvent?.id ?? null, message: 'Free Amul Kool with every 2 passes at the pandal stall',
+    startDate: d(month), endDate: d(month.plus({ days: 9 })), maxPasses: 2000, ratePaise: await rate(durga.id),
+  } });
+  console.log('Demo promotional partners created (Tanishq Jewellers: 9000000020 / partner@parvsetu.dev; Amul campaign awaiting approval).');
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -387,7 +435,10 @@ async function main() {
   const demo = process.env.SEED_DEMO ?? (process.env.NODE_ENV === 'production' ? 'false' : 'true');
   if (demo === 'true') await seedDemo();
   await upgradeDemo();
-  if (demo === 'true' || (await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } }))) await seedMoreEvents();
+  if (demo === 'true' || (await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } }))) {
+    await seedMoreEvents();
+    await seedPartners();
+  }
 }
 
 if (require.main === module) {

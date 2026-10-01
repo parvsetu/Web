@@ -105,7 +105,15 @@ export function useRequireAuth(): AuthState {
   return auth;
 }
 
+/** Where a user lands after login: brands go to the partner portal, never the mandal app. */
+export function homeFor(me: MeUser, next = '/'): string {
+  if (me.partner) return next.startsWith('/partner') ? next : '/partner';
+  if (isAwaitingApproval(me)) return '/awaiting';
+  return next;
+}
+
 export function isAwaitingApproval(me: MeUser): boolean {
+  if (me.partner) return false;
   return (
     !me.isSuperAdmin &&
     me.organizations.length === 0 &&

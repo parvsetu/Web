@@ -24,6 +24,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (loading || !me) return;
+    if (me.partner) {
+      router.replace('/partner');
+      return;
+    }
     if (isAwaitingApproval(me)) {
       router.replace('/awaiting');
       return;
@@ -36,7 +40,7 @@ export default function HomePage() {
 
   return (
     <AppShell title="My festivals" subtitle={me ? `Hello, ${me.name}` : undefined}>
-      {me && <Picker me={me} />}
+      {me && !me.partner && <Picker me={me} />}
     </AppShell>
   );
 }

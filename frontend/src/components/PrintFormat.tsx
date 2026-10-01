@@ -36,6 +36,14 @@ export function PrintFormatStyle({ format }: { format: PrintFormat }) {
   return <style media="print">{css}</style>;
 }
 
+/** Human label for a platform print setting (AUTO included). */
+export function printFormatLabel(f: string | null | undefined) {
+  if (f === 'A4') return 'A4 page';
+  if (f === 'THERMAL_80') return 'Thermal 80 mm';
+  if (f === 'THERMAL_58') return 'Thermal 58 mm';
+  return 'Automatic (A4 page when a pass carries 2 or more ads, otherwise Thermal 80 mm)';
+}
+
 /** Small segmented control to choose the print layout before printing. */
 export function PrintFormatPicker({ value, onChange }: { value: PrintFormat; onChange: (f: PrintFormat) => void }) {
   return (

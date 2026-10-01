@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth, useRequireAuth } from '@/lib/auth';
-import { ArrowLeft, CalendarHeart, HelpCircle, KeyRound, LogOut, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CalendarHeart, Handshake, HelpCircle, KeyRound, LogOut, ShieldCheck } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { LogoMark } from './FestivalArt';
 import { Alert, Button, LabeledInput, Modal, SkeletonList, cx } from './ui';
@@ -103,9 +103,15 @@ function UserMenu() {
               <div className="font-semibold">{me.name}</div>
               <div className="text-xs text-slate-500">{me.mobile || me.email}</div>
             </div>
-            <Link href="/" className={menuItem} onClick={() => setOpen(false)}>
-              <CalendarHeart aria-hidden className="h-5 w-5 text-orange-500" /> My festivals
-            </Link>
+            {me.partner ? (
+              <Link href="/partner" className={menuItem} onClick={() => setOpen(false)}>
+                <Handshake aria-hidden className="h-5 w-5 text-fuchsia-500" /> Partner dashboard
+              </Link>
+            ) : (
+              <Link href="/" className={menuItem} onClick={() => setOpen(false)}>
+                <CalendarHeart aria-hidden className="h-5 w-5 text-orange-500" /> My festivals
+              </Link>
+            )}
             <Link href="/faq" className={menuItem} onClick={() => setOpen(false)}>
               <HelpCircle aria-hidden className="h-5 w-5 text-sky-500" /> Help &amp; FAQ
             </Link>

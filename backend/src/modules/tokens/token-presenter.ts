@@ -11,7 +11,7 @@ export function effectiveStatus(t: { status: TokenStatus; validFrom: Date; valid
 }
 
 export const tokenSelect = {
-  id: true, tokenCode: true, secureToken: true, sponsorIds: true, status: true, validFrom: true, validUntil: true, visitorCount: true,
+  id: true, tokenCode: true, secureToken: true, sponsorIds: true, partnerCampaignIds: true, status: true, validFrom: true, validUntil: true, visitorCount: true,
   issuedAt: true, usedAt: true, cancelledAt: true, cancellationReason: true,
   timeSlot: { select: { id: true, label: true } },
   visitor: { select: { name: true, mobile: true } },
@@ -20,7 +20,7 @@ export const tokenSelect = {
 } as const;
 
 type TokenRow = {
-  id: string; tokenCode: string; secureToken: string; sponsorIds: string[]; status: TokenStatus; validFrom: Date; validUntil: Date; visitorCount: number;
+  id: string; tokenCode: string; secureToken: string; sponsorIds: string[]; partnerCampaignIds: string[]; status: TokenStatus; validFrom: Date; validUntil: Date; visitorCount: number;
   issuedAt: Date; usedAt: Date | null; cancelledAt: Date | null; cancellationReason: string | null;
   timeSlot: { id: string; label: string } | null; visitor: { name: string | null; mobile: string | null } | null;
   issuedBy: { id: string; name: string } | null; usedBy: { id: string; name: string } | null;

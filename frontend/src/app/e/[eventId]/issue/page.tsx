@@ -46,7 +46,8 @@ function IssueForm() {
   const [busy, setBusy] = useState(false);
   const [issued, setIssued] = useState<TokenWithQr[] | null>(null);
   const [perPerson, setPerPerson] = useState(true);
-  const [printFormat, setPrintFormat] = useState<PrintFormat>(ev.detail?.passPrintFormat ?? 'A4');
+  // The platform decides the layout per mandal; the server resolves it per pass (AUTO counts the ads).
+  const [printFormat, setPrintFormat] = useState<PrintFormat>('THERMAL_80');
   const maxVisitors = ev.detail?.maxVisitorsPerToken ?? 10;
   const credit = useAsync(() => api.get<EventAllowance>(`/events/${ev.eventId}/credit-status`), [ev.eventId, issued?.length ?? 0]);
   const sponsors = useAsync(() => api.get<SponsorPublic[]>(`/events/${ev.eventId}/sponsors`), [ev.eventId]);
@@ -68,7 +69,9 @@ function IssueForm() {
       if (name.trim()) body.visitorName = name.trim();
       if (mobile.trim()) body.visitorMobile = mobile.replace(/\s/g, '');
       const res = await api.post<TokenWithQr | { count: number; tokens: TokenWithQr[] }>(`/events/${ev.eventId}/tokens`, body);
-      setIssued('tokens' in res ? res.tokens : [res]);
+      const list = 'tokens' in res ? res.tokens : [res];
+      setIssued(list);
+      if (list[0]?.printFormat) setPrintFormat(list[0].printFormat);
       window.scrollTo({ top: 0 });
     } catch (err) {
       setError(errorMessage(err));

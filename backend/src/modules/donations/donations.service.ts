@@ -1,5 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { TokensService } from '../tokens/tokens.service';
+import { SponsorsService } from '../sponsors/sponsors.service';
+import { PartnerBillingService } from '../partners/partner-billing.service';
+import { BillingService } from '../billing/billing.service';
 import { QrSigner } from '../../common/qr/qr-signer';
 import { PayoutsService } from '../payouts/payouts.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -36,6 +39,9 @@ export class DonationsService {
     private readonly qr: QrSigner,
     private readonly payouts: PayoutsService,
     private readonly mail: MailService,
+    private readonly sponsors: SponsorsService,
+    private readonly partners: PartnerBillingService,
+    private readonly billing: BillingService,
     @Inject(PAYMENT_PROVIDERS) private readonly providers: PaymentProvider[],
   ) {}
 
@@ -76,14 +82,24 @@ export class DonationsService {
   async get(eventId: string, id: string) {
     const d = await this.prisma.donation.findFirst({
       where: { id, eventId },
-      select: { ...donationSelect, passes: { select: { id: true, tokenCode: true, secureToken: true, visitorCount: true, status: true, validFrom: true, validUntil: true }, orderBy: { tokenCode: 'asc' } } },
+      select: { ...donationSelect, passes: { select: { id: true, tokenCode: true, secureToken: true, visitorCount: true, status: true, validFrom: true, validUntil: true, sponsorIds: true, partnerCampaignIds: true }, orderBy: { tokenCode: 'asc' } } },
     });
     if (!d) throw new NotFoundException('Donation not found');
     const { passes, ...rest } = d;
     return {
       ...rest,
-      passes: passes.map(({ secureToken, ...p }) => ({ ...p, qrPayload: this.qr.payloadFor(secureToken) })),
+      passes: passes.map(({ secureToken, sponsorIds: _s, partnerCampaignIds: _p, ...p }) => ({ ...p, qrPayload: this.qr.payloadFor(secureToken) })),
+      // What is printed on the donor's passes: the mandal's sponsors + platform partners.
+      printedSponsors: await this.sponsors.byIds([...new Set(passes.flatMap((p) => p.sponsorIds))]),
+      printedPartners: await this.partners.printed(passes.flatMap((p) => p.partnerCampaignIds)),
+      printFormat: passes.length ? await this.passFormat(eventId, Math.max(...passes.map((p) => p.sponsorIds.length + p.partnerCampaignIds.length))) : null,
     };
+  }
+
+  /** Print layout of the donor's passes (set by the platform per mandal). */
+  private async passFormat(eventId: string, ads: number) {
+    const ev = await this.prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { organizationId: true } });
+    return this.billing.printFormat(this.prisma, ev.organizationId, ads);
   }
 
   async create(actor: RequestUser, event: EventRef, dto: CreateDonationDto, perms: Set<string> = new Set()) {

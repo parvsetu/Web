@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Event, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AccessService } from '../../common/access/access.service';
 import { RequestUser } from '../../common/auth/request-user';
@@ -16,12 +17,13 @@ import {
 } from './events.dto';
 
 /** Maps GST/print settings from the DTO (percent → basis points). */
-function gstData(dto: { gstEnabled?: boolean; gstRatePercent?: number; gstBearer?: string; gstSac?: string; passPrintFormat?: string; gstMode?: string; gstLowRatePercent?: number; gstSlabThreshold?: number }) {
+// passPrintFormat in the DTO is accepted but ignored: the platform sets the pass layout per mandal.
+function gstData(dto: { gstEnabled?: boolean; gstRatePercent?: number; gstBearer?: string; gstSac?: string; gstMode?: string; gstLowRatePercent?: number; gstSlabThreshold?: number }) {
   return {
     gstMode: dto.gstMode, gstLowRateBps: dto.gstLowRatePercent === undefined ? undefined : Math.round(dto.gstLowRatePercent * 100),
     gstSlabThresholdPaise: dto.gstSlabThreshold === undefined ? undefined : Math.round(dto.gstSlabThreshold * 100),
     gstEnabled: dto.gstEnabled, gstRateBps: dto.gstRatePercent === undefined ? undefined : Math.round(dto.gstRatePercent * 100),
-    gstBearer: dto.gstBearer, gstSac: dto.gstSac, passPrintFormat: dto.passPrintFormat,
+    gstBearer: dto.gstBearer, gstSac: dto.gstSac,
   };
 }
 
@@ -34,7 +36,6 @@ export function presentEvent(e: Event & { organization?: { id: string; name: str
     tokenDurationOptions: e.tokenDurationOptions,
     gstEnabled: e.gstEnabled, gstRatePercent: e.gstRateBps / 100, gstBearer: e.gstBearer, gstSac: e.gstSac,
     gstMode: e.gstMode, gstLowRatePercent: e.gstLowRateBps / 100, gstSlabThreshold: e.gstSlabThresholdPaise / 100,
-    passPrintFormat: e.passPrintFormat,
     venueAddress: e.venueAddress, venueLandmark: e.venueLandmark, venuePincode: e.venuePincode, venueMapUrl: e.venueMapUrl,
     venueLat: e.venueLat, venueLng: e.venueLng, venueNotes: e.venueNotes, venueContactPhone: e.venueContactPhone,
     venue: presentVenue(e),
@@ -54,7 +55,13 @@ export class EventsService {
     private readonly audit: AuditService,
     private readonly access: AccessService,
     private readonly roles: RolesService,
+    private readonly billing: BillingService,
   ) {}
+
+  /** Read-only for the mandal: the platform decides the pass layout (AUTO / A4 / thermal). */
+  private async withPrintFormat<T extends { organizationId: string }>(e: T) {
+    return { ...e, passPrintFormat: (await this.billing.rates(this.prisma, e.organizationId)).passPrintFormat };
+  }
 
   async listForOrg(orgId: string, q: SearchPageQuery = {}) {
     const { page, pageSize, skip, take } = paging(q, 20);
@@ -72,7 +79,7 @@ export class EventsService {
 
   async get(eventId: string, perms: Set<string>) {
     const e = await this.prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: { organization: { select: { id: true, name: true, festivalTypes: true } } } });
-    return presentEvent(e, perms);
+    return this.withPrintFormat(presentEvent(e, perms));
   }
 
   private validateDates(start: string, end: string, tz: string) {
@@ -143,7 +150,7 @@ export class EventsService {
         before: presentEvent(before), after: presentEvent(ev),
       }, tx);
       return presentEvent(ev);
-    });
+    }).then((ev) => this.withPrintFormat(ev));
   }
 
   async remove(actor: RequestUser, eventId: string) {

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { MailCheck, ShieldCheck } from 'lucide-react';
 import { api, errorMessage } from '@/lib/api';
-import { isAwaitingApproval, useAuth } from '@/lib/auth';
+import { homeFor, useAuth } from '@/lib/auth';
 import { AuthCard } from '@/components/AuthCard';
 import { OtpInput, ResendButton } from '@/components/OtpInput';
 import { Alert, Button } from '@/components/ui';
@@ -27,7 +27,7 @@ function VerifyForm() {
     setBusy(true);
     try {
       const user = await verifyEmail(email, code);
-      router.replace(isAwaitingApproval(user) ? '/awaiting' : '/');
+      router.replace(homeFor(user));
     } catch (err) {
       setError(errorMessage(err));
       setCode('');

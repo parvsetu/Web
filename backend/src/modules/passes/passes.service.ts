@@ -17,6 +17,7 @@ import { SponsorsService } from '../sponsors/sponsors.service';
 import { computeGst, slabRateBps } from '../../common/gst';
 import { presentVenue, VENUE_SELECT } from '../../common/venue';
 import { BillingService } from '../billing/billing.service';
+import { PartnerBillingService } from '../partners/partner-billing.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { CreatePassOrderDto, PassOrderListQuery } from './passes.dto';
 
@@ -26,10 +27,10 @@ export const ORDER_HOLD_MINUTES = 15;
 const BOOKABLE = { publicBookingEnabled: true, status: 'ACTIVE' as const };
 
 const orderInclude = {
-  event: { select: { id: true, name: true, festivalType: true, timezone: true, ...VENUE_SELECT, organizationId: true, gstSac: true, passPrintFormat: true, organization: { select: { name: true } } } },
+  event: { select: { id: true, name: true, festivalType: true, timezone: true, ...VENUE_SELECT, organizationId: true, gstSac: true, organization: { select: { name: true } } } },
   timeSlot: { select: { label: true } },
   tokens: {
-    select: { tokenCode: true, secureToken: true, status: true, validFrom: true, validUntil: true, usedAt: true, visitorCount: true, sponsorIds: true },
+    select: { tokenCode: true, secureToken: true, status: true, validFrom: true, validUntil: true, usedAt: true, visitorCount: true, sponsorIds: true, partnerCampaignIds: true },
     orderBy: { tokenCode: 'asc' as const },
   },
 } as const;
@@ -54,6 +55,7 @@ export class PassesService {
     private readonly sponsors: SponsorsService,
     private readonly billing: BillingService,
     private readonly payouts: PayoutsService,
+    private readonly partners: PartnerBillingService,
     @Inject(PASS_GATEWAYS) private readonly gateways: PaymentProvider[],
   ) {}
 
@@ -202,7 +204,7 @@ export class PassesService {
       await this.billing.charge(tx, {
         organizationId: event.organizationId, eventId: event.id, tokenCount: perPerson ? order.visitorCount : 1,
         personCount: order.visitorCount, source: 'ONLINE', passOrderId: order.id, reference: `Online order ${order.id.slice(0, 8)}`,
-        // Paid orders: commission comes out of the payment split; credit covers only partner printing.
+        // Paid orders: commission comes out of the payment split (the credit row still records the hold).
         includeCommission: free,
       });
       if (free) await this.markPaid(tx, order, null);
@@ -229,12 +231,15 @@ export class PassesService {
     return this.presentWithSponsors(order);
   }
 
-  /** Adds the partners printed on this order's passes (paid promotion). */
+  /** Adds the mandal's sponsors and the platform partners printed on this order's passes. */
   private async presentWithSponsors(o: OrderRow) {
     const ids = [...new Set(o.tokens.flatMap((t) => t.sponsorIds))];
+    const partnerIds = [...new Set(o.tokens.flatMap((t) => t.partnerCampaignIds))];
+    const ads = Math.max(0, ...o.tokens.map((t) => t.sponsorIds.length + t.partnerCampaignIds.length));
     const issuer = await this.payouts.receiptIdentity(o.event.organizationId);
     return {
-      ...this.present(o), printedSponsors: await this.sponsors.byIds(ids), printFormat: o.event.passPrintFormat,
+      ...this.present(o), printedSponsors: await this.sponsors.byIds(ids), printedPartners: await this.partners.printed(partnerIds),
+      printFormat: await this.billing.printFormat(this.prisma, o.event.organizationId, ads),
       issuer: issuer ? { legalName: issuer.legalName, gstin: issuer.gstin, address: issuer.address } : null,
     };
   }
@@ -307,14 +312,14 @@ export class PassesService {
     await this.tokens.checkSlotCapacity(tx, order.timeSlotId, order.validFrom, slot.capacity, order.visitorCount, order.id);
     const event = await tx.event.findUniqueOrThrow({ where: { id: order.eventId }, select: { id: true, tokenPrefix: true, startDate: true, organizationId: true } });
     const perPerson = order.perPersonPasses && order.visitorCount > 1;
-    // Partners paid for at order time (fee held with the commission).
-    const held = await tx.creditTransaction.findFirst({ where: { passOrderId: order.id, type: 'TOKEN_FEE' }, select: { sponsorIds: true } });
+    // Sponsors and platform partners chosen (and partners charged) at order time.
+    const held = await tx.creditTransaction.findFirst({ where: { passOrderId: order.id, type: 'TOKEN_FEE' }, select: { sponsorIds: true, partnerCampaignIds: true } });
     const codes: string[] = [];
     for (let i = 0; i < (perPerson ? order.visitorCount : 1); i++) {
       const token = await this.tokens.mintToken(tx, event, {
         timeSlotId: order.timeSlotId, validFrom: order.validFrom, validUntil: order.validUntil,
         visitorCount: perPerson ? 1 : order.visitorCount, visitorName: order.buyerName, visitorMobile: order.buyerMobile,
-        passOrderId: order.id, sponsorIds: held?.sponsorIds ?? [],
+        passOrderId: order.id, sponsorIds: held?.sponsorIds ?? [], partnerCampaignIds: held?.partnerCampaignIds ?? [],
       });
       codes.push(token.tokenCode);
     }

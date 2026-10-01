@@ -15,8 +15,9 @@ import { AppShell } from '@/components/AppShell';
 import { Alert, Badge, Button, Card, Empty, Field, LabeledInput, Modal, Pager, SideTabsLayout, SkeletonList, Textarea } from '@/components/ui';
 import { BillingAdmin } from '@/components/platform/BillingAdmin';
 import { PayoutsAdmin } from '@/components/platform/PayoutsAdmin';
+import { PartnersAdmin } from '@/components/platform/PartnersAdmin';
 import { Users as Users2, Wallet } from 'lucide-react';
-import { Building2, Landmark, Plus } from 'lucide-react';
+import { Building2, Handshake, Landmark, Plus } from 'lucide-react';
 
 export default function PlatformPage() {
   const { me } = useAuth();
@@ -31,13 +32,14 @@ export default function PlatformPage() {
             tabs={[
               { key: 'billing', label: 'Billing & earnings', icon: Wallet },
               { key: 'payouts', label: 'Payouts & KYC', icon: Landmark },
+              { key: 'partners', label: 'Promotional partners', icon: Handshake },
               { key: 'orgs', label: 'Mandals', icon: Building2 },
               { key: 'users', label: 'Users', icon: Users2 },
             ]}
             active={tab}
             onChange={setTab}
           >
-            {tab === 'billing' ? <BillingAdmin /> : tab === 'payouts' ? <PayoutsAdmin /> : tab === 'orgs' ? <Orgs /> : <Users />}
+            {tab === 'billing' ? <BillingAdmin /> : tab === 'payouts' ? <PayoutsAdmin /> : tab === 'partners' ? <PartnersAdmin /> : tab === 'orgs' ? <Orgs /> : <Users />}
           </SideTabsLayout>
         </div>
       )}

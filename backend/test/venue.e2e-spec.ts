@@ -36,14 +36,14 @@ describe('Festival preferences, venue and pass allowance (e2e)', () => {
     expect(cleared.body.venue.mapUrl).toContain('Central%20Park%20pandal');
   });
 
-  it('credit-status says how many passes the event can still issue, counting partner printing', async () => {
+  it('credit-status says how many passes the event can still issue; printing sponsors costs the mandal nothing', async () => {
     const m = await makeOrgWithEvent(ctx.prisma);
     const auth = bearer(ctx, m.admin);
     await ctx.prisma.orgBilling.update({ where: { organizationId: m.org.id }, data: { creditBalancePaise: 10_000, tokenPricePaise: 10_000, commissionBps: 100, sponsorPassFeePaise: 100 } });
     const before = await ctx.http().get(api(`/events/${m.event.id}/credit-status`)).set('Authorization', auth);
-    expect(before.body).toMatchObject({ tokensLeft: 100, feePerPass: '1.00', printedPartners: 0 });
+    expect(before.body).toMatchObject({ tokensLeft: 100, feePerPass: '1.00' });
     await ctx.prisma.sponsor.create({ data: { organizationId: m.org.id, eventId: m.event.id, name: 'Tanishq', tier: 'TITLE', showOnPasses: true } });
     const after = await ctx.http().get(api(`/events/${m.event.id}/credit-status`)).set('Authorization', auth);
-    expect(after.body).toMatchObject({ tokensLeft: 50, feePerPass: '2.00', commissionPerPass: '1.00', partnerPrintFeePerPass: '1.00', printedPartners: 1 });
+    expect(after.body).toMatchObject({ tokensLeft: 100, feePerPass: '1.00', commissionPerPass: '1.00' });
   });
 });

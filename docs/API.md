@@ -485,3 +485,91 @@ rate, a dearer one at the high rate, regardless of how many people are on the or
 (GST-inclusive) price the taxable value is the price minus the low-rate GST. The applied rate is stored on each
 order (`gstRateBps`) and shown on its tax invoice and in `GET /events/:id/reports/gst` (`byRate`).
 The default slabs (≤ ₹100 → 5%, above → 18%) are an assumption the mandal should confirm with its CA.
+
+## Promotional partners (brands)
+
+Brands (e.g. a jeweller) deal with the **platform**, not the mandal. The super admin alone approves the brand
+account and each campaign; the brand pays **per pass printed** with its logo from a prepaid wallet; the platform
+keeps 100% of it. The mandal is not charged, not asked, and earns nothing from partner money. Money is in rupee
+strings like everywhere else (stored as integer paise).
+
+**Mandals no longer pay for printing their own sponsors.** `Sponsor.showOnPasses` still prints up to 3 sponsors
+per pass and counts `passesPrinted`, but no fee is taken from credit. `GET /organizations/:orgId/billing` now
+returns `partnerRatePerPass` (what a *partner* pays per pass at this mandal) instead of `partnerPrintFeePerPass`,
+and `GET /events/:id/credit-status` no longer has `partnerPrintFeePerPass` / `printedPartners`
+(`feePerPass` = commission only).
+
+Rates: per-mandal partner rate = `OrgBilling.sponsorPassFeePaise` ?? platform `sponsorPassFeePaise`.
+`PUT /platform/billing/settings` takes `partnerRate` (was `partnerPrintFee`), `PATCH /platform/billing/mandals/:orgId`
+takes `partnerRate` (null = default). `GET /platform/billing/summary` adds `promotionalPartnerEarned` (PASS_PRINT
+net of refunds — included in `totalEarned`) and `partnerWalletsOutstanding`.
+
+### Charging (inside the transaction that creates the pass)
+Every pass path (desk, bulk, donation, online order hold) calls `BillingService.charge`, which after the mandal's
+commission calls `PartnerBillingService.charge`:
+- eligible campaigns: `APPROVED`, partner `ACTIVE`, same mandal, `eventId` null or equal, today (Asia/Kolkata)
+  within `startDate..endDate`, `passesPrinted + n <= maxPasses`, wallet ≥ `ratePaise × n`;
+  ordered by rate desc, then `approvedAt`; one campaign per brand; at most **2 partners per pass**
+  (in addition to the mandal's up to 3 sponsors);
+- cost = `ratePaise × tokenCount`. Wallet debit and campaign increment are two conditional UPDATEs under row
+  locks (partners by id, then campaigns by id, after the org row); if the campaign update fails the debit is
+  compensated. A partner that can't pay is **skipped — the pass is never refused because of a partner**.
+  `partners.walletBalancePaise` has a CHECK (>= 0); `passesPrinted <= maxPasses` is a CHECK too;
+- printed campaign ids are stored on `Token.partnerCampaignIds` and on the held `CreditTransaction`
+  (`partnerCampaignIds`), so a paid online order mints its passes with them;
+- a failed/expired online order refunds the partner wallets and campaign counters once (`REFUND` ledger rows).
+
+Pass views now carry `printedPartners: PrintedPartner[]` next to `printedSponsors`: `POST /events/:id/tokens`,
+`…/tokens/bulk` (each token), `GET /events/:id/tokens/:tokenId`, donation-with-passes responses, and public
+pass orders. `PrintedPartner = { id (campaign), partnerId, name, message, tagline, websiteUrl, logoUrl }`.
+- `GET /public/partners/:id/logo` (public) → the brand's logo image.
+
+### Brand accounts
+- `POST /partners/signup` (public, throttled) `{ brandName, contactName, email, mobile, password, gstin?, websiteUrl? }`
+  → `{ verificationRequired: true, email, maskedEmail }`. Creates a `User` (no organization) + `Partner(PENDING)`;
+  the account is activated with the emailed code (`POST /auth/verify-email`, same as volunteers).
+- `GET /auth/me` → adds `partner: { id, name, status } | null`. The frontend routes partner users to `/partner`.
+  Partner users have no memberships: every org/event route answers 404 for them.
+- Account states: `PENDING` (can edit profile, recharge, request campaigns — nothing prints), `ACTIVE`,
+  `SUSPENDED` / `REJECTED` (read-only: write routes → 403 `PARTNER_LOCKED`). A campaign can only be approved
+  while its partner is `ACTIVE` (409 `PARTNER_NOT_ACTIVE`) — the super admin approves the account first.
+
+### Partner portal (`/partner/*`, partner accounts only — others get 403 `NOT_A_PARTNER`)
+- `GET /partner/me` → `{ partner, wallet: { state: OK|LOW|EXHAUSTED, message, passesLeft }, stats: { approved, requested, paused, passesPrinted, spent } }`
+- `PATCH /partner/me` `{ name?, legalName?, gstin?, contactName?, contactEmail?, contactPhone?, websiteUrl?, tagline?, logoDataUrl?, removeLogo? }`
+  (logo rules as sponsor logos: PNG/JPEG/WebP ≤ 300 KB, content-sniffed)
+- `GET /partner/mandals?q&state&city&page&pageSize` → paged mandals with an upcoming/running festival (ACTIVE or
+  DRAFT, ending today or later): `{ id, name, city, state, ratePerPass, events[] }`
+- `GET /partner/campaigns?status&page` → paged `Campaign`
+- `POST /partner/campaigns` `{ organizationId, eventId?, message (3–120), startDate, endDate, maxPasses? }` → `REQUESTED`;
+  `ratePaise` is quoted from the mandal's partner rate now. Start ≥ today, ≤ 366 days, must overlap the festival.
+- `POST /partner/campaigns/:id/cancel` (REQUESTED/APPROVED/PAUSED → CANCELLED)
+- `GET /partner/wallet/transactions?page` → `{ type: RECHARGE|PASS_PRINT|REFUND|ADJUSTMENT, amount, balanceAfter, tokenCount, note, organization, event }`
+- `GET /partner/recharges`, `POST /partner/recharges { amount }`, `POST /partner/recharges/:id/demo-pay { outcome }`
+  (demo gateway, same gate as mandal recharge)
+
+`Campaign = { id, status, printing: LIVE|SCHEDULED|EXPIRED|CAP_REACHED|PARTNER_INACTIVE|WALLET_EMPTY|null, message,
+startDate, endDate, maxPasses, rate, passesPrinted, spent, estimate (rate × cap | null), organization, event | null,
+reviewNote, reviewedAt, approvedAt, createdAt }` (+ `partner` in admin lists).
+
+### Super admin
+- `GET /platform/partners?q&status&page` → partners with `login`, `wallet` state and campaign counts by status
+- `POST /platform/partners/:id/status` `{ status: ACTIVE|SUSPENDED|REJECTED, note? }` (note required unless ACTIVE;
+  rejecting also rejects open requests)
+- `POST /platform/partners/:id/adjust` `{ amount: "-50"|"500", reason }` (audited; can't go below 0)
+- `GET /platform/partners/:id/transactions?page`
+- `GET /platform/partner-campaigns?status&q&partnerId&page`
+- `POST /platform/partner-campaigns/:id/review` `{ action: APPROVE|REJECT|PAUSE|RESUME|END, rate?, note? }` —
+  `rate` (₹) only with APPROVE, then locked; REJECT needs a note.
+
+## Pass print format (set by the platform)
+
+Partner ads print on passes, so the **super admin** picks the layout per mandal; the mandal can't.
+- `PATCH /platform/billing/mandals/:orgId` `{ passPrintFormat: AUTO|A4|THERMAL_80|THERMAL_58|null }` (null = platform default);
+  `PUT /platform/billing/settings` `{ defaultPassPrintFormat }` (default `AUTO`).
+- `AUTO` resolves per pass: **A4** (PDF-friendly page) when the pass carries 2+ ads (mandal sponsors + platform
+  partners printed), otherwise **THERMAL_80**.
+- The effective format is returned as `printFormat` on public pass orders, desk/bulk tokens, single-token views and
+  donation-with-passes responses. `GET /organizations/:orgId/billing` and `GET /events/:id` return the setting as
+  `passPrintFormat`; `passPrintFormat` sent in an event POST/PATCH is accepted but ignored.
+

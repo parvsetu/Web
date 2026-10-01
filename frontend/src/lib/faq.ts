@@ -315,7 +315,12 @@ export const FAQ: FaqSection[] = [
       {
         id: 'sponsors',
         q: 'Can we show our sponsors?',
-        a: ['Yes. Mandal → Sponsors: add the sponsor’s logo, tier and message. They appear on your festival page and booking page, and you can choose to print them on passes.'],
+        a: ['Yes. Mandal → Sponsors: add the sponsor’s logo, tier and message. They appear on your festival page and booking page, and you can choose to print them on passes — free of charge, no credit is used.'],
+      },
+      {
+        id: 'promo-partners',
+        q: 'Why do some passes show a brand we did not add?',
+        a: ['Brands can also partner with the Parvsetu platform directly (“In association with” on the pass). The brand pays the platform per pass printed; your mandal pays nothing extra and your credit is not used. At most two such brands are printed per pass, next to your own sponsors.'],
       },
     ],
   },

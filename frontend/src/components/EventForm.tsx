@@ -6,9 +6,9 @@ import { DEFAULT_TZ, DURATION_PRESETS, durationLabel, humanize } from '@/lib/for
 import type { EventBody, EventDetail, EventStatus } from '@/lib/types';
 import { FestivalBadge } from './FestivalBanner';
 import { Alert, Button, Checkbox, Field, LabeledInput, LabeledSelect, Textarea, cx } from './ui';
-import { LocateFixed, MapPin } from 'lucide-react';
+import { LocateFixed, MapPin, Printer } from 'lucide-react';
 import { FestivalTypeSelect, StateCityPicker } from './PlacePicker';
-import { PrintFormatPicker, type PrintFormat } from './PrintFormat';
+import { printFormatLabel } from './PrintFormat';
 import { useFestivalTypes } from '@/lib/catalog';
 
 const STATUSES: EventStatus[] = ['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
@@ -51,7 +51,6 @@ export function EventForm({
     gstSlabThreshold: String(initial?.gstSlabThreshold ?? 100),
     gstBearer: (initial?.gstBearer ?? 'CUSTOMER') as 'CUSTOMER' | 'MANDAL',
     gstSac: initial?.gstSac ?? '9996',
-    passPrintFormat: (initial?.passPrintFormat ?? 'A4') as PrintFormat,
     venueAddress: initial?.venueAddress ?? '',
     venueLandmark: initial?.venueLandmark ?? '',
     venuePincode: initial?.venuePincode ?? '',
@@ -102,7 +101,6 @@ export function EventForm({
       gstSlabThreshold: Math.max(1, Math.round(Number(form.gstSlabThreshold) || 100)),
       gstBearer: form.gstBearer,
       gstSac: form.gstSac.trim() || '9996',
-      passPrintFormat: form.passPrintFormat,
       venueAddress: form.venueAddress.trim(),
       venueLandmark: form.venueLandmark.trim(),
       venuePincode: form.venuePincode.trim(),
@@ -295,9 +293,12 @@ export function EventForm({
           </>
         )}
       </div>
-      <Field label="Default pass print format">
-        <PrintFormatPicker value={form.passPrintFormat} onChange={(v) => setForm((x) => ({ ...x, passPrintFormat: v }))} />
-      </Field>
+      {initial && (
+        <p className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 ring-1 ring-slate-200">
+          <Printer aria-hidden className="h-4 w-4 shrink-0 text-slate-500" />
+          <span>Pass format: set by Parvsetu — {printFormatLabel(initial.passPrintFormat)}</span>
+        </p>
+      )}
       <Field label="Pass durations the token desk can issue" hint="Admins can always issue any duration. Leave all off to allow only time-slot passes at the desk.">
         <div className="flex flex-wrap gap-2">
           {DURATION_PRESETS.map((h) => {

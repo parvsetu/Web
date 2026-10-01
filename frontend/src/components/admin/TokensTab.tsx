@@ -446,7 +446,7 @@ function BulkModal({ slots, onClose, onDone }: { slots: TimeSlot[]; onClose: () 
 
 function PrintSheet({ tokens, onClose }: { tokens: TokenWithQr[]; onClose: () => void }) {
   const ev = useEvent();
-  const [format, setFormat] = useState<PrintFormat>(ev.detail?.passPrintFormat ?? 'A4');
+  const [format, setFormat] = useState<PrintFormat>(tokens[0]?.printFormat ?? 'A4');
   const thermal = format !== 'A4';
   return (
     <div className="flex flex-col gap-4">
