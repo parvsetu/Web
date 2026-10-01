@@ -1,6 +1,14 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { TokensService } from '../tokens/tokens.service';
 import { QrSigner } from '../../common/qr/qr-signer';
+import { PayoutsService } from '../payouts/payouts.service';
+import { MailService } from '../../common/mail/mail.service';
+import { randomBytes, timingSafeEqual } from 'crypto';
+
+/** Public web origin for links in emails (first CORS origin, or PUBLIC_WEB_URL). */
+function siteUrl() {
+  return (process.env.PUBLIC_WEB_URL ?? (process.env.CORS_ORIGINS ?? 'http://localhost:3000').split(',')[0]).trim().replace(/\/+$/, '').replace('*', '');
+}
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -26,6 +34,8 @@ export class DonationsService {
     private readonly audit: AuditService,
     private readonly tokens: TokensService,
     private readonly qr: QrSigner,
+    private readonly payouts: PayoutsService,
+    private readonly mail: MailService,
     @Inject(PAYMENT_PROVIDERS) private readonly providers: PaymentProvider[],
   ) {}
 
@@ -171,17 +181,55 @@ export class DonationsService {
     return this.get(event.id, id);
   }
 
+  /** Creates (once) the secret link the donor can open without logging in. */
+  async share(eventId: string, id: string) {
+    const d = await this.prisma.donation.findFirst({ where: { id, eventId }, select: { id: true, paymentStatus: true, shareKey: true } });
+    if (!d) throw new NotFoundException('Donation not found');
+    if (d.paymentStatus !== 'SUCCESS') throw new ConflictException({ message: 'A receipt can be shared once the payment is confirmed.', code: 'NOT_PAID' });
+    const key = d.shareKey ?? randomBytes(18).toString('base64url');
+    if (!d.shareKey) await this.prisma.donation.update({ where: { id }, data: { shareKey: key } });
+    return { path: `/r/${id}?k=${key}`, url: `${siteUrl()}/r/${id}?k=${key}` };
+  }
+
+  async emailReceipt(actorId: string, event: EventRef, id: string) {
+    const d = await this.prisma.donation.findFirst({ where: { id, eventId: event.id }, select: { donorEmail: true, donorName: true, amount: true, receiptNo: true } });
+    if (!d) throw new NotFoundException('Donation not found');
+    if (!d.donorEmail) throw new BadRequestException('This donation has no donor email.');
+    const { url } = await this.share(event.id, id);
+    const amount = `₹${Number(d.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    await this.mail.send({
+      to: d.donorEmail,
+      subject: `Your donation receipt ${d.receiptNo} — ${event.name}`,
+      text: `Namaste ${d.donorName},\n\nThank you for your donation of ${amount} to ${event.name}.\nYour receipt ${d.receiptNo}: ${url}\n\n— ${event.name}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;border:1px solid #fed7aa;border-radius:16px;overflow:hidden"><div style="background:linear-gradient(135deg,#f59e0b,#f97316,#e11d48);color:#fff;padding:18px 22px;font-size:18px;font-weight:bold">🙏 Thank you, ${d.donorName.replace(/[<>&]/g, '')}</div><div style="padding:22px;color:#0f172a"><p>Your donation of <b>${amount}</b> to <b>${event.name.replace(/[<>&]/g, '')}</b> has been received.</p><p style="text-align:center;margin:24px 0"><a href="${url}" style="background:#ea580c;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold">View / download receipt ${d.receiptNo}</a></p></div></div>`,
+    });
+    await this.audit.log({ organizationId: event.organizationId, eventId: event.id, actorId, action: 'donation.receipt_emailed', entityType: 'Donation', entityId: id });
+    return { sent: true };
+  }
+
+  /** Public receipt view (secret key from the share link). */
+  async publicReceipt(id: string, key: string) {
+    const d = await this.prisma.donation.findUnique({ where: { id }, select: { shareKey: true, eventId: true } }).catch(() => null);
+    const a = Buffer.from(d?.shareKey ?? 'x'.repeat(24));
+    const b = Buffer.from(key ?? '');
+    if (!d?.shareKey || a.length !== b.length || !timingSafeEqual(a, b)) throw new NotFoundException('Receipt not found');
+    return this.receipt(d.eventId, id);
+  }
+
   async receipt(eventId: string, id: string) {
     const d = await this.prisma.donation.findFirst({
       where: { id, eventId },
-      include: { event: { select: { name: true, organization: { select: { name: true, city: true, address: true } } } } },
+      include: { event: { select: { name: true, festivalType: true, organizationId: true, organization: { select: { name: true, city: true, state: true, address: true } } } } },
     });
     if (!d) throw new NotFoundException('Donation not found');
     if (d.paymentStatus !== 'SUCCESS' || !d.receiptNo) {
       throw new ConflictException({ message: 'A receipt is only available once the payment is confirmed.', code: 'NOT_PAID' });
     }
+    const identity = await this.payouts.receiptIdentity(d.event.organizationId);
     return {
-      receiptNo: d.receiptNo, organization: d.event.organization, event: { name: d.event.name },
+      receiptNo: d.receiptNo, organization: d.event.organization, event: { name: d.event.name, festivalType: d.event.festivalType },
+      issuer: identity,
+      donorMobile: d.donorMobile, donorEmail: d.donorEmail,
       donorName: d.donorName, amount: d.amount.toFixed(2), amountInWords: amountInWords(d.amount.toFixed(2)),
       currency: d.currency, method: d.method, paymentReference: d.paymentReference, donatedAt: d.donatedAt,
     };

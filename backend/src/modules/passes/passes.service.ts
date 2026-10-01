@@ -15,6 +15,7 @@ import { PaymentProvider } from '../donations/payment-provider';
 import { PASS_GATEWAYS, demoPaymentsEnabled } from './pass-gateways';
 import { SponsorsService } from '../sponsors/sponsors.service';
 import { BillingService } from '../billing/billing.service';
+import { PayoutsService } from '../payouts/payouts.service';
 import { CreatePassOrderDto, PassOrderListQuery } from './passes.dto';
 
 /** How long an unpaid order holds its places. */
@@ -50,6 +51,7 @@ export class PassesService {
     private readonly qr: QrSigner,
     private readonly sponsors: SponsorsService,
     private readonly billing: BillingService,
+    private readonly payouts: PayoutsService,
     @Inject(PASS_GATEWAYS) private readonly gateways: PaymentProvider[],
   ) {}
 
@@ -65,17 +67,21 @@ export class PassesService {
       },
       orderBy: { startDate: 'asc' },
       select: {
-        id: true, name: true, festivalType: true, description: true, location: true, state: true, city: true, startDate: true, endDate: true, timezone: true,
+        id: true, organizationId: true, name: true, festivalType: true, description: true, location: true, state: true, city: true, startDate: true, endDate: true, timezone: true,
         maxVisitorsPerToken: true, organization: { select: { name: true, city: true } },
         timeSlots: { where: { isActive: true }, select: { price: true } },
       },
     });
-    return events.map(({ timeSlots, ...e }) => ({
+    const verified = new Set(
+      (await this.prisma.payoutAccount.findMany({ where: { status: 'VERIFIED', organizationId: { in: events.map((e) => e.organizationId) } }, select: { organizationId: true } })).map((p) => p.organizationId),
+    );
+    return events.map(({ timeSlots, organizationId, ...e }) => ({
       ...e,
       startDate: ymd(e.startDate),
       endDate: ymd(e.endDate),
       fromPrice: timeSlots.length ? Prisma.Decimal.min(...timeSlots.map((s) => s.price)).toFixed(2) : null,
-      onlinePayments: this.gateways.length > 0,
+      // Paid passes need a gateway AND a verified payout account (the mandal's share goes there).
+      onlinePayments: this.gateways.length > 0 && verified.has(organizationId),
     }));
   }
 
@@ -98,7 +104,7 @@ export class PassesService {
     return {
       id: e.id, name: e.name, festivalType: e.festivalType, description: e.description, location: e.location, state: e.state, city: e.city,
       startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, maxVisitorsPerToken: e.maxVisitorsPerToken,
-      organization: e.organization, onlinePayments: this.gateways.length > 0, holdMinutes: ORDER_HOLD_MINUTES,
+      organization: e.organization, onlinePayments: this.gateways.length > 0 && (await this.payouts.isVerified(e.organizationId)), holdMinutes: ORDER_HOLD_MINUTES,
       slots: slots.map((s) => ({ ...s, price: s.price.toFixed(2) })),
       sponsors: await this.sponsors.forEvent(e.id),
     };
@@ -150,6 +156,9 @@ export class PassesService {
     const free = amount.isZero();
     const gateway = free ? null : this.gateways[0];
     if (!free && !gateway) throw new ServiceUnavailableException('Online payment is not set up for this festival yet.');
+    if (!free && !(await this.payouts.isVerified(event.organizationId))) {
+      throw new ConflictException({ message: 'This mandal cannot accept online payments yet (payout account not verified). Free passes are still available.', code: 'PAYOUTS_NOT_READY' });
+    }
 
     const buyer = {
       buyerName: dto.buyerName.trim(),
@@ -174,6 +183,8 @@ export class PassesService {
       await this.billing.charge(tx, {
         organizationId: event.organizationId, eventId: event.id, tokenCount: perPerson ? order.visitorCount : 1,
         personCount: order.visitorCount, source: 'ONLINE', passOrderId: order.id, reference: `Online order ${order.id.slice(0, 8)}`,
+        // Paid orders: commission comes out of the payment split; credit covers only partner printing.
+        includeCommission: free,
       });
       if (free) await this.markPaid(tx, order, null);
       return order.id;
@@ -288,6 +299,13 @@ export class PassesService {
       where: { id: order.id },
       data: { status: 'PAID', paidAt: new Date(), paymentReference },
     });
+    if (order.amount.gt(0)) {
+      const r = await this.billing.rates(tx, event.organizationId);
+      await this.payouts.recordSettlement(tx, {
+        organizationId: event.organizationId, eventId: event.id, sourceType: 'PASS_ORDER', sourceId: order.id,
+        grossPaise: Math.round(Number(order.amount) * 100), commissionPaise: r.unitFeePaise * order.visitorCount,
+      });
+    }
     await this.audit.log({
       organizationId: event.organizationId, eventId: event.id, action: 'pass.paid', entityType: 'PassOrder', entityId: order.id,
       after: { tokenCodes: codes, amount: order.amount.toFixed(2), visitorCount: order.visitorCount, provider: order.paymentProvider },

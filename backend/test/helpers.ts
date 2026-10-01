@@ -83,6 +83,17 @@ export async function makeOrgWithEvent(prisma: PrismaClient, opts: { prefix?: st
   return { org, event, admin };
 }
 
+/** A VERIFIED payout account so the mandal can take online payments. */
+export async function verifyPayouts(prisma: PrismaClient, organizationId: string, submittedById: string) {
+  const { encryptField } = await import('../src/common/crypto/field-crypto');
+  return prisma.payoutAccount.create({ data: {
+    organizationId, entityType: 'UNREGISTERED', legalName: 'Test Mandal', addressLine: 'Main road', city: 'Pune', state: 'Maharashtra', pincode: '411001',
+    contactName: 'Test', contactRole: 'Treasurer', contactPhone: '9876543210', contactEmail: 't@test.dev',
+    signatoryPanEnc: encryptField('ABCDE1234F'), signatoryPanLast4: '234F', bankHolderName: 'Test', bankAccountEnc: encryptField('123456789012'),
+    bankAccountLast4: '9012', ifsc: 'SBIN0001234', accountType: 'SAVINGS', status: 'VERIFIED', consentAt: new Date(), submittedById,
+  } });
+}
+
 export async function assign(prisma: PrismaClient, eventId: string, userId: string, roleKey: string, status: 'ACTIVE' | 'INACTIVE' = 'ACTIVE') {
   return prisma.eventAssignment.create({ data: { eventId, userId, roleId: await systemRoleId(prisma, roleKey), status } });
 }

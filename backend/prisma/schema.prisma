@@ -84,6 +84,23 @@ enum CreditTxType {
   WELCOME
 }
 
+enum PayoutEntityType {
+  REGISTERED
+  UNREGISTERED
+}
+
+enum PayoutAccountStatus {
+  PENDING
+  VERIFIED
+  NEEDS_CORRECTION
+  REJECTED
+}
+
+enum SettlementStatus {
+  PENDING_PAYOUT
+  PAID_OUT
+}
+
 enum ScanMethod {
   QR
   MANUAL
@@ -154,6 +171,9 @@ model Organization {
   expenses     Expense[]
   sponsors     Sponsor[]
   billing      OrgBilling?
+  payoutAccount PayoutAccount?
+  settlements  PaymentSettlement[]
+  payouts      Payout[]
   creditTransactions CreditTransaction[]
   creditRecharges    CreditRecharge[]
 
@@ -445,6 +465,8 @@ model Donation {
   paymentReference String?
   providerOrderId  String?
   receiptNo        String?
+  /// Random key for the public, shareable receipt link (/r/<id>?k=…).
+  shareKey         String?        @unique
   donatedAt        DateTime       @default(now())
   notes            String?
   createdById      String?
@@ -610,6 +632,8 @@ model PlatformSettings {
   welcomeCreditPaise      Int      @default(10000)
   /// Charged per pass, per partner printed on it (partner promotion).
   sponsorPassFeePaise     Int      @default(50)
+  /// Gateway fee deducted from the mandal's share on online payments (bps).
+  gatewayFeeBps           Int      @default(0)
   updatedAt               DateTime @updatedAt
   updatedById             String?
 
@@ -686,4 +710,93 @@ model CreditRecharge {
 
   @@index([organizationId, createdAt])
   @@map("credit_recharges")
+}
+
+// ─── Split payments: mandal payout account + settlement ledger ─────────
+// Sensitive numbers (bank account, PANs) are AES-256-GCM encrypted; only the
+// last 4 characters are ever returned by the API.
+model PayoutAccount {
+  organizationId     String              @id
+  entityType         PayoutEntityType
+  /// Registered only: TRUST, SOCIETY, SECTION8, PARTNERSHIP, PROPRIETORSHIP, OTHER
+  registeredType     String?
+  legalName          String
+  registrationNumber String?
+  orgPanEnc          String?
+  orgPanLast4        String?
+  gstin              String?
+  reg80G             String?
+  reg12A             String?
+  addressLine        String
+  city               String
+  state              String
+  pincode            String
+  contactName        String
+  contactRole        String
+  contactPhone       String
+  contactEmail       String
+  signatoryPanEnc    String
+  signatoryPanLast4  String
+  bankHolderName     String
+  bankAccountEnc     String
+  bankAccountLast4   String
+  ifsc               String
+  accountType        String
+  proof              Bytes?
+  proofType          String?
+  status             PayoutAccountStatus @default(PENDING)
+  reviewNote         String?
+  reviewedById       String?
+  reviewedAt         DateTime?
+  /// e.g. Razorpay Route linked account id, once registered with the gateway.
+  gatewayAccountId   String?
+  consentAt          DateTime
+  submittedById      String
+  submittedAt        DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("payout_accounts")
+}
+
+/// One row per online payment: who gets what.
+model PaymentSettlement {
+  id                String           @id @default(uuid())
+  organizationId    String
+  eventId           String?
+  sourceType        String
+  sourceId          String           @unique
+  grossPaise        Int
+  gatewayFeePaise   Int
+  commissionPaise   Int
+  netPaise          Int
+  status            SettlementStatus @default(PENDING_PAYOUT)
+  payoutId          String?
+  gatewayTransferId String?
+  createdAt         DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payout       Payout?      @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, createdAt])
+  @@map("payment_settlements")
+}
+
+/// Money actually transferred to a mandal (manual UTR now; gateway transfer later).
+model Payout {
+  id             String   @id @default(uuid())
+  organizationId String
+  amountPaise    Int
+  reference      String
+  note           String?
+  createdById    String?
+  paidAt         DateTime @default(now())
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  settlements  PaymentSettlement[]
+
+  @@index([organizationId, paidAt])
+  @@map("payouts")
 }

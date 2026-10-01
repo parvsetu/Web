@@ -10,8 +10,8 @@ export function configureApp(app: INestApplication) {
   express.set('trust proxy', /^\d+$/.test(trust) ? Number(trust) : trust === 'true' ? true : trust);
   express.disable('x-powered-by');
   app.use(helmet());
-  // Room for a sponsor logo (≤300 KB as base64) in a JSON body.
-  express.useBodyParser('json', { limit: '600kb' });
+  // Room for a sponsor logo / payout proof (≤2 MB as base64) in a JSON body.
+  express.useBodyParser('json', { limit: '3mb' });
   app.setGlobalPrefix('api/v1');
   app.enableCors({ origin: corsOrigins(process.env.CORS_ORIGINS ?? 'http://localhost:3000'), credentials: false });
   app.useGlobalPipes(

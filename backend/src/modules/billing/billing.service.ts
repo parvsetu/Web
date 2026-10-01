@@ -26,6 +26,8 @@ export interface ChargeInput {
   reference?: string;
   passOrderId?: string;
   actorId?: string | null;
+  /** false for paid online orders: the commission is taken by the payment split, not credit. */
+  includeCommission?: boolean;
 }
 
 export const LOW_CREDIT_MESSAGE = 'Your token credit is running low. Please recharge your credit to continue generating Online Passes.';
@@ -90,7 +92,7 @@ export class BillingService {
     await this.ensureAccount(tx, c.organizationId);
     const r = await this.rates(tx, c.organizationId);
     const sponsorIds = await this.passSponsors(tx, c.organizationId, c.eventId);
-    const commission = r.unitFeePaise * c.personCount;
+    const commission = c.includeCommission === false ? 0 : r.unitFeePaise * c.personCount;
     // Partner promotion: per printed pass, per partner on it.
     const sponsorFee = r.sponsorPassFeePaise * c.tokenCount * sponsorIds.length;
     const fee = commission + sponsorFee;
@@ -118,7 +120,7 @@ export class BillingService {
       data: {
         organizationId: c.organizationId, type: 'TOKEN_FEE', amountPaise: -fee, balanceAfterPaise: rows[0].creditBalancePaise,
         eventId: c.eventId ?? null, source: c.source, tokenCount: c.tokenCount, personCount: c.personCount,
-        unitFeePaise: r.unitFeePaise, tokenPricePaise: r.tokenPricePaise, commissionBps: r.commissionBps,
+        unitFeePaise: c.includeCommission === false ? 0 : r.unitFeePaise, tokenPricePaise: r.tokenPricePaise, commissionBps: r.commissionBps,
         sponsorFeePaise: sponsorFee, sponsorIds,
         reference: c.reference?.slice(0, 300) ?? null, passOrderId: c.passOrderId ?? null, createdById: c.actorId ?? null,
       },
@@ -289,7 +291,7 @@ export class BillingService {
 
   // ─── Super admin ───────────────────────────────────────────────────
 
-  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerPrintFee?: string }) {
+  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerPrintFee?: string; gatewayFeePercent?: string }) {
     const before = await this.settings();
     const data: Prisma.PlatformSettingsUpdateInput = { updatedById: actorId };
     if (dto.defaultTokenPrice !== undefined) data.defaultTokenPricePaise = toPaise(dto.defaultTokenPrice);
@@ -297,16 +299,17 @@ export class BillingService {
     if (dto.lowCreditThreshold !== undefined) data.lowCreditThresholdPaise = toPaise(dto.lowCreditThreshold);
     if (dto.welcomeCredit !== undefined) data.welcomeCreditPaise = toPaise(dto.welcomeCredit);
     if (dto.partnerPrintFee !== undefined) data.sponsorPassFeePaise = toPaise(dto.partnerPrintFee);
+    if (dto.gatewayFeePercent !== undefined) data.gatewayFeeBps = Math.round(Number(dto.gatewayFeePercent) * 100);
     const after = await this.prisma.platformSettings.update({ where: { id: 'default' }, data });
     await this.audit.log({ actorId, action: 'billing.settings_updated', entityType: 'PlatformSettings', entityId: 'default', before, after });
     return this.presentSettings(after);
   }
 
-  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; updatedAt: Date }) {
+  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; updatedAt: Date }) {
     return {
       defaultTokenPrice: rupees(s.defaultTokenPricePaise), defaultCommissionPercent: (s.defaultCommissionBps / 100).toFixed(2),
       lowCreditThreshold: rupees(s.lowCreditThresholdPaise), welcomeCredit: rupees(s.welcomeCreditPaise),
-      feePerPass: rupees(unitFeePaise(s.defaultTokenPricePaise, s.defaultCommissionBps)), partnerPrintFee: rupees(s.sponsorPassFeePaise), updatedAt: s.updatedAt,
+      feePerPass: rupees(unitFeePaise(s.defaultTokenPricePaise, s.defaultCommissionBps)), partnerPrintFee: rupees(s.sponsorPassFeePaise), gatewayFeePercent: (s.gatewayFeeBps / 100).toFixed(2), updatedAt: s.updatedAt,
     };
   }
 
@@ -337,6 +340,7 @@ export class BillingService {
   }
 
   async summary() {
+    const split = await this.prisma.paymentSettlement.aggregate({ _sum: { commissionPaise: true, grossPaise: true, gatewayFeePaise: true } });
     const [agg, recharges, byType, accounts] = await Promise.all([
       this.prisma.orgBilling.aggregate({ _sum: { totalSponsorFeesPaise: true, totalFeesPaise: true, totalTokens: true, totalPersons: true, creditBalancePaise: true, totalRechargedPaise: true } }),
       this.prisma.creditRecharge.count({ where: { status: 'PAID' } }),
@@ -347,7 +351,9 @@ export class BillingService {
     return {
       commissionEarned: rupees(agg._sum.totalFeesPaise ?? 0),
       partnerFeesEarned: rupees(agg._sum.totalSponsorFeesPaise ?? 0),
-      totalEarned: rupees((agg._sum.totalFeesPaise ?? 0) + (agg._sum.totalSponsorFeesPaise ?? 0)),
+      splitCommissionEarned: rupees(split._sum.commissionPaise ?? 0),
+      onlineGross: rupees(split._sum.grossPaise ?? 0),
+      totalEarned: rupees((agg._sum.totalFeesPaise ?? 0) + (agg._sum.totalSponsorFeesPaise ?? 0) + (split._sum.commissionPaise ?? 0)),
       tokensGenerated: agg._sum.totalTokens ?? 0,
       personsAdmitted: agg._sum.totalPersons ?? 0,
       creditOutstanding: rupees(agg._sum.creditBalancePaise ?? 0),

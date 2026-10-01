@@ -1,6 +1,6 @@
 /** Public pass booking: pricing, capacity holds, demo payment, single minting, gate redemption. */
 import { DateTime } from 'luxon';
-import { bearer, bootApp, idem, makeOrgWithEvent, makeVolunteer, scan, TestCtx } from './helpers';
+import { bearer, bootApp, idem, makeOrgWithEvent, makeVolunteer, scan, TestCtx, verifyPayouts } from './helpers';
 
 describe('Public pass booking (e2e)', () => {
   let ctx: TestCtx;
@@ -21,6 +21,7 @@ describe('Public pass booking (e2e)', () => {
     const made = await makeOrgWithEvent(ctx.prisma);
     event = made.event;
     adminAuth = bearer(ctx, made.admin);
+    await verifyPayouts(ctx.prisma, made.org.id, made.admin.id);
     await ctx.http().patch(api(`/events/${event.id}`)).set('Authorization', adminAuth).send({ publicBookingEnabled: true });
     const s = nowSlot();
     const slot = await ctx.http().post(api(`/events/${event.id}/time-slots`)).set('Authorization', adminAuth)

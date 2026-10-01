@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { Access, CurrentUser, Public } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
 import { AccessContext } from '../../common/access/access.service';
@@ -46,6 +47,28 @@ export class DonationsController {
   @Patch('events/:eventId/donations/:id')
   update(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Param('id') id: string, @Body() dto: UpdateDonationDto) {
     return this.donations.update(user, a.event!, id, dto);
+  }
+
+  @RequireEventPermission('DONATION_VIEW')
+  @Post('events/:eventId/donations/:id/share')
+  @HttpCode(200)
+  share(@Param('eventId') eventId: string, @Param('id') id: string) {
+    return this.donations.share(eventId, id);
+  }
+
+  @RequireEventPermission('DONATION_VIEW')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('events/:eventId/donations/:id/email-receipt')
+  @HttpCode(200)
+  email(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Param('id') id: string) {
+    return this.donations.emailReceipt(user.id, a.event!, id);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get('public/receipts/:id')
+  publicReceipt(@Param('id') id: string, @Query('k') k: string) {
+    return this.donations.publicReceipt(id, k);
   }
 
   @RequireEventPermission('DONATION_VIEW')

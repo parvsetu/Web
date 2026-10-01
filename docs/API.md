@@ -422,3 +422,54 @@ Now return `{ items, total, page, pageSize }` and accept `?q=&page=&pageSize=` (
 `/organizations/:orgId/volunteer-applications`, `/organizations/:orgId/events`,
 `/events/:eventId/assignments`. Search (`q`) also added to `/events/:eventId/scans`,
 expenses, and audit logs.
+
+---
+
+## Added: payout accounts, split settlements, shareable receipts
+
+Money is in rupee strings ("194.00"). Bank account numbers and PANs are
+encrypted at rest and only ever returned masked (`XXXXXX9012`).
+
+### Mandal payout account (registered OR unregistered)
+- `GET /organizations/:orgId/payout-account` (SETTINGS_VIEW@org) → `PayoutAccount | null`
+- `PUT /organizations/:orgId/payout-account` (SETTINGS_UPDATE@org) — submit or change; always goes back to `PENDING` review.
+  Body:
+  ```ts
+  { entityType: 'REGISTERED' | 'UNREGISTERED',
+    registeredType?: 'TRUST'|'SOCIETY'|'SECTION8'|'PARTNERSHIP'|'PROPRIETORSHIP'|'OTHER', // registered only (required)
+    legalName, registrationNumber? /* registered: required */, orgPan? /* registered: required, ABCDE1234F */,
+    gstin?, reg80G?, reg12A?,                                   // registered only
+    addressLine, city, state /* state name or code */, pincode /* 6 digits */,
+    contactName, contactRole, contactPhone /* 10-digit */, contactEmail,
+    signatoryPan /* PAN of authorised person — for unregistered this is the main identity */,
+    bankHolderName, bankAccount /* 9–18 digits; ask twice in the UI */, ifsc /* SBIN0001234 */, accountType: 'SAVINGS'|'CURRENT',
+    proofDataUrl?: 'data:image/png|image/jpeg|application/pdf;base64,…' /* cancelled cheque/passbook, ≤2 MB */,
+    consent: true }
+  ```
+  `PayoutAccount = { entityType, registeredType, legalName, registrationNumber, orgPan (masked|null), gstin, reg80G, reg12A, addressLine, city, state, pincode, contactName, contactRole, contactPhone, contactEmail, signatoryPan (masked), bankHolderName, bankAccount (masked), ifsc, accountType, hasProof, status: 'PENDING'|'VERIFIED'|'NEEDS_CORRECTION'|'REJECTED', reviewNote, reviewedAt, gatewayAccountId, submittedAt, updatedAt }`
+- `GET /organizations/:orgId/settlements?status&page` (DONATION_VIEW@org) → paged
+  `{ id, createdAt, event: {id,name}|null, sourceType, gross, gatewayFee, commission, net, status: 'PENDING_PAYOUT'|'PAID_OUT', payoutId }`
+  + `totals: { gross, commission, gatewayFees, netToMandals, pendingPayout, paidOut }`
+- `GET /organizations/:orgId/payouts` → paged `{ id, amount, reference /* UTR */, note, paidAt, settlements }`
+
+Rules: **paid** online orders require a VERIFIED payout account (else 409 `PAYOUTS_NOT_READY`); the
+platform commission is taken from the payment (settlement), *not* from prepaid credit. Prepaid credit is
+used for internal passes (desk, bulk, donation, free online) and partner printing. `onlinePayments` in the
+booking API is now false until the mandal is verified.
+
+### Super admin
+- `GET /platform/payout-accounts?status&page` → paged `PayoutAccount & { organizationId, organization: {name, city, state} }`
+- `POST /platform/payout-accounts/:orgId/review` `{ decision: 'VERIFIED'|'NEEDS_CORRECTION'|'REJECTED', note? (required unless VERIFIED), gatewayAccountId? }`
+- `GET /platform/payout-accounts/:orgId/proof` → the uploaded image/PDF (send with bearer; open as blob)
+- `POST /platform/payout-accounts/:orgId/reveal-bank` → `{ bankHolderName, bankAccount (FULL), ifsc, accountType }` (verified only; audited)
+- `GET /platform/settlements?organizationId&status&page`, `GET /platform/payouts?organizationId&page` (same shapes, with `organization: {id,name}`)
+- `POST /platform/payouts` `{ organizationId, reference /* bank UTR */, note? }` → pays out ALL pending settlements of that mandal → `{ id, amount, reference, settlements, paidAt }` (400 if nothing pending)
+- `PUT /platform/billing/settings` also accepts `gatewayFeePercent` (deducted from the mandal's share); GET returns it.
+  Billing summary adds `splitCommissionEarned`, `onlineGross`; `totalEarned` includes split commission.
+
+### Donation receipts
+- `POST /events/:eventId/donations/:id/share` (DONATION_VIEW) → `{ path: "/r/<id>?k=<key>", url }` (only SUCCESS donations)
+- `POST /events/:eventId/donations/:id/email-receipt` (DONATION_VIEW) → `{ sent: true }` (donor must have an email)
+- `GET /public/receipts/:id?k=<key>` (public) → `Receipt` (404 on wrong key)
+- `Receipt` now also has `issuer: { legalName, entityType, registrationNumber, pan, reg80G, reg12A, address } | null`
+  (only when the mandal's payout account is VERIFIED), `donorMobile`, `donorEmail`, `event.festivalType`, `organization.state`.

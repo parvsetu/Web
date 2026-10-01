@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { DateTime } from 'luxon';
+import { encryptField } from '../src/common/crypto/field-crypto';
 import { ALL_PERMISSIONS, PERMISSIONS, SYSTEM_ROLES, permissionGroup } from '../src/common/permissions';
 
 const prisma = new PrismaClient();
@@ -277,6 +278,30 @@ async function upgradeDemo() {
       await prisma.orgBilling.create({ data: { organizationId: o!.id, creditBalancePaise: 100000 } });
       await prisma.creditTransaction.create({ data: { organizationId: o!.id, type: 'ADJUSTMENT', amountPaise: 100000, balanceAfterPaise: 100000, note: 'Demo credit' } });
     }
+  }
+  // Verified demo payout accounts: a registered trust and an unregistered mandal.
+  const adminUser = await prisma.user.findUnique({ where: { mobile: '9000000002' } });
+  if (adminUser && !(await prisma.payoutAccount.findUnique({ where: { organizationId: mandal.id } }))) {
+    await prisma.payoutAccount.create({ data: {
+      organizationId: mandal.id, entityType: 'REGISTERED', registeredType: 'TRUST', legalName: 'Shree Durga Puja Samiti Trust', registrationNumber: 'WB/TR/2011/0457',
+      orgPanEnc: encryptField('AAATS1234Z'), orgPanLast4: '234Z', reg80G: 'AAATS1234ZF20211', reg12A: 'AAATS1234ZE20211',
+      addressLine: 'Salt Lake, Sector 1', city: 'Kolkata', state: 'West Bengal', pincode: '700064',
+      contactName: 'Ananya Sen', contactRole: 'Secretary', contactPhone: '9000000002', contactEmail: 'admin@parvsetu.dev',
+      signatoryPanEnc: encryptField('ABCPS1234K'), signatoryPanLast4: '234K',
+      bankHolderName: 'Shree Durga Puja Samiti Trust', bankAccountEnc: encryptField('012345678901'), bankAccountLast4: '8901', ifsc: 'SBIN0001234', accountType: 'CURRENT',
+      status: 'VERIFIED', reviewedAt: new Date(), reviewNote: 'Demo account', consentAt: new Date(), submittedById: adminUser.id,
+    } });
+  }
+  const navAdmin = await prisma.user.findUnique({ where: { mobile: '9000000007' } });
+  if (other && navAdmin && !(await prisma.payoutAccount.findUnique({ where: { organizationId: other.id } }))) {
+    await prisma.payoutAccount.create({ data: {
+      organizationId: other.id, entityType: 'UNREGISTERED', legalName: 'Navratri Seva Samiti (Kiran Patel)',
+      addressLine: 'GMDC Ground, Vastrapur', city: 'Ahmedabad', state: 'Gujarat', pincode: '380015',
+      contactName: 'Kiran Patel', contactRole: 'President', contactPhone: '9000000007', contactEmail: 'navratri-admin@parvsetu.dev',
+      signatoryPanEnc: encryptField('BKLPP4321M'), signatoryPanLast4: '321M',
+      bankHolderName: 'Kiran Patel', bankAccountEnc: encryptField('998877665544'), bankAccountLast4: '5544', ifsc: 'HDFC0000123', accountType: 'SAVINGS',
+      status: 'VERIFIED', reviewedAt: new Date(), reviewNote: 'Demo account', consentAt: new Date(), submittedById: navAdmin.id,
+    } });
   }
   const treasurer = await prisma.user.findUnique({ where: { mobile: '9000000006' } });
   if (!(await prisma.expense.findFirst({ where: { organizationId: mandal.id, eventId: null } }))) {

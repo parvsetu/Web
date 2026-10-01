@@ -11,6 +11,8 @@ export class PlatformSettingsDto {
   @IsOptional() @Matches(RUPEES) welcomeCredit?: string;
   /** Per pass, per partner printed on it. */
   @IsOptional() @Matches(RUPEES) partnerPrintFee?: string;
+  /** Gateway fee taken from the mandal's share of online payments (%). */
+  @IsOptional() @Matches(PERCENT) gatewayFeePercent?: string;
 }
 
 /** Per-mandal overrides; send null to fall back to the platform default. */

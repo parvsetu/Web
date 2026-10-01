@@ -1,5 +1,5 @@
 /** Prepaid token credit: commission per pass, hard limit, low/exhausted states, recharge, admin. */
-import { bearer, bootApp, makeOrgWithEvent, makeUser, makeVolunteer, TestCtx } from './helpers';
+import { bearer, bootApp, makeOrgWithEvent, makeUser, makeVolunteer, TestCtx, verifyPayouts } from './helpers';
 
 describe('Prepaid token credit (e2e)', () => {
   let ctx: TestCtx;
@@ -58,19 +58,23 @@ describe('Prepaid token credit (e2e)', () => {
     expect(await ctx.prisma.donation.count({ where: { eventId: m.event.id } })).toBe(0);
   });
 
-  it('online orders hold the commission and refund it when payment fails', async () => {
+  it('paid online orders take commission by split (not credit); free online passes use credit', async () => {
     const m = await mandal(5);
+    await verifyPayouts(ctx.prisma, m.org.id, m.admin.id);
     await ctx.http().patch(api(`/events/${m.event.id}`)).set('Authorization', m.auth).send({ publicBookingEnabled: true });
-    const slot = await ctx.http().post(api(`/events/${m.event.id}/time-slots`)).set('Authorization', m.auth).send({ label: 'Day', startTime: '00:00', endTime: '23:59', price: 50 });
+    const paidSlot = await ctx.http().post(api(`/events/${m.event.id}/time-slots`)).set('Authorization', m.auth).send({ label: 'Paid', startTime: '00:00', endTime: '23:59', price: 50 });
+    const freeSlot = await ctx.http().post(api(`/events/${m.event.id}/time-slots`)).set('Authorization', m.auth).send({ label: 'Free', startTime: '00:00', endTime: '23:59' });
     const date = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
-    const o = await ctx.http().post(api('/public/booking/orders')).send({ eventId: m.event.id, timeSlotId: slot.body.id, date, visitorCount: 4, buyerName: 'Asha', buyerMobile: '9811111111' });
+    const o = await ctx.http().post(api('/public/booking/orders')).send({ eventId: m.event.id, timeSlotId: paidSlot.body.id, date, visitorCount: 4, buyerName: 'Asha', buyerMobile: '9811111111' });
     expect(o.status).toBe(201);
-    expect((await ctx.http().get(api(`/organizations/${m.org.id}/billing`)).set('Authorization', m.auth)).body.balance).toBe('1.00');
-    // Credit is held, so a second 4-person order can't start.
-    const second = await ctx.http().post(api('/public/booking/orders')).send({ eventId: m.event.id, timeSlotId: slot.body.id, date, visitorCount: 4, buyerName: 'Bina', buyerMobile: '9822222222' });
-    expect([second.status, second.body.code]).toEqual([402, 'CREDIT_EXHAUSTED']);
-    await ctx.http().post(api(`/public/booking/orders/${o.body.id}/demo-pay`)).send({ k: o.body.accessKey, outcome: 'fail' });
-    expect((await ctx.http().get(api(`/organizations/${m.org.id}/billing`)).set('Authorization', m.auth)).body.balance).toBe('5.00');
+    await ctx.http().post(api(`/public/booking/orders/${o.body.id}/demo-pay`)).send({ k: o.body.accessKey, outcome: 'success' });
+    const bal = async () => (await ctx.http().get(api(`/organizations/${m.org.id}/billing`)).set('Authorization', m.auth)).body.balance;
+    expect(await bal()).toBe('5.00'); // ₹200 paid online → commission ₹4 taken by the split, credit untouched
+    const st = await ctx.http().get(api(`/organizations/${m.org.id}/settlements`)).set('Authorization', m.auth);
+    expect(st.body.items[0]).toMatchObject({ gross: '200.00', commission: '4.00', net: '196.00', status: 'PENDING_PAYOUT' });
+    const f = await ctx.http().post(api('/public/booking/orders')).send({ eventId: m.event.id, timeSlotId: freeSlot.body.id, date, visitorCount: 2, buyerName: 'Free', buyerMobile: '9822222222' });
+    expect(f.body.status).toBe('PAID');
+    expect(await bal()).toBe('3.00'); // free online passes are internal → ₹1 × 2 from credit
   });
 
   it('low-credit warning, demo recharge, history, and access rules', async () => {
