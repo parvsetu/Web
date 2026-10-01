@@ -246,6 +246,7 @@ export type TokenStatus = 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';
 export type EffectiveTokenStatus = TokenStatus | 'NOT_YET_VALID';
 
 export interface Token {
+  sponsorIds?: string[];
   id: string;
   tokenCode: string;
   status: TokenStatus;

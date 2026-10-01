@@ -12,27 +12,31 @@ import { fmtDateTime } from '@/lib/format';
 import { useAsync, useDebounced } from '@/lib/hooks';
 import type { Organization, Paged, PlatformUser } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
-import { Alert, Badge, Button, Card, Empty, Field, LabeledInput, Modal, Pager, SkeletonList, Tabs, Textarea } from '@/components/ui';
+import { Alert, Badge, Button, Card, Empty, Field, LabeledInput, Modal, Pager, SideTabsLayout, SkeletonList, Textarea } from '@/components/ui';
+import { BillingAdmin } from '@/components/platform/BillingAdmin';
+import { Users as Users2, Wallet } from 'lucide-react';
 import { Building2, Plus } from 'lucide-react';
 
 export default function PlatformPage() {
   const { me } = useAuth();
-  const [tab, setTab] = useState('orgs');
+  const [tab, setTab] = useState('billing');
   return (
     <AppShell title="Platform admin" subtitle="Super admin" back="/" wide>
       {me && !me.isSuperAdmin ? (
         <Alert kind="warning">Only platform super admins can open this page.</Alert>
       ) : (
         <div className="flex flex-col gap-4">
-          <Tabs
+          <SideTabsLayout
             tabs={[
-              { key: 'orgs', label: 'Organisations' },
-              { key: 'users', label: 'Users' },
+              { key: 'billing', label: 'Billing & earnings', icon: Wallet },
+              { key: 'orgs', label: 'Mandals', icon: Building2 },
+              { key: 'users', label: 'Users', icon: Users2 },
             ]}
             active={tab}
             onChange={setTab}
-          />
-          {tab === 'orgs' ? <Orgs /> : <Users />}
+          >
+            {tab === 'billing' ? <BillingAdmin /> : tab === 'orgs' ? <Orgs /> : <Users />}
+          </SideTabsLayout>
         </div>
       )}
     </AppShell>

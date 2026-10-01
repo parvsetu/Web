@@ -1,5 +1,7 @@
 'use client';
 
+import { PassSponsors } from '@/components/SponsorStrip';
+
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CalendarClock, Download, IndianRupee, MapPin, Printer, Share2, User, Users } from 'lucide-react';
@@ -103,6 +105,9 @@ export function PassCard({ order, pass, index = 0, total = 1 }: { order: PassOrd
           {order.payment.demo && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">demo</span>}
         </Row>
       </dl>
+        <div className="px-5 pb-1">
+          <PassSponsors sponsors={order.printedSponsors} />
+        </div>
       <p className="border-t border-dashed border-slate-200 px-5 py-3 text-center text-sm font-semibold text-slate-600">
         Show this QR at the gate. One-time entry.
       </p>

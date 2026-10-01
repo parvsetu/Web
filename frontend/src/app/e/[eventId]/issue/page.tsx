@@ -19,6 +19,8 @@ import {
 } from '@/components/TokenParts';
 import { Clock, Plus, Printer, QrCode, Ticket, UserRound, Users } from 'lucide-react';
 import { Alert, Button, Card, LabeledInput, SectionTitle, SkeletonList, cx } from '@/components/ui';
+import { CreditBanner, type CreditStatus } from '@/components/org/CreditTab';
+import type { SponsorPublic } from '@/components/SponsorStrip';
 
 export default function IssuePage() {
   const ev = useEvent();
@@ -44,6 +46,8 @@ function IssueForm() {
   const [issued, setIssued] = useState<TokenWithQr[] | null>(null);
   const [perPerson, setPerPerson] = useState(true);
   const maxVisitors = ev.detail?.maxVisitorsPerToken ?? 10;
+  const credit = useAsync(() => api.get<CreditStatus>(`/events/${ev.eventId}/credit-status`), [ev.eventId, issued?.length ?? 0]);
+  const sponsors = useAsync(() => api.get<SponsorPublic[]>(`/events/${ev.eventId}/sponsors`), [ev.eventId]);
 
   useEffect(() => {
     if (slots.data && !validity) setValidity(initialValidity(slots.data, ev.startDate, ev.endDate, ev.timezone));
@@ -90,7 +94,7 @@ function IssueForm() {
         {issued.map((t, i) => (
           <div key={t.id} className="flex flex-col gap-2">
             {issued.length > 1 && <div className="text-center text-sm font-bold text-orange-800">Pass {i + 1} of {issued.length}</div>}
-            <TokenTicket token={t} eventName={ev.name} tz={ev.timezone} festivalType={ev.festivalType} />
+            <TokenTicket token={t} eventName={ev.name} tz={ev.timezone} festivalType={ev.festivalType} sponsors={(sponsors.data ?? []).filter((s) => t.sponsorIds?.includes(s.id))} />
             <TokenShareButtons token={t} eventName={ev.name} tz={ev.timezone} showPrint={issued.length === 1} />
           </div>
         ))}
@@ -110,6 +114,7 @@ function IssueForm() {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
+      <CreditBanner status={credit.data} orgId={ev.organization?.id} />
       {slots.error && <Alert>{slots.error}</Alert>}
       {ev.status && ev.status !== 'ACTIVE' && ev.status !== 'DRAFT' && (
         <Alert kind="warning">Tokens can only be issued for Draft or Active festivals.</Alert>
@@ -154,7 +159,7 @@ function IssueForm() {
         <LabeledInput label="Visitor mobile (optional)" type="tel" inputMode="numeric" value={mobile} onChange={(e) => setMobile(e.target.value)} autoComplete="off" />
       </Card>
       {error && <Alert>{error}</Alert>}
-      <Button type="submit" size="lg" loading={busy}>
+      <Button type="submit" size="lg" loading={busy} disabled={credit.data?.state === 'EXHAUSTED'}>
         {!busy && <Ticket aria-hidden className="h-6 w-6" />}
         Issue token
       </Button>

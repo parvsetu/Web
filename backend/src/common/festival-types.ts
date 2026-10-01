@@ -7,7 +7,10 @@ export interface FestivalTypeDef {
   key: string;
   label: string;
   defaultPrefix: string;
-  group: 'Hindu' | 'Muslim' | 'Sikh' | 'Christian' | 'Buddhist' | 'Jain' | 'Parsi' | 'Regional & Harvest' | 'National & Cultural' | 'Other';
+  group:
+    | 'Hindu' | 'Muslim' | 'Sikh' | 'Christian' | 'Buddhist' | 'Jain' | 'Parsi' | 'Regional & Harvest'
+    | 'Religious Gatherings' | 'Fairs & Carnivals' | 'Exhibitions & Trade' | 'Cultural & Entertainment' | 'Community & Sports'
+    | 'National & Cultural' | 'Other';
   months?: string;
 }
 
@@ -70,6 +73,38 @@ export const FESTIVAL_TYPES: FestivalTypeDef[] = [
   { key: 'MAHAVIR_JAYANTI', label: 'Mahavir Jayanti', defaultPrefix: 'MAH', group: 'Jain', months: 'Mar–Apr' },
   { key: 'PARYUSHAN', label: 'Paryushan / Das Lakshana', defaultPrefix: 'PAR', group: 'Jain', months: 'Aug–Sep' },
   { key: 'NAVROZ', label: 'Navroz (Parsi New Year)', defaultPrefix: 'NVZ', group: 'Parsi', months: 'Mar / Aug' },
+  // Religious gatherings (not tied to one festival)
+  { key: 'BHAGWAT_KATHA', label: 'Bhagwat / Ram Katha', defaultPrefix: 'KTH', group: 'Religious Gatherings' },
+  { key: 'SATSANG', label: 'Satsang / Pravachan', defaultPrefix: 'SAT', group: 'Religious Gatherings' },
+  { key: 'JAGRAN', label: 'Jagran / Mata ki Chowki', defaultPrefix: 'JAG', group: 'Religious Gatherings' },
+  { key: 'KIRTAN', label: 'Kirtan / Bhajan Sandhya', defaultPrefix: 'KIR', group: 'Religious Gatherings' },
+  { key: 'YAGNA', label: 'Yagna / Havan', defaultPrefix: 'YAG', group: 'Religious Gatherings' },
+  { key: 'BHANDARA', label: 'Bhandara / Langar / Annadanam', defaultPrefix: 'BHN', group: 'Religious Gatherings' },
+  // Fairs & carnivals
+  { key: 'MELA', label: 'Mela / Village fair', defaultPrefix: 'MEL', group: 'Fairs & Carnivals' },
+  { key: 'CARNIVAL', label: 'Carnival', defaultPrefix: 'CAR', group: 'Fairs & Carnivals' },
+  { key: 'PUSHKAR_FAIR', label: 'Cattle / Camel fair (e.g. Pushkar)', defaultPrefix: 'PUS', group: 'Fairs & Carnivals' },
+  { key: 'KIDS_FUN_FAIR', label: 'Kids fun fair / Amusement fair', defaultPrefix: 'FUN', group: 'Fairs & Carnivals' },
+  { key: 'FOOD_FESTIVAL', label: 'Food festival', defaultPrefix: 'FOD', group: 'Fairs & Carnivals' },
+  // Exhibitions & trade
+  { key: 'TRADE_EXPO', label: 'Trade fair / Expo', defaultPrefix: 'EXP', group: 'Exhibitions & Trade' },
+  { key: 'CRAFT_EXHIBITION', label: 'Handicraft & handloom exhibition', defaultPrefix: 'CRF', group: 'Exhibitions & Trade' },
+  { key: 'BOOK_FAIR', label: 'Book fair', defaultPrefix: 'BOK', group: 'Exhibitions & Trade' },
+  { key: 'AGRI_EXPO', label: 'Kisan / Agriculture expo', defaultPrefix: 'AGR', group: 'Exhibitions & Trade' },
+  { key: 'ART_EXHIBITION', label: 'Art exhibition', defaultPrefix: 'ART', group: 'Exhibitions & Trade' },
+  { key: 'EDUCATION_FAIR', label: 'Education / Career fair', defaultPrefix: 'EDU', group: 'Exhibitions & Trade' },
+  { key: 'PROPERTY_EXPO', label: 'Property / Auto expo', defaultPrefix: 'PRP', group: 'Exhibitions & Trade' },
+  // Cultural & entertainment
+  { key: 'CONCERT', label: 'Music concert', defaultPrefix: 'CON', group: 'Cultural & Entertainment' },
+  { key: 'DANCE_FESTIVAL', label: 'Dance festival / Garba night', defaultPrefix: 'DNC', group: 'Cultural & Entertainment' },
+  { key: 'RAMLILA', label: 'Ramlila / Drama', defaultPrefix: 'RML', group: 'Cultural & Entertainment' },
+  { key: 'KAVI_SAMMELAN', label: 'Kavi Sammelan / Mushaira', defaultPrefix: 'KAV', group: 'Cultural & Entertainment' },
+  { key: 'COMEDY_SHOW', label: 'Comedy / Stage show', defaultPrefix: 'SHW', group: 'Cultural & Entertainment' },
+  // Community & sports
+  { key: 'SPORTS_TOURNAMENT', label: 'Sports tournament', defaultPrefix: 'SPT', group: 'Community & Sports' },
+  { key: 'MARATHON', label: 'Marathon / Walkathon', defaultPrefix: 'RUN', group: 'Community & Sports' },
+  { key: 'HEALTH_CAMP', label: 'Health / Blood donation camp', defaultPrefix: 'HLT', group: 'Community & Sports' },
+  { key: 'COMMUNITY_MEET', label: 'Community sammelan / Meet', defaultPrefix: 'MET', group: 'Community & Sports' },
   // National & cultural
   { key: 'INDEPENDENCE_DAY', label: 'Independence Day', defaultPrefix: 'IND', group: 'National & Cultural', months: 'Aug 15' },
   { key: 'REPUBLIC_DAY', label: 'Republic Day', defaultPrefix: 'REP', group: 'National & Cultural', months: 'Jan 26' },

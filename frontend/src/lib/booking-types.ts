@@ -65,6 +65,8 @@ export type PassOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
 export type PassStatus = 'ACTIVE' | 'USED' | 'EXPIRED' | 'NOT_YET_VALID' | 'CANCELLED';
 
 export interface PassOrder {
+  /** Partners printed on these passes (paid promotion). */
+  printedSponsors?: import('@/components/SponsorStrip').SponsorPublic[];
   id: string;
   status: PassOrderStatus;
   amount: string;

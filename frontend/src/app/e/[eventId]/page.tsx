@@ -13,6 +13,7 @@ import { AppShell } from '@/components/AppShell';
 import { EventGate } from '@/components/EventGate';
 import { FestivalBanner } from '@/components/FestivalBanner';
 import { SponsorStrip, type SponsorPublic } from '@/components/SponsorStrip';
+import { CreditBanner, type CreditStatus } from '@/components/org/CreditTab';
 import { Alert, Badge, Card, Skeleton, Stat } from '@/components/ui';
 
 export default function VolunteerHome() {
@@ -33,6 +34,7 @@ function Home() {
   const canIssue = can(ev.perms, 'TOKEN_CREATE');
   const summary = useAsync(() => api.get<MySummary>(`/events/${ev.eventId}/my-summary`), [ev.eventId], canScan || canIssue);
   const sponsors = useAsync(() => api.get<SponsorPublic[]>(`/events/${ev.eventId}/sponsors`), [ev.eventId]);
+  const credit = useAsync(() => api.get<CreditStatus>(`/events/${ev.eventId}/credit-status`), [ev.eventId], canIssue);
   const isAdmin = canAny(ev.perms, EVENT_ADMIN_PERMS);
   const orgId = ev.organization?.id;
   const orgAdmin = !!orgId && (me?.isSuperAdmin || canAny(me?.organizations.find((o) => o.id === orgId)?.permissions, ORG_ADMIN_PERMS));
@@ -61,6 +63,7 @@ function Home() {
         }
       />
 
+      {canIssue && <CreditBanner status={credit.data} orgId={orgId} />}
       {ev.status && ev.status !== 'ACTIVE' && canScan && (
         <Alert kind="warning">Scanning works only while the festival is Active. It is currently {humanize(ev.status)}.</Alert>
       )}

@@ -7,6 +7,7 @@ import type { TimeSlot, TokenWithQr, Validity } from '@/lib/types';
 import { CalendarClock, Download, Printer, Share2, Users } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { FestivalArt } from './FestivalArt';
+import { PassSponsors, type SponsorPublic } from './SponsorStrip';
 import { QrImage, qrCardPng } from './QrImage';
 import { Badge, Button, Field, Input, LabeledInput, Select, cx } from './ui';
 
@@ -250,7 +251,7 @@ export function SlotSelect({ slots, value, onChange, label = 'Slot' }: { slots: 
 }
 
 /** Large printable token: QR + code + validity. */
-export function TokenTicket({ token, eventName, tz, festivalType }: { token: TokenWithQr; eventName: string; tz: string; festivalType?: string | null }) {
+export function TokenTicket({ token, eventName, tz, festivalType, sponsors }: { token: TokenWithQr; eventName: string; tz: string; festivalType?: string | null; sponsors?: SponsorPublic[] }) {
   const t = festivalTheme(festivalType);
   return (
     <div className="print-break-inside-avoid overflow-hidden rounded-3xl border-2 bg-white text-center shadow-lg" style={{ borderColor: t.via }}>
@@ -279,6 +280,7 @@ export function TokenTicket({ token, eventName, tz, festivalType }: { token: Tok
         <div className="no-print">
           <Badge value={token.effectiveStatus} />
         </div>
+        <PassSponsors sponsors={sponsors} />
         <div className="w-full border-t border-dashed border-slate-300 pt-2 text-xs text-slate-500">One-time entry. Do not share this QR.</div>
       </div>
     </div>

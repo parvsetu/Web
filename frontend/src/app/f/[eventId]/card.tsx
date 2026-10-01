@@ -1,13 +1,13 @@
 import { festivalTheme } from '@/lib/festival-theme';
 import { fmtRange, type PublicFestival } from '@/lib/public-festival';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-const KNOWN = ['GANESH_UTSAV', 'DURGA_PUJA', 'NAVRATRI', 'JANMASHTAMI', 'RAM_NAVAMI', 'DUSSEHRA', 'DIWALI', 'CHHATH_PUJA'];
 /** The festival illustration (pre-exported to public/art) as a data URL the image renderer can embed. */
 function artSrc(type: string) {
-  const file = KNOWN.includes(type) ? type : 'DEFAULT';
-  const svg = readFileSync(join(process.cwd(), 'public', 'art', `${file}.svg`));
+  const dir = join(process.cwd(), 'public', 'art');
+  const file = /^[A-Z_]+$/.test(type) && existsSync(join(dir, `${type}.svg`)) ? type : 'DEFAULT';
+  const svg = readFileSync(join(dir, `${file}.svg`));
   return `data:image/svg+xml;base64,${svg.toString('base64')}`;
 }
 

@@ -194,6 +194,172 @@ const Chhath: Art = () => (
   </>
 );
 
+
+const Holi: Art = () => (
+  <>
+    <circle cx="20" cy="22" r="13" fill="#EC4899" opacity="0.9" />
+    <circle cx="42" cy="18" r="11" fill="#FACC15" opacity="0.9" />
+    <circle cx="44" cy="40" r="13" fill="#22C55E" opacity="0.85" />
+    <circle cx="22" cy="44" r="12" fill="#3B82F6" opacity="0.85" />
+    <circle cx="32" cy="31" r="9" fill="#F97316" />
+    <g fill="#A855F7"><circle cx="8" cy="34" r="2.5" /><circle cx="56" cy="27" r="2" /><circle cx="33" cy="58" r="2.5" /><circle cx="54" cy="54" r="2" /></g>
+    <g fill="#EF4444"><circle cx="12" cy="10" r="2" /><circle cx="30" cy="6" r="1.6" /><circle cx="58" cy="10" r="1.8" /></g>
+    <path d="M27 31 Q32 25 37 31 Q32 37 27 31 Z" fill="#FDE68A" />
+  </>
+);
+
+const Eid: Art = () => (
+  <>
+    <circle cx="30" cy="28" r="26" fill="#CCFBF1" />
+    <path d="M38 8 A20 20 0 1 0 38 44 A15 15 0 1 1 38 8 Z" fill="#FACC15" />
+    <path d="M47 18 l2 5 5 .4 -3.9 3.2 1.3 5 -4.4-2.8 -4.4 2.8 1.3-5 -3.9-3.2 5-.4 Z" fill="#FDE68A" />
+    {/* lantern */}
+    <path d="M44 34 h8 l2 4 -2 14 h-8 l-2 -14 Z" fill="#F59E0B" />
+    <path d="M47 30 h2 v4 h-2 Z M45 52 h6 v3 h-6 Z" fill="#B45309" />
+    <path d="M47 39 h2 v10 h-2 Z" fill="#FEF3C7" />
+    <path d="M6 58 Q18 50 30 58" stroke="#14B8A6" strokeWidth="3" fill="none" strokeLinecap="round" />
+  </>
+);
+
+const Christmas: Art = () => (
+  <>
+    <path d="M32 6 L46 26 H38 L50 42 H40 L54 56 H10 L24 42 H14 L26 26 H18 Z" fill="#16A34A" />
+    <rect x="28" y="56" width="8" height="6" rx="1" fill="#92400E" />
+    <path d="M32 2 l1.8 3.7 4 .6 -2.9 2.8 .7 4 -3.6-1.9 -3.6 1.9 .7-4 -2.9-2.8 4-.6 Z" fill="#FACC15" />
+    <g fill="#EF4444"><circle cx="27" cy="22" r="2" /><circle cx="38" cy="36" r="2.2" /><circle cx="24" cy="48" r="2.2" /><circle cx="44" cy="50" r="2" /></g>
+    <g fill="#FDE047"><circle cx="35" cy="27" r="1.8" /><circle cx="22" cy="38" r="1.8" /><circle cx="33" cy="47" r="1.8" /></g>
+    <path d="M20 33 Q32 38 42 31 M16 46 Q32 52 48 44" stroke="#FDE68A" strokeWidth="1.4" fill="none" />
+  </>
+);
+
+const Onam: Art = () => (
+  <>
+    {/* pookalam — concentric flower carpet */}
+    <circle cx="32" cy="32" r="30" fill="#F97316" />
+    <circle cx="32" cy="32" r="25" fill="#FACC15" />
+    {Array.from({ length: 12 }, (_, i) => (
+      <path key={i} d="M32 9 L36 18 L32 22 L28 18 Z" fill="#DC2626" transform={`rotate(${i * 30} 32 32)`} />
+    ))}
+    <circle cx="32" cy="32" r="13" fill="#FFFFFF" />
+    {Array.from({ length: 8 }, (_, i) => (
+      <ellipse key={`p${i}`} cx="32" cy="23" rx="3" ry="6" fill="#A855F7" transform={`rotate(${i * 45} 32 32)`} />
+    ))}
+    <circle cx="32" cy="32" r="5" fill="#16A34A" />
+    <circle cx="32" cy="32" r="2" fill="#FDE047" />
+  </>
+);
+
+const Kite: Art = () => (
+  <>
+    <path d="M32 4 L54 26 L32 48 L10 26 Z" fill="#EF4444" />
+    <path d="M32 4 L54 26 L32 26 Z" fill="#FACC15" />
+    <path d="M10 26 L32 26 L32 48 Z" fill="#3B82F6" />
+    <path d="M32 4 V48 M10 26 H54" stroke="#7C2D12" strokeWidth="1.2" />
+    <path d="M32 48 C30 54 36 56 33 62" stroke="#7C2D12" strokeWidth="1.4" fill="none" />
+    <path d="M30 53 l-4 2 4 1 Z M35 58 l4 -1 -3 3 Z" fill="#22C55E" />
+    <path d="M54 26 C58 36 62 46 60 62" stroke="#94A3B8" strokeWidth="1" fill="none" strokeDasharray="2 2" />
+  </>
+);
+
+const Fair: Art = () => (
+  <>
+    {/* ferris wheel */}
+    <circle cx="32" cy="26" r="20" fill="none" stroke="#DB2777" strokeWidth="3" />
+    <circle cx="32" cy="26" r="4" fill="#7C3AED" />
+    {Array.from({ length: 8 }, (_, i) => (
+      <path key={i} d="M32 26 L32 6" stroke="#F472B6" strokeWidth="1.6" transform={`rotate(${i * 45} 32 26)`} />
+    ))}
+    {Array.from({ length: 8 }, (_, i) => {
+      const a = (i * 45 * Math.PI) / 180;
+      const colors = ['#F59E0B', '#22C55E', '#3B82F6', '#EF4444'];
+      return <rect key={`c${i}`} x={32 + 20 * Math.sin(a) - 3.5} y={26 - 20 * Math.cos(a) - 1} width="7" height="6" rx="1.5" fill={colors[i % 4]} />;
+    })}
+    <path d="M32 30 L20 58 M32 30 L44 58" stroke="#475569" strokeWidth="3" strokeLinecap="round" />
+    <path d="M14 58 H50" stroke="#475569" strokeWidth="3" strokeLinecap="round" />
+  </>
+);
+
+const Exhibition: Art = () => (
+  <>
+    {/* bunting */}
+    <path d="M4 10 Q32 20 60 10" stroke="#64748B" strokeWidth="1.2" fill="none" />
+    {[10, 20, 30, 40, 50].map((x, i) => (
+      <path key={x} d={`M${x - 3} ${12 + (i % 2)} L${x + 3} ${12 + (i % 2)} L${x} ${19 + (i % 2)} Z`} fill={['#EF4444', '#FACC15', '#22C55E', '#3B82F6', '#EC4899'][i]} />
+    ))}
+    {/* stall canopy */}
+    <path d="M8 26 L14 20 H50 L56 26 Z" fill="#EA580C" />
+    <path d="M8 26 Q12 32 16 26 Q20 32 24 26 Q28 32 32 26 Q36 32 40 26 Q44 32 48 26 Q52 32 56 26 Z" fill="#FFFFFF" />
+    <path d="M8 26 Q12 32 16 26 M24 26 Q28 32 32 26 M40 26 Q44 32 48 26" fill="#F97316" />
+    <rect x="12" y="30" width="2.5" height="26" fill="#92400E" />
+    <rect x="49.5" y="30" width="2.5" height="26" fill="#92400E" />
+    <rect x="10" y="44" width="44" height="12" rx="2" fill="#B45309" />
+    {/* goods */}
+    <circle cx="20" cy="40" r="4" fill="#0EA5E9" />
+    <path d="M28 44 L31 34 L34 44 Z" fill="#A855F7" />
+    <rect x="38" y="36" width="8" height="8" rx="1" fill="#16A34A" />
+  </>
+);
+
+const Kalash: Art = () => (
+  <>
+    {/* mango leaves + coconut on a kalash: religious gatherings, katha, satsang */}
+    <path d="M32 18 C22 6 12 10 8 14 C16 16 24 18 32 22 Z" fill="#16A34A" />
+    <path d="M32 18 C42 6 52 10 56 14 C48 16 40 18 32 22 Z" fill="#16A34A" />
+    <path d="M32 18 C30 8 34 4 32 2 C38 8 36 14 32 22 Z" fill="#22C55E" />
+    <ellipse cx="32" cy="17" rx="8" ry="9" fill="#92400E" />
+    <path d="M27 11 Q32 6 37 11" stroke="#FDE68A" strokeWidth="1.5" fill="none" />
+    <path d="M22 26 H42 L40 30 H24 Z" fill="#CA8A04" />
+    <path d="M24 30 C12 34 12 56 32 58 C52 56 52 34 40 30 Z" fill="#F59E0B" />
+    <path d="M18 42 Q32 48 46 42" stroke="#DC2626" strokeWidth="2.2" fill="none" />
+    <path d="M29 38 h6 M32 35 v6" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
+    <g fill="#FDE68A"><circle cx="22" cy="50" r="1.5" /><circle cx="32" cy="53" r="1.5" /><circle cx="42" cy="50" r="1.5" /></g>
+  </>
+);
+
+const Music: Art = () => (
+  <>
+    {/* dhol + notes: concerts, cultural nights */}
+    <ellipse cx="14" cy="38" rx="7" ry="13" fill="#B91C1C" />
+    <rect x="14" y="25" width="30" height="26" fill="#DC2626" />
+    <ellipse cx="44" cy="38" rx="7" ry="13" fill="#FCA5A5" />
+    <path d="M16 26 L42 50 M16 50 L42 26 M22 25 L36 51 M22 51 L36 25" stroke="#FDE68A" strokeWidth="1.3" />
+    <path d="M50 18 V6 L60 4 V16" stroke="#7C3AED" strokeWidth="2.4" fill="none" />
+    <circle cx="48" cy="18" r="3" fill="#7C3AED" />
+    <circle cx="58" cy="16" r="3" fill="#7C3AED" />
+    <path d="M24 16 V6 l6 -1" stroke="#0EA5E9" strokeWidth="2.2" fill="none" />
+    <circle cx="22" cy="16" r="2.6" fill="#0EA5E9" />
+    <path d="M6 30 L2 26 M6 46 L2 50" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
+  </>
+);
+
+const Trophy: Art = () => (
+  <>
+    <path d="M18 8 H46 V22 C46 32 40 38 32 38 C24 38 18 32 18 22 Z" fill="#F59E0B" />
+    <path d="M18 12 H10 C10 22 14 26 20 27 M46 12 H54 C54 22 50 26 44 27" stroke="#F59E0B" strokeWidth="3.5" fill="none" />
+    <path d="M24 12 C24 24 28 30 32 30" stroke="#FDE68A" strokeWidth="2" fill="none" strokeLinecap="round" />
+    <rect x="28" y="38" width="8" height="8" fill="#D97706" />
+    <rect x="20" y="46" width="24" height="6" rx="1.5" fill="#92400E" />
+    <rect x="16" y="52" width="32" height="8" rx="2" fill="#78350F" />
+    <path d="M32 14 l1.5 3 3.3 .5 -2.4 2.3 .6 3.3 -3-1.6 -3 1.6 .6-3.3 -2.4-2.3 3.3-.5 Z" fill="#FFFBEB" />
+  </>
+);
+
+const Thali: Art = () => (
+  <>
+    {/* thali: food festivals, bhandara, langar */}
+    <circle cx="32" cy="34" r="27" fill="#CBD5E1" />
+    <circle cx="32" cy="34" r="23" fill="#E2E8F0" />
+    <circle cx="20" cy="26" r="7" fill="#F59E0B" />
+    <circle cx="36" cy="20" r="6" fill="#16A34A" />
+    <circle cx="46" cy="32" r="6" fill="#DC2626" />
+    <circle cx="40" cy="46" r="6.5" fill="#FDE68A" />
+    <path d="M14 38 C16 50 30 52 30 42 C28 36 18 34 14 38 Z" fill="#FBBF24" />
+    <circle cx="20" cy="26" r="3" fill="#FCD34D" />
+    <circle cx="46" cy="32" r="2.4" fill="#FCA5A5" />
+    <path d="M30 34 l4 -2 M28 30 l3 1" stroke="#64748B" strokeWidth="1" />
+  </>
+);
+
 /** Marigold — the generic festive fallback. */
 const Marigold: Art = () => (
   <>
@@ -214,10 +380,59 @@ const ART: Record<string, Art> = {
   NAVRATRI: Navratri,
   JANMASHTAMI: Janmashtami,
   RAM_NAVAMI: RamNavami,
+  HANUMAN_JAYANTI: RamNavami,
   DUSSEHRA: Dussehra,
   DIWALI: Diwali,
+  LAKSHMI_PUJA: Diwali,
+  KARTIK_PURNIMA: Diwali,
   CHHATH_PUJA: Chhath,
+  HOLI: Holi,
+  HOLA_MOHALLA: Holi,
+  EID_UL_FITR: Eid,
+  EID_AL_ADHA: Eid,
+  MILAD_UN_NABI: Eid,
+  CHRISTMAS: Christmas,
+  ONAM: Onam,
+  VISHU: Onam,
+  BATHUKAMMA: Onam,
+  MAKAR_SANKRANTI: Kite,
+  LOHRI: Kite,
+  // fairs & carnivals
+  MELA: Fair,
+  CARNIVAL: Fair,
+  KIDS_FUN_FAIR: Fair,
+  PUSHKAR_FAIR: Fair,
+  FOOD_FESTIVAL: Thali,
+  BHANDARA: Thali,
+  // exhibitions & trade
+  TRADE_EXPO: Exhibition,
+  CRAFT_EXHIBITION: Exhibition,
+  BOOK_FAIR: Exhibition,
+  AGRI_EXPO: Exhibition,
+  ART_EXHIBITION: Exhibition,
+  EDUCATION_FAIR: Exhibition,
+  PROPERTY_EXPO: Exhibition,
+  // religious gatherings
+  BHAGWAT_KATHA: Kalash,
+  SATSANG: Kalash,
+  JAGRAN: Kalash,
+  KIRTAN: Kalash,
+  YAGNA: Kalash,
+  GURU_PURNIMA: Kalash,
+  // cultural & entertainment
+  CONCERT: Music,
+  DANCE_FESTIVAL: Music,
+  KAVI_SAMMELAN: Music,
+  RAMLILA: Music,
+  CULTURAL_FEST: Music,
+  COMEDY_SHOW: Music,
+  // community & sports
+  SPORTS_TOURNAMENT: Trophy,
+  MARATHON: Trophy,
 };
+
+/** Event types that have their own illustration (others use the marigold). */
+export const ART_KEYS = Object.keys(ART);
 
 export function FestivalArt({ type, className, title, size }: { type?: string | null; className?: string; title?: string; size?: number }) {
   const Comp = (type && ART[type]) || Marigold;

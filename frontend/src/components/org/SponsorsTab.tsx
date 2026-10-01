@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Handshake, ImagePlus, Pencil, Plus, Save, Trash2 } from 'lucide-react';
+import { Handshake, ImagePlus, Pencil, Plus, Save, Ticket, Trash2 } from 'lucide-react';
+import { fmtMoney } from '@/lib/format';
 import { api, errorMessage } from '@/lib/api';
 import { useAsync } from '@/lib/hooks';
 import { useOrg } from '@/lib/org-context';
@@ -14,6 +15,9 @@ interface Sponsor extends SponsorPublic {
   eventId: string | null;
   isActive: boolean;
   sortOrder: number;
+  showOnPasses: boolean;
+  passesPrinted: number;
+  printFees: string;
 }
 
 const TIERS: { key: Sponsor['tier']; label: string }[] = [
@@ -111,6 +115,11 @@ export function SponsorsTab() {
                 </div>
                 <div className="truncate text-sm text-slate-600">{s.bannerText ?? s.tagline ?? '—'}</div>
                 <div className="text-xs text-slate-500">{evName(s.eventId)}</div>
+                {s.showOnPasses && (
+                  <div className="mt-1 inline-flex flex-wrap items-center gap-1.5 rounded-full bg-fuchsia-50 px-2.5 py-0.5 text-xs font-semibold text-fuchsia-800">
+                    <Ticket aria-hidden className="h-3.5 w-3.5" /> Printed on {s.passesPrinted.toLocaleString('en-IN')} passes · {fmtMoney(s.printFees)} print fees
+                  </div>
+                )}
               </div>
               {canEdit && (
                 <div className="flex shrink-0 gap-1">
@@ -156,7 +165,9 @@ function SponsorModal({ sponsor, events, onClose, onSaved }: { sponsor: Sponsor 
     websiteUrl: sponsor?.websiteUrl ?? '',
     eventId: sponsor?.eventId ?? '',
     isActive: sponsor?.isActive ?? true,
+    showOnPasses: sponsor?.showOnPasses ?? false,
   });
+  const credit = useAsync(() => api.get<{ partnerPrintFeePerPass: string }>(`/organizations/${org.orgId}/billing`), [org.orgId]);
   const [logo, setLogo] = useState<string | null>(null);
   const [removeLogo, setRemoveLogo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,7 +195,7 @@ function SponsorModal({ sponsor, events, onClose, onSaved }: { sponsor: Sponsor 
     try {
       const body = {
         name: form.name.trim(), tier: form.tier, tagline: form.tagline, bannerText: form.bannerText, websiteUrl: form.websiteUrl,
-        eventId: form.eventId || null, isActive: form.isActive,
+        eventId: form.eventId || null, isActive: form.isActive, showOnPasses: form.showOnPasses,
         ...(logo ? { logoDataUrl: logo } : {}),
         ...(removeLogo && sponsor ? { removeLogo: true } : {}),
       };
@@ -238,6 +249,16 @@ function SponsorModal({ sponsor, events, onClose, onSaved }: { sponsor: Sponsor 
           ))}
         </LabeledSelect>
         <Checkbox label="Active (shown to visitors)" checked={form.isActive} onChange={(v) => setForm((x) => ({ ...x, isActive: v }))} />
+        <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50/60 p-3">
+          <Checkbox
+            label={<span className="font-semibold">Print logo &amp; tagline on every pass (paid promotion)</span>}
+            checked={form.showOnPasses}
+            onChange={(v) => setForm((x) => ({ ...x, showOnPasses: v }))}
+          />
+          <p className="mt-1 text-xs text-slate-600">
+            {credit.data ? `${fmtMoney(credit.data.partnerPrintFeePerPass)} per pass is taken from your pass credit while this is on` : 'A print fee per pass is taken from your pass credit while this is on'} — charge your partner for it. Up to 3 partners are printed per pass.
+          </p>
+        </div>
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>
           <Save aria-hidden className="h-4 w-4" /> Save

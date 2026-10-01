@@ -44,6 +44,27 @@ function Wrap({ s, children, className }: { s: SponsorPublic; children: React.Re
   );
 }
 
+/** Partners printed on a pass (paid promotion): compact logo + tagline row, print-friendly. */
+export function PassSponsors({ sponsors }: { sponsors: SponsorPublic[] | null | undefined }) {
+  if (!sponsors || sponsors.length === 0) return null;
+  return (
+    <div className="w-full border-t border-dashed border-slate-300 pt-2">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">In association with</p>
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-3">
+        {sponsors.map((s) => (
+          <div key={s.id} className="flex max-w-[200px] items-center gap-2 text-left">
+            <Logo s={s} className="h-9 w-9 shrink-0 rounded-lg" />
+            <div className="min-w-0">
+              <div className="truncate text-xs font-bold text-slate-800">{s.name}</div>
+              {(s.tagline || s.bannerText) && <div className="line-clamp-2 text-[10px] leading-tight text-slate-500">{s.tagline ?? s.bannerText}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Partners' banners: the top-tier sponsors as full ad cards, the rest as a
  * logo row. Renders nothing when there are no sponsors.
