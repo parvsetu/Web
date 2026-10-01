@@ -1,16 +1,18 @@
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsEmail, IsIn, IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from 'class-validator';
-import { PageQuery } from '../../common/http';
+import { SearchPageQuery } from '../../common/http';
 
 export class CreateOrganizationDto {
   @IsString() @Length(2, 150) name: string;
   @IsOptional() @IsString() @Matches(/^[a-z0-9-]{2,60}$/) slug?: string;
+  @IsOptional() @IsString() @MaxLength(80) state?: string;
   @IsOptional() @IsString() @MaxLength(100) city?: string;
   @IsOptional() @IsString() @MaxLength(500) address?: string;
 }
 
 export class UpdateOrganizationDto {
   @IsOptional() @IsString() @Length(2, 150) name?: string;
+  @IsOptional() @IsString() @MaxLength(80) state?: string;
   @IsOptional() @IsString() @MaxLength(100) city?: string;
   @IsOptional() @IsString() @MaxLength(500) address?: string;
 }
@@ -41,7 +43,11 @@ export class UpdateRoleDto {
   @IsOptional() @IsArray() @ArrayMaxSize(100) @IsString({ each: true }) permissions?: string[];
 }
 
-export class AuditQuery extends PageQuery {
+export class OrgListQuery extends SearchPageQuery {
+  @IsOptional() @IsString() @MaxLength(80) state?: string;
+}
+
+export class AuditQuery extends SearchPageQuery {
   @IsOptional() @IsUUID() eventId?: string;
   @IsOptional() @IsString() @Type(() => String) @MaxLength(80) action?: string;
 }

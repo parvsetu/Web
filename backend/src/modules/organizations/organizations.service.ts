@@ -1,11 +1,22 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { RequestUser } from '../../common/auth/request-user';
-import { paged, paging, userRef } from '../../common/http';
+import { SearchPageQuery, paged, paging, searchTerm, userRef } from '../../common/http';
+import { Prisma } from '@prisma/client';
+import { canonicalState } from '../../common/india-locations';
 import { RolesService } from './roles.service';
 import { UserProvisioningService } from './user-provisioning.service';
 import { AddMemberDto, AuditQuery, CreateOrganizationDto, UpdateMemberDto, UpdateOrganizationDto } from './organizations.dto';
+
+/** Validates a state against the India list; empty string clears it. */
+export function stateOrThrow(state: string | undefined): string | null | undefined {
+  if (state === undefined) return undefined;
+  if (state.trim() === '') return null;
+  const s = canonicalState(state);
+  if (!s) throw new BadRequestException(`Unknown state "${state}"`);
+  return s;
+}
 
 @Injectable()
 export class OrganizationsService {
@@ -16,25 +27,35 @@ export class OrganizationsService {
     private readonly users: UserProvisioningService,
   ) {}
 
-  list(actor: RequestUser) {
-    return this.prisma.organization.findMany({
-      where: actor.isSuperAdmin ? {} : { members: { some: { userId: actor.id, status: 'ACTIVE' } } },
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true, slug: true, city: true, address: true, createdAt: true, _count: { select: { events: true } } },
-    });
+  async list(actor: RequestUser, q: SearchPageQuery & { state?: string } = {}) {
+    const { page, pageSize, skip, take } = paging(q, 20);
+    const t = searchTerm(q.q);
+    const where: Prisma.OrganizationWhereInput = {
+      ...(actor.isSuperAdmin ? {} : { members: { some: { userId: actor.id, status: 'ACTIVE' } } }),
+      state: q.state || undefined,
+      ...(t ? { OR: [{ name: { contains: t, mode: 'insensitive' } }, { city: { contains: t, mode: 'insensitive' } }, { slug: { contains: t.toLowerCase() } }] } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.organization.findMany({
+        where, orderBy: { name: 'asc' }, skip, take,
+        select: { id: true, name: true, slug: true, state: true, city: true, address: true, createdAt: true, _count: { select: { events: true } } },
+      }),
+      this.prisma.organization.count({ where }),
+    ]);
+    return paged(items, total, page, pageSize);
   }
 
   async get(orgId: string) {
     return this.prisma.organization.findUniqueOrThrow({
       where: { id: orgId },
-      select: { id: true, name: true, slug: true, city: true, address: true, createdAt: true },
+      select: { id: true, name: true, slug: true, state: true, city: true, address: true, createdAt: true },
     });
   }
 
   async create(actor: RequestUser, dto: CreateOrganizationDto) {
     const slug = dto.slug ?? (await this.uniqueSlug(dto.name));
     return this.prisma.$transaction(async (tx) => {
-      const org = await tx.organization.create({ data: { name: dto.name.trim(), slug, city: dto.city, address: dto.address } });
+      const org = await tx.organization.create({ data: { name: dto.name.trim(), slug, state: stateOrThrow(dto.state), city: dto.city?.trim(), address: dto.address } });
       await this.audit.log({ organizationId: org.id, actorId: actor.id, action: 'organization.created', entityType: 'Organization', entityId: org.id, after: org }, tx);
       return org;
     });
@@ -43,7 +64,10 @@ export class OrganizationsService {
   async update(actor: RequestUser, orgId: string, dto: UpdateOrganizationDto) {
     const before = await this.get(orgId);
     return this.prisma.$transaction(async (tx) => {
-      const org = await tx.organization.update({ where: { id: orgId }, data: { name: dto.name, city: dto.city, address: dto.address } });
+      const org = await tx.organization.update({
+        where: { id: orgId },
+        data: { name: dto.name, state: dto.state === undefined ? undefined : stateOrThrow(dto.state), city: dto.city?.trim(), address: dto.address },
+      });
       await this.audit.log({ organizationId: orgId, actorId: actor.id, action: 'organization.updated', entityType: 'Organization', entityId: orgId, before, after: org }, tx);
       return org;
     });
@@ -58,9 +82,16 @@ export class OrganizationsService {
 
   // ─── Members (org-wide roles) ─────────────────────────────────────────
 
-  async members(orgId: string) {
+  async members(orgId: string, q: SearchPageQuery = {}) {
+    const { page, pageSize, skip, take } = paging(q);
+    const t = searchTerm(q.q);
+    const where: Prisma.OrganizationMemberWhereInput = {
+      organizationId: orgId,
+      ...(t ? { user: { OR: [{ name: { contains: t, mode: 'insensitive' } }, { mobile: { contains: t } }, { email: { contains: t, mode: 'insensitive' } }] } } : {}),
+    };
+    const total = await this.prisma.organizationMember.count({ where });
     const rows = await this.prisma.organizationMember.findMany({
-      where: { organizationId: orgId },
+      where, skip, take,
       orderBy: { createdAt: 'asc' },
       select: {
         status: true, createdAt: true,
@@ -68,7 +99,10 @@ export class OrganizationsService {
         role: { select: { id: true, key: true, name: true } },
       },
     });
-    return rows.map((m) => ({ userId: m.user.id, name: m.user.name, mobile: m.user.mobile, email: m.user.email, status: m.status, role: m.role, createdAt: m.createdAt }));
+    return paged(
+      rows.map((m) => ({ userId: m.user.id, name: m.user.name, mobile: m.user.mobile, email: m.user.email, status: m.status, role: m.role, createdAt: m.createdAt })),
+      total, page, pageSize,
+    );
   }
 
   async addMember(actor: RequestUser, actorPerms: Set<string>, orgId: string, dto: AddMemberDto) {
@@ -140,7 +174,11 @@ export class OrganizationsService {
 
   async auditLogs(orgId: string, q: AuditQuery) {
     const { page, pageSize, skip, take } = paging(q);
-    const where = { organizationId: orgId, eventId: q.eventId, action: q.action ? { startsWith: q.action } : undefined };
+    const t = searchTerm(q.q);
+    const where: Prisma.AuditLogWhereInput = {
+      organizationId: orgId, eventId: q.eventId, action: q.action ? { startsWith: q.action } : undefined,
+      ...(t ? { OR: [{ action: { contains: t, mode: 'insensitive' } }, { entityType: { contains: t, mode: 'insensitive' } }, { reason: { contains: t, mode: 'insensitive' } }, { actor: { name: { contains: t, mode: 'insensitive' } } }] } : {}),
+    };
     const [items, total] = await Promise.all([
       this.prisma.auditLog.findMany({
         where, orderBy: { createdAt: 'desc' }, skip, take,

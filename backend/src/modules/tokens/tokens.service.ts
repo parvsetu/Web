@@ -85,19 +85,63 @@ export class TokensService {
   /** Serializes issuance per slot window (row lock on the slot) and enforces capacity. */
   private async checkCapacity(tx: Prisma.TransactionClient, v: ResolvedValidity, adding: number) {
     if (!v.timeSlotId) return;
-    await tx.$queryRaw`SELECT id FROM time_slots WHERE id = ${v.timeSlotId} FOR UPDATE`;
-    if (v.capacity === null) return;
-    const issued = await tx.token.aggregate({
-      where: { timeSlotId: v.timeSlotId, validFrom: v.validFrom, status: { not: 'CANCELLED' } },
-      _sum: { visitorCount: true },
-    });
-    const used = issued._sum.visitorCount ?? 0;
-    if (used + adding > v.capacity) {
+    await this.checkSlotCapacity(tx, v.timeSlotId, v.validFrom, v.capacity, adding);
+  }
+
+  /**
+   * Locks the slot row (serializing every issuer: desk, bulk, online orders)
+   * and refuses if issued tokens + unexpired unpaid online orders + `adding`
+   * would exceed capacity. `excludeOrderId` lets an order that already holds
+   * capacity convert its own hold into a token.
+   */
+  async checkSlotCapacity(
+    tx: Prisma.TransactionClient, timeSlotId: string, validFrom: Date, capacity: number | null, adding: number, excludeOrderId?: string,
+  ) {
+    await tx.$queryRaw`SELECT id FROM time_slots WHERE id = ${timeSlotId} FOR UPDATE`;
+    if (capacity === null) return;
+    const [issued, held] = await Promise.all([
+      tx.token.aggregate({
+        where: { timeSlotId, validFrom, status: { not: 'CANCELLED' } },
+        _sum: { visitorCount: true },
+      }),
+      tx.passOrder.aggregate({
+        where: { timeSlotId, validFrom, status: 'PENDING', expiresAt: { gt: new Date() }, id: excludeOrderId ? { not: excludeOrderId } : undefined },
+        _sum: { visitorCount: true },
+      }),
+    ]);
+    const used = (issued._sum.visitorCount ?? 0) + (held._sum.visitorCount ?? 0);
+    if (used + adding > capacity) {
       throw new ConflictException({
-        message: `This slot is full (${used}/${v.capacity} visitors already booked).`,
+        message: used >= capacity ? 'This slot is full.' : `Only ${capacity - used} place(s) left in this slot.`,
         code: 'SLOT_FULL',
       });
     }
+  }
+
+  /** Remaining places per slot for one calendar window (issued + held). */
+  async slotRemaining(timeSlotId: string, validFrom: Date, capacity: number | null): Promise<number | null> {
+    if (capacity === null) return null;
+    const [issued, held] = await Promise.all([
+      this.prisma.token.aggregate({ where: { timeSlotId, validFrom, status: { not: 'CANCELLED' } }, _sum: { visitorCount: true } }),
+      this.prisma.passOrder.aggregate({ where: { timeSlotId, validFrom, status: 'PENDING', expiresAt: { gt: new Date() } }, _sum: { visitorCount: true } }),
+    ]);
+    return Math.max(0, capacity - (issued._sum.visitorCount ?? 0) - (held._sum.visitorCount ?? 0));
+  }
+
+  /** Mints one token inside the caller's transaction (online pass orders). */
+  async mintToken(
+    tx: Prisma.TransactionClient,
+    event: { id: string; tokenPrefix: string; startDate: Date },
+    data: { timeSlotId: string; validFrom: Date; validUntil: Date; visitorCount: number; visitorName: string; visitorMobile: string },
+  ) {
+    const seq = await this.reserveSeq(tx, event.id, 1);
+    const visitor = await tx.visitor.create({ data: { eventId: event.id, name: data.visitorName, mobile: data.visitorMobile } });
+    return tx.token.create({
+      data: {
+        eventId: event.id, tokenCode: this.code(event, seq), secureToken: this.qr.newSecureToken(), visitorId: visitor.id,
+        timeSlotId: data.timeSlotId, visitorCount: data.visitorCount, validFrom: data.validFrom, validUntil: data.validUntil,
+      },
+    });
   }
 
   /** Atomically reserves `n` sequence numbers on the event row. */
@@ -107,7 +151,7 @@ export class TokensService {
     return rows[0].tokenSeq - n + 1;
   }
 
-  private code(event: EventRef, seq: number) {
+  private code(event: { tokenPrefix: string; startDate: Date }, seq: number) {
     return `${event.tokenPrefix}-${event.startDate.getUTCFullYear()}-${String(seq).padStart(6, '0')}`;
   }
 

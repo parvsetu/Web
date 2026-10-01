@@ -56,6 +56,18 @@ enum ScanResult {
   UNAUTHORIZED
 }
 
+enum PassOrderStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+}
+
+enum OtpPurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
 enum ScanMethod {
   QR
   MANUAL
@@ -87,6 +99,9 @@ model User {
   status       UserStatus @default(ACTIVE)
   // Bumped on password change / disable — invalidates outstanding JWTs.
   tokenVersion Int        @default(0)
+  emailVerifiedAt DateTime?
+  // Self-registered accounts must verify their email before they can log in.
+  requiresEmailVerification Boolean @default(false)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -100,6 +115,7 @@ model User {
   donationsCreated  Donation[]
   expensesCreated   Expense[]
   auditLogs         AuditLog[]
+  otps              EmailOtp[]
 
   @@map("users")
 }
@@ -108,6 +124,7 @@ model Organization {
   id        String   @id @default(uuid())
   name      String
   slug      String   @unique
+  state     String?
   city      String?
   address   String?
   createdAt DateTime @default(now())
@@ -118,6 +135,7 @@ model Organization {
   roles        Role[]
   applications VolunteerApplication[]
   auditLogs    AuditLog[]
+  expenses     Expense[]
 
   @@map("organizations")
 }
@@ -191,6 +209,8 @@ model Event {
   festivalType              String
   description               String?
   location                  String?
+  state                     String?
+  city                      String?
   startDate                 DateTime    @db.Date
   endDate                   DateTime    @db.Date
   timezone                  String      @default("Asia/Kolkata")
@@ -200,6 +220,8 @@ model Event {
   tokenSeq                  Int         @default(0)
   donationReceiptSeq        Int         @default(0)
   volunteerRegistrationOpen Boolean     @default(false)
+  // Visitors can buy/book passes on the public site (prices live on time slots).
+  publicBookingEnabled      Boolean     @default(false)
   maxVisitorsPerToken       Int         @default(10)
   createdAt                 DateTime    @default(now())
   updatedAt                 DateTime    @updatedAt
@@ -214,8 +236,10 @@ model Event {
   donations    Donation[]
   expenses     Expense[]
   auditLogs    AuditLog[]
+  passOrders   PassOrder[]
 
   @@index([organizationId])
+  @@index([state, city])
   @@map("events")
 }
 
@@ -272,13 +296,16 @@ model TimeSlot {
   startTime String // "HH:mm" in event timezone
   endTime   String // "HH:mm"; <= startTime means the slot crosses midnight
   capacity  Int?
+  // Price per person for public pass booking; 0 = free booking.
+  price     Decimal  @default(0) @db.Decimal(10, 2)
   isActive  Boolean  @default(true)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  event  Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  tokens Token[]
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tokens     Token[]
+  passOrders PassOrder[]
 
   @@index([eventId])
   @@map("time_slots")
@@ -329,6 +356,7 @@ model Token {
   usedBy     User?     @relation("TokenUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
   cancelledBy User?    @relation("TokenCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   scanLogs   ScanLog[]
+  passOrder  PassOrder?
 
   @@unique([eventId, tokenCode])
   @@index([eventId, status])
@@ -401,9 +429,12 @@ model Donation {
   @@map("donations")
 }
 
+// eventId null = a mandal-wide expense (rent, electricity, annual puja…)
+// that belongs to no single festival; it still counts in the annual P&L.
 model Expense {
-  id          String   @id @default(uuid())
-  eventId     String
+  id             String   @id @default(uuid())
+  organizationId String
+  eventId        String?
   category    String
   description String
   amount      Decimal  @db.Decimal(12, 2)
@@ -414,10 +445,12 @@ model Expense {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([eventId, expenseDate])
+  @@index([organizationId, expenseDate])
   @@map("expenses")
 }
 
@@ -442,4 +475,61 @@ model AuditLog {
   @@index([organizationId, createdAt])
   @@index([eventId, createdAt])
   @@map("audit_logs")
+}
+
+// A visitor's public booking. PENDING orders hold slot capacity until
+// expiresAt so a slot can't be oversold while people are paying; a paid order
+// mints exactly one Token (tokenId @unique) admitting visitorCount people.
+// The buyer reads the order with its random accessKey — no account needed.
+model PassOrder {
+  id               String          @id @default(uuid())
+  eventId          String
+  timeSlotId       String
+  validFrom        DateTime
+  validUntil       DateTime
+  visitorCount     Int
+  buyerName        String
+  buyerMobile      String
+  buyerEmail       String?
+  unitPrice        Decimal         @db.Decimal(10, 2)
+  amount           Decimal         @db.Decimal(12, 2)
+  currency         String          @default("INR")
+  status           PassOrderStatus @default(PENDING)
+  paymentProvider  String
+  providerOrderId  String?
+  paymentReference String?
+  accessKey        String          @unique
+  tokenId          String?         @unique
+  expiresAt        DateTime
+  paidAt           DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  timeSlot TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
+  token    Token?   @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+
+  @@unique([paymentProvider, providerOrderId])
+  @@index([eventId, status])
+  @@index([timeSlotId, validFrom, status])
+  @@map("pass_orders")
+}
+
+// One-time codes sent by email. Only an HMAC of the code is stored; a new code
+// supersedes older unconsumed ones; 5 wrong attempts burns it.
+model EmailOtp {
+  id         String     @id @default(uuid())
+  userId     String
+  purpose    OtpPurpose
+  codeHash   String
+  sentTo     String
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+  @@map("email_otps")
 }

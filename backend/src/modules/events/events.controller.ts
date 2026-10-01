@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { SearchPageQuery } from '../../common/http';
 import { Access, CurrentUser } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
 import { AccessContext } from '../../common/access/access.service';
@@ -19,8 +20,8 @@ export class EventsController {
 
   @RequireOrgPermission('EVENT_VIEW')
   @Get('organizations/:orgId/events')
-  listForOrg(@Param('orgId') orgId: string) {
-    return this.events.listForOrg(orgId);
+  listForOrg(@Param('orgId') orgId: string, @Query() q: SearchPageQuery) {
+    return this.events.listForOrg(orgId, q);
   }
 
   @RequireOrgPermission('EVENT_CREATE')
@@ -77,8 +78,8 @@ export class EventsController {
 
   @RequireEventPermission('VOLUNTEER_VIEW')
   @Get('events/:eventId/assignments')
-  assignments(@Param('eventId') eventId: string) {
-    return this.events.assignments(eventId);
+  assignments(@Param('eventId') eventId: string, @Query() q: SearchPageQuery) {
+    return this.events.assignments(eventId, q);
   }
 
   @RequireEventPermission('VOLUNTEER_ASSIGN')

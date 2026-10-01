@@ -1,4 +1,5 @@
 import { IsEmail, IsIn, IsOptional, IsString, IsUUID, Length, MaxLength } from 'class-validator';
+import { SearchPageQuery } from '../../common/http';
 
 export class CreateVolunteerDto {
   @IsString() @Length(2, 100) name: string;
@@ -24,12 +25,11 @@ export class ApproveApplicationDto {
   @IsUUID() roleId: string;
 }
 
-export class VolunteerListQuery {
+export class VolunteerListQuery extends SearchPageQuery {
   @IsOptional() @IsUUID() eventId?: string;
   @IsOptional() @IsIn(['ACTIVE', 'INACTIVE']) status?: 'ACTIVE' | 'INACTIVE';
-  @IsOptional() @IsString() @MaxLength(100) q?: string;
 }
 
-export class ApplicationListQuery {
+export class ApplicationListQuery extends SearchPageQuery {
   @IsOptional() @IsIn(['PENDING', 'APPROVED', 'REJECTED']) status?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }

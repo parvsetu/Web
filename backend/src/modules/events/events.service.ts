@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Event } from '@prisma/client';
+import { Event, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AccessService } from '../../common/access/access.service';
@@ -8,6 +8,8 @@ import { defaultPrefixFor } from '../../common/festival-types';
 import { dateOnly, isValidTimezone, slotCrossesMidnight, ymd } from '../../common/time/validity';
 
 import { RolesService } from '../organizations/roles.service';
+import { SearchPageQuery, paged, paging, searchTerm } from '../../common/http';
+import { stateOrThrow } from '../organizations/organizations.service';
 import {
   CreateAssignmentDto, CreateEventDto, CreateTimeSlotDto, UpdateAssignmentDto, UpdateEventDto, UpdateTimeSlotDto,
 } from './events.dto';
@@ -15,16 +17,16 @@ import {
 export function presentEvent(e: Event & { organization?: { id: string; name: string } }, myPermissions?: Set<string>) {
   return {
     id: e.id, organizationId: e.organizationId, organization: e.organization,
-    name: e.name, festivalType: e.festivalType, description: e.description, location: e.location,
+    name: e.name, festivalType: e.festivalType, description: e.description, location: e.location, state: e.state, city: e.city,
     startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, status: e.status,
-    tokenPrefix: e.tokenPrefix, volunteerRegistrationOpen: e.volunteerRegistrationOpen,
+    tokenPrefix: e.tokenPrefix, volunteerRegistrationOpen: e.volunteerRegistrationOpen, publicBookingEnabled: e.publicBookingEnabled,
     maxVisitorsPerToken: e.maxVisitorsPerToken, createdAt: e.createdAt,
     myPermissions: myPermissions ? [...myPermissions].sort() : undefined,
   };
 }
 
-function presentSlot(s: { id: string; label: string; startTime: string; endTime: string; capacity: number | null; isActive: boolean; sortOrder: number }) {
-  return { ...s, crossesMidnight: slotCrossesMidnight(s.startTime, s.endTime) };
+export function presentSlot(s: { id: string; label: string; startTime: string; endTime: string; capacity: number | null; isActive: boolean; sortOrder: number; price: Prisma.Decimal }) {
+  return { ...s, price: s.price.toFixed(2), crossesMidnight: slotCrossesMidnight(s.startTime, s.endTime) };
 }
 
 @Injectable()
@@ -36,13 +38,18 @@ export class EventsService {
     private readonly roles: RolesService,
   ) {}
 
-  async listForOrg(orgId: string) {
-    const events = await this.prisma.event.findMany({
-      where: { organizationId: orgId },
-      orderBy: { startDate: 'desc' },
-      include: { organization: { select: { id: true, name: true } } },
-    });
-    return events.map((e) => presentEvent(e));
+  async listForOrg(orgId: string, q: SearchPageQuery = {}) {
+    const { page, pageSize, skip, take } = paging(q, 20);
+    const t = searchTerm(q.q);
+    const where: Prisma.EventWhereInput = {
+      organizationId: orgId,
+      ...(t ? { OR: [{ name: { contains: t, mode: 'insensitive' } }, { festivalType: { contains: t.replace(/\s+/g, '_'), mode: 'insensitive' } }, { city: { contains: t, mode: 'insensitive' } }, { location: { contains: t, mode: 'insensitive' } }] } : {}),
+    };
+    const [events, total] = await Promise.all([
+      this.prisma.event.findMany({ where, orderBy: { startDate: 'desc' }, skip, take, include: { organization: { select: { id: true, name: true } } } }),
+      this.prisma.event.count({ where }),
+    ]);
+    return paged(events.map((e) => presentEvent(e)), total, page, pageSize);
   }
 
   async get(eventId: string, perms: Set<string>) {
@@ -66,8 +73,10 @@ export class EventsService {
         data: {
           organizationId: orgId, name: dto.name.trim(), festivalType: dto.festivalType,
           description: dto.description, location: dto.location, startDate: s, endDate: e, timezone,
+          ...(await this.defaultPlace(orgId, dto)),
           status: dto.status ?? 'DRAFT', tokenPrefix: dto.tokenPrefix ?? defaultPrefixFor(dto.festivalType),
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen ?? false,
+          publicBookingEnabled: dto.publicBookingEnabled ?? false,
           maxVisitorsPerToken: dto.maxVisitorsPerToken ?? 10,
         },
         include: { organization: { select: { id: true, name: true } } },
@@ -75,6 +84,12 @@ export class EventsService {
       await this.audit.log({ organizationId: orgId, eventId: ev.id, actorId: actor.id, action: 'event.created', entityType: 'Event', entityId: ev.id, after: presentEvent(ev) }, tx);
       return presentEvent(ev);
     });
+  }
+
+  /** A new festival takes the mandal's state/city unless given its own. */
+  private async defaultPlace(orgId: string, dto: { state?: string; city?: string }) {
+    const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: orgId }, select: { state: true, city: true } });
+    return { state: dto.state !== undefined ? stateOrThrow(dto.state) : org.state, city: dto.city?.trim() || org.city };
   }
 
   async update(actor: RequestUser, eventId: string, dto: UpdateEventDto) {
@@ -86,8 +101,10 @@ export class EventsService {
         where: { id: eventId },
         data: {
           name: dto.name?.trim(), festivalType: dto.festivalType, description: dto.description, location: dto.location,
+          state: stateOrThrow(dto.state), city: dto.city?.trim(),
           startDate: s, endDate: e, timezone, status: dto.status, tokenPrefix: dto.tokenPrefix,
-          volunteerRegistrationOpen: dto.volunteerRegistrationOpen, maxVisitorsPerToken: dto.maxVisitorsPerToken,
+          volunteerRegistrationOpen: dto.volunteerRegistrationOpen, publicBookingEnabled: dto.publicBookingEnabled,
+          maxVisitorsPerToken: dto.maxVisitorsPerToken,
         },
         include: { organization: { select: { id: true, name: true } } },
       });
@@ -144,7 +161,10 @@ export class EventsService {
     if (dto.startTime === dto.endTime) throw new BadRequestException('Start and end time cannot be the same');
     return this.prisma.$transaction(async (tx) => {
       const slot = await tx.timeSlot.create({
-        data: { eventId, label: dto.label.trim(), startTime: dto.startTime, endTime: dto.endTime, capacity: dto.capacity ?? null, isActive: dto.isActive ?? true, sortOrder: dto.sortOrder ?? 0 },
+        data: {
+          eventId, label: dto.label.trim(), startTime: dto.startTime, endTime: dto.endTime, capacity: dto.capacity ?? null,
+          isActive: dto.isActive ?? true, sortOrder: dto.sortOrder ?? 0, price: dto.price ? new Prisma.Decimal(dto.price) : undefined,
+        },
       });
       await this.audit.log({ organizationId: orgId, eventId, actorId: actor.id, action: 'timeslot.created', entityType: 'TimeSlot', entityId: slot.id, after: slot }, tx);
       return presentSlot(slot);
@@ -160,7 +180,10 @@ export class EventsService {
     return this.prisma.$transaction(async (tx) => {
       const slot = await tx.timeSlot.update({
         where: { id: slotId },
-        data: { label: dto.label?.trim(), startTime: dto.startTime, endTime: dto.endTime, capacity: dto.capacity, isActive: dto.isActive, sortOrder: dto.sortOrder },
+        data: {
+          label: dto.label?.trim(), startTime: dto.startTime, endTime: dto.endTime, capacity: dto.capacity, isActive: dto.isActive,
+          sortOrder: dto.sortOrder, price: dto.price !== undefined ? new Prisma.Decimal(dto.price) : undefined,
+        },
       });
       await this.audit.log({ organizationId: orgId, eventId, actorId: actor.id, action: 'timeslot.updated', entityType: 'TimeSlot', entityId: slotId, before, after: slot }, tx);
       return presentSlot(slot);
@@ -189,17 +212,24 @@ export class EventsService {
 
   // ─── Event assignments ────────────────────────────────────────────────
 
-  async assignments(eventId: string) {
-    const rows = await this.prisma.eventAssignment.findMany({
-      where: { eventId },
+  async assignments(eventId: string, q: SearchPageQuery = {}) {
+    const { page, pageSize, skip, take } = paging(q);
+    const t = searchTerm(q.q);
+    const where: Prisma.EventAssignmentWhereInput = {
+      eventId,
+      ...(t ? { user: { OR: [{ name: { contains: t, mode: 'insensitive' } }, { mobile: { contains: t } }, { email: { contains: t, mode: 'insensitive' } }] } } : {}),
+    };
+    const [rows, total] = await Promise.all([this.prisma.eventAssignment.findMany({
+      where,
       orderBy: { createdAt: 'asc' },
+      skip, take,
       select: {
         id: true, status: true, createdAt: true,
         user: { select: { id: true, name: true, mobile: true, email: true, status: true } },
         role: { select: { id: true, key: true, name: true } },
       },
-    });
-    return rows;
+    }), this.prisma.eventAssignment.count({ where })]);
+    return paged(rows, total, page, pageSize);
   }
 
   /** Only people who already have some relationship with the mandal can be

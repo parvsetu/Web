@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { OtpPurpose } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -6,7 +7,8 @@ import { ALL_PERMISSIONS } from '../../common/permissions';
 import { normalizeEmail, normalizeMobile } from '../../common/identity';
 import { RequestUser } from '../../common/auth/request-user';
 import { ymd } from '../../common/time/validity';
-import { ApplyDto, ChangePasswordDto, LoginDto, RegisterDto } from './auth.dto';
+import { ApplyDto, ChangePasswordDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto, VerifyEmailDto } from './auth.dto';
+import { OtpService, maskEmail } from './otp.service';
 
 export const BCRYPT_ROUNDS = 10;
 // Compared against when the identifier doesn't exist, so response time
@@ -15,7 +17,17 @@ const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', BCRYPT_ROUNDS);
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService, private readonly jwt: JwtService) {}
+  constructor(private readonly prisma: PrismaService, private readonly jwt: JwtService, private readonly otp: OtpService) {}
+
+  /** Best-effort send: cooldown/limit errors are swallowed where surfacing them would reveal an account. */
+  private async quietIssue(user: { id: string; name: string; email: string | null }, purpose: OtpPurpose) {
+    if (!user.email) return;
+    try {
+      await this.otp.issue({ id: user.id, name: user.name, email: user.email }, purpose);
+    } catch (e) {
+      if (!(e instanceof HttpException && e.getStatus() === 429)) throw e;
+    }
+  }
 
   async register(dto: RegisterDto) {
     const mobile = normalizeMobile(dto.mobile);
@@ -32,9 +44,10 @@ export class AuthService {
     if (dto.organizationId) await this.assertCanApply(dto.organizationId, dto.eventId);
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
-    // Registration grants NO permissions — only an application for review.
+    // Registration grants NO permissions — only an application for review —
+    // and the account stays locked until the emailed code is entered.
     const user = await this.prisma.$transaction(async (tx) => {
-      const u = await tx.user.create({ data: { name: dto.name.trim(), mobile, email, passwordHash } });
+      const u = await tx.user.create({ data: { name: dto.name.trim(), mobile, email, passwordHash, requiresEmailVerification: true } });
       if (dto.organizationId) {
         await tx.volunteerApplication.create({
           data: { userId: u.id, organizationId: dto.organizationId, eventId: dto.eventId ?? null, message: dto.message ?? null },
@@ -42,7 +55,71 @@ export class AuthService {
       }
       return u;
     });
+    await this.quietIssue(user, 'VERIFY_EMAIL');
+    return { verificationRequired: true, email: email!, maskedEmail: maskEmail(email!) };
+  }
+
+  /** Activates a self-registered account (or verifies any account's email) and logs it in. */
+  async verifyEmail(dto: VerifyEmailDto) {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email.trim().toLowerCase() } });
+    const ok = user && user.status === 'ACTIVE' && await this.prisma.$transaction(async (tx) => {
+      if (!(await this.otp.consume(tx, user.id, 'VERIFY_EMAIL', dto.code))) return false;
+      await tx.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
+      return true;
+    });
+    if (!ok) throw new BadRequestException({ message: 'That code is wrong or has expired. Request a new one.', code: 'INVALID_CODE' });
     return { accessToken: this.sign(user.id, user.tokenVersion), user: await this.me(this.toRequestUser(user)) };
+  }
+
+  /** Always answers the same, whether or not the address has an account. */
+  async resendVerification(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (user && user.status === 'ACTIVE' && !user.emailVerifiedAt) await this.quietIssue(user, 'VERIFY_EMAIL');
+    return { sent: true };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.findByIdentifier(dto.identifier);
+    if (user && user.status === 'ACTIVE') await this.quietIssue(user, 'RESET_PASSWORD');
+    return { sent: true };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.findByIdentifier(dto.identifier);
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+    const ok = user && user.status === 'ACTIVE' && await this.prisma.$transaction(async (tx) => {
+      if (!(await this.otp.consume(tx, user.id, 'RESET_PASSWORD', dto.code))) return false;
+      await tx.user.update({
+        where: { id: user.id },
+        // The code arrived by email, so the address is proven too; old sessions are revoked.
+        data: { passwordHash, tokenVersion: { increment: 1 }, emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
+      });
+      return true;
+    });
+    if (!ok) throw new BadRequestException({ message: 'That code is wrong or has expired. Request a new one.', code: 'INVALID_CODE' });
+  }
+
+  async sendMyVerification(actor: RequestUser) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: actor.id } });
+    if (!user.email) throw new BadRequestException('Add an email address to your account first.');
+    if (user.emailVerifiedAt) return { sent: false, alreadyVerified: true };
+    await this.otp.issue({ id: user.id, name: user.name, email: user.email }, 'VERIFY_EMAIL');
+    return { sent: true, maskedEmail: maskEmail(user.email) };
+  }
+
+  async verifyMyEmail(actor: RequestUser, code: string) {
+    const ok = await this.prisma.$transaction(async (tx) => {
+      if (!(await this.otp.consume(tx, actor.id, 'VERIFY_EMAIL', code))) return false;
+      await tx.user.update({ where: { id: actor.id }, data: { emailVerifiedAt: new Date() } });
+      return true;
+    });
+    if (!ok) throw new BadRequestException({ message: 'That code is wrong or has expired. Request a new one.', code: 'INVALID_CODE' });
+    return this.me(actor);
+  }
+
+  private findByIdentifier(identifier: string) {
+    const id = identifier.trim();
+    return this.prisma.user.findUnique({ where: id.includes('@') ? { email: id.toLowerCase() } : { mobile: id.replace(/[\s\-()]/g, '') } });
   }
 
   async login(dto: LoginDto) {
@@ -53,6 +130,14 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where });
     const ok = await bcrypt.compare(dto.password, user?.passwordHash ?? DUMMY_HASH);
     if (!user || !ok || user.status !== 'ACTIVE') throw new UnauthorizedException('Invalid credentials');
+    // Only revealed after a correct password, so it can't be used to probe accounts.
+    if (user.requiresEmailVerification && !user.emailVerifiedAt) {
+      await this.quietIssue(user, 'VERIFY_EMAIL');
+      throw new ForbiddenException({
+        statusCode: 403, code: 'EMAIL_NOT_VERIFIED', email: user.email, maskedEmail: user.email ? maskEmail(user.email) : null,
+        message: 'Please verify your email to activate your account. We have sent you a code.',
+      });
+    }
     return { accessToken: this.sign(user.id, user.tokenVersion), user: await this.me(this.toRequestUser(user)) };
   }
 
@@ -104,7 +189,7 @@ export class AuthService {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: actor.id },
       select: {
-        id: true, name: true, mobile: true, email: true, isSuperAdmin: true, status: true,
+        id: true, name: true, mobile: true, email: true, isSuperAdmin: true, status: true, emailVerifiedAt: true,
         memberships: {
           where: { status: 'ACTIVE' },
           select: {
@@ -155,7 +240,7 @@ export class AuthService {
 
     return {
       id: user.id, name: user.name, mobile: user.mobile, email: user.email,
-      isSuperAdmin: user.isSuperAdmin, status: user.status,
+      isSuperAdmin: user.isSuperAdmin, status: user.status, emailVerified: !!user.emailVerifiedAt,
       organizations,
       events: eventsOut,
       applications: await this.myApplications(actor),

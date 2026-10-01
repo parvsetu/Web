@@ -173,11 +173,13 @@ export class ReportsService {
     return { user, stats: stats[0] ?? empty, recentScans: recent.items };
   }
 
-  async scanLog(event: EventRef, q: { result?: ScanResult; userId?: string; date?: string; page?: number; pageSize?: number }) {
+  async scanLog(event: EventRef, q: { result?: ScanResult; userId?: string; date?: string; q?: string; page?: number; pageSize?: number }) {
     const { page, pageSize, skip, take } = paging(q);
+    const t = q.q?.trim();
     const where: Prisma.ScanLogWhereInput = {
       eventId: event.id, result: q.result, userId: q.userId,
       scanTime: q.date ? dayRange(q.date, q.date, event.timezone) : undefined,
+      ...(t ? { OR: [{ token: { tokenCode: { contains: t, mode: 'insensitive' } } }, { user: { name: { contains: t, mode: 'insensitive' } } }] } : {}),
     };
     const [rows, total] = await Promise.all([
       this.prisma.scanLog.findMany({
@@ -201,15 +203,20 @@ export class ReportsService {
       eventId: event.id,
       expenseDate: q.from || q.to ? { gte: q.from ? new Date(`${q.from}T00:00:00Z`) : undefined, lte: q.to ? new Date(`${q.to}T00:00:00Z`) : undefined } : undefined,
     };
-    const [dTotal, dByMethod, dPending, eTotal, eByCat] = await Promise.all([
+    const [dTotal, dByMethod, dPending, eTotal, eByCat, pTotal] = await Promise.all([
       this.prisma.donation.aggregate({ where: { ...donationWhere, paymentStatus: 'SUCCESS' }, _sum: { amount: true }, _count: { _all: true } }),
       this.prisma.donation.groupBy({ by: ['method'], where: { ...donationWhere, paymentStatus: 'SUCCESS' }, _sum: { amount: true }, _count: { _all: true } }),
       this.prisma.donation.aggregate({ where: { ...donationWhere, paymentStatus: 'PENDING' }, _sum: { amount: true }, _count: { _all: true } }),
       this.prisma.expense.aggregate({ where: expenseWhere, _sum: { amount: true }, _count: { _all: true } }),
       this.prisma.expense.groupBy({ by: ['category'], where: expenseWhere, _sum: { amount: true }, _count: { _all: true } }),
+      this.prisma.passOrder.aggregate({
+        where: { eventId: event.id, status: 'PAID', paidAt: r ?? undefined },
+        _sum: { amount: true, visitorCount: true }, _count: { _all: true },
+      }),
     ]);
     const donations = dTotal._sum.amount ?? new Prisma.Decimal(0);
     const expenses = eTotal._sum.amount ?? new Prisma.Decimal(0);
+    const passSales = pTotal._sum.amount ?? new Prisma.Decimal(0);
     return {
       donations: {
         total: money(donations), count: dTotal._count._all,
@@ -220,7 +227,9 @@ export class ReportsService {
         total: money(expenses), count: eTotal._count._all,
         byCategory: eByCat.map((c) => ({ category: c.category, total: money(c._sum.amount), count: c._count._all })).sort((a, b) => Number(b.total) - Number(a.total)),
       },
-      balance: money(donations.minus(expenses)),
+      passSales: { total: money(passSales), count: pTotal._count._all, visitors: pTotal._sum.visitorCount ?? 0 },
+      /** Money in (donations + online pass sales) − expenses. */
+      balance: money(donations.plus(passSales).minus(expenses)),
     };
   }
 
@@ -237,7 +246,7 @@ export class ReportsService {
       canD || canE ? this.finance(event, q) : null,
     ]);
     const restricted: string[] = [];
-    if (!canD) restricted.push('donations');
+    if (!canD) restricted.push('donations', 'passSales');
     if (!canE) restricted.push('expenses');
     if (!canD || !canE) restricted.push('balance');
     return {
@@ -246,6 +255,7 @@ export class ReportsService {
       visitors: { total: visitors.totalVisitors, entries: visitors.totalEntries },
       scans: { total: scans.total, success: scans.success, failed: scans.failed },
       donations: canD && fin ? { total: fin.donations.total, count: fin.donations.count } : null,
+      passSales: canD && fin ? fin.passSales : null,
       expenses: canE && fin ? { total: fin.expenses.total, count: fin.expenses.count } : null,
       balance: canD && canE && fin ? fin.balance : null,
       restricted,

@@ -5,9 +5,10 @@ import { AccessContext } from '../../common/access/access.service';
 import { RequireOrgPermission, SuperAdminOnly } from '../../common/access/permission.guard';
 import { ALL_PERMISSIONS, PERMISSIONS, permissionGroup } from '../../common/permissions';
 import { OrganizationsService } from './organizations.service';
+import { SearchPageQuery } from '../../common/http';
 import { RolesService } from './roles.service';
 import {
-  AddMemberDto, AuditQuery, CreateOrganizationDto, CreateRoleDto, UpdateMemberDto, UpdateOrganizationDto, UpdateRoleDto,
+  AddMemberDto, AuditQuery, OrgListQuery, CreateOrganizationDto, CreateRoleDto, UpdateMemberDto, UpdateOrganizationDto, UpdateRoleDto,
 } from './organizations.dto';
 
 @Controller()
@@ -20,8 +21,8 @@ export class OrganizationsController {
   }
 
   @Get('organizations')
-  list(@CurrentUser() user: RequestUser) {
-    return this.orgs.list(user);
+  list(@CurrentUser() user: RequestUser, @Query() q: OrgListQuery) {
+    return this.orgs.list(user, q);
   }
 
   @SuperAdminOnly()
@@ -44,8 +45,8 @@ export class OrganizationsController {
 
   @RequireOrgPermission('USER_VIEW')
   @Get('organizations/:orgId/members')
-  members(@Param('orgId') orgId: string) {
-    return this.orgs.members(orgId);
+  members(@Param('orgId') orgId: string, @Query() q: SearchPageQuery) {
+    return this.orgs.members(orgId, q);
   }
 
   @RequireOrgPermission('USER_CREATE')

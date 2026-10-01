@@ -5,6 +5,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AccessService } from '../../common/access/access.service';
 import { RequestUser } from '../../common/auth/request-user';
 import { normalizeEmail } from '../../common/identity';
+import { paged, paging, searchTerm } from '../../common/http';
 import { RolesService } from '../organizations/roles.service';
 import { UserProvisioningService } from '../organizations/user-provisioning.service';
 import { ApplicationListQuery, ApproveApplicationDto, CreateVolunteerDto, UpdateVolunteerDto, VolunteerListQuery } from './volunteers.dto';
@@ -33,13 +34,16 @@ export class VolunteersService {
     const assignmentWhere: Prisma.EventAssignmentWhereInput = {
       event: { organizationId: orgId }, eventId: q.eventId, status: q.status,
     };
-    const users = await this.prisma.user.findMany({
-      where: {
-        assignments: { some: assignmentWhere },
-        ...(q.q ? { OR: [{ name: { contains: q.q, mode: 'insensitive' } }, { mobile: { contains: q.q } }, { email: { contains: q.q, mode: 'insensitive' } }] } : {}),
-      },
+    const { page, pageSize, skip, take } = paging(q);
+    const t = searchTerm(q.q);
+    const where: Prisma.UserWhereInput = {
+      assignments: { some: assignmentWhere },
+      ...(t ? { OR: [{ name: { contains: t, mode: 'insensitive' } }, { mobile: { contains: t } }, { email: { contains: t, mode: 'insensitive' } }] } : {}),
+    };
+    const [users, total] = await Promise.all([this.prisma.user.findMany({
+      where,
       orderBy: { name: 'asc' },
-      take: 500,
+      skip, take,
       select: {
         id: true, name: true, mobile: true, email: true, status: true,
         assignments: {
@@ -47,8 +51,8 @@ export class VolunteersService {
           select: { id: true, status: true, eventId: true, event: { select: { name: true } }, role: { select: { id: true, key: true, name: true } } },
         },
       },
-    });
-    return users.map((u) => this.present(u));
+    }), this.prisma.user.count({ where })]);
+    return paged(users.map((u) => this.present(u)), total, page, pageSize);
   }
 
   private present(u: { id: string; name: string; mobile: string; email: string | null; status: string; assignments: { id: string; status: string; eventId: string; event: { name: string }; role: { id: string; key: string; name: string } }[] }) {
@@ -117,7 +121,10 @@ export class VolunteersService {
     }
     const email = dto.email !== undefined ? normalizeEmail(dto.email) : undefined;
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.user.update({ where: { id: userId }, data: { name: dto.name?.trim(), email } });
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: { name: dto.name?.trim(), email, emailVerifiedAt: email !== undefined && email !== u.email ? null : undefined },
+      });
       await this.audit.log({
         organizationId: orgId, actorId: actor.id, action: 'volunteer.updated', entityType: 'User', entityId: userId,
         before: { name: u.name, email: u.email }, after: { name: updated.name, email: updated.email },
@@ -149,17 +156,24 @@ export class VolunteersService {
 
   // ─── Applications ────────────────────────────────────────────────────
 
-  applications(orgId: string, q: ApplicationListQuery) {
-    return this.prisma.volunteerApplication.findMany({
-      where: { organizationId: orgId, status: q.status },
+  async applications(orgId: string, q: ApplicationListQuery) {
+    const { page, pageSize, skip, take } = paging(q);
+    const t = searchTerm(q.q);
+    const where: Prisma.VolunteerApplicationWhereInput = {
+      organizationId: orgId, status: q.status,
+      ...(t ? { user: { OR: [{ name: { contains: t, mode: 'insensitive' } }, { mobile: { contains: t } }, { email: { contains: t, mode: 'insensitive' } }] } } : {}),
+    };
+    const [items, total] = await Promise.all([this.prisma.volunteerApplication.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
-      take: 500,
+      skip, take,
       select: {
         id: true, status: true, message: true, reviewNote: true, createdAt: true, reviewedAt: true,
-        user: { select: { id: true, name: true, mobile: true, email: true } },
+        user: { select: { id: true, name: true, mobile: true, email: true, emailVerifiedAt: true } },
         event: { select: { id: true, name: true } },
       },
-    });
+    }), this.prisma.volunteerApplication.count({ where })]);
+    return paged(items, total, page, pageSize);
   }
 
   async approve(actor: RequestUser, orgId: string, applicationId: string, dto: ApproveApplicationDto) {

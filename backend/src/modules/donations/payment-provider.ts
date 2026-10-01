@@ -1,10 +1,11 @@
 import { PaymentStatus } from '@prisma/client';
 
 export interface CreatePaymentInput {
-  donationId: string;
+  /** Our record's id (donation id, pass order id) — the gateway's receipt reference. */
+  reference: string;
   amount: string;
   currency: string;
-  donorName: string;
+  payerName: string;
   description: string;
 }
 
@@ -23,7 +24,7 @@ export interface WebhookResult {
 }
 
 /**
- * Payment-provider boundary. Donations only ever talk to this interface, so
+ * Payment-provider boundary. Donations and pass orders only talk to this interface, so
  * adding Razorpay/PhonePe/Stripe/etc. means one new class registered in
  * PAYMENT_PROVIDERS — no change to the donation flow, schema or API.
  */

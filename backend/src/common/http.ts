@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class PageQuery {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1)
@@ -30,4 +30,15 @@ export function toCsv(rows: Record<string, unknown>[], columns?: string[]): stri
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return [cols.join(','), ...rows.map((r) => cols.map((c) => cell(r[c])).join(','))].join('\n');
+}
+
+/** page/pageSize + free-text `q` — the standard list query. */
+export class SearchPageQuery extends PageQuery {
+  @IsOptional() @IsString() @MaxLength(100)
+  q?: string;
+}
+
+export function searchTerm(q?: string) {
+  const t = q?.trim();
+  return t ? t : undefined;
 }

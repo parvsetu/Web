@@ -3,6 +3,7 @@
  * and event isolation — all enforced server-side.
  */
 import { DateTime } from 'luxon';
+import { MailService } from '../src/common/mail/mail.service';
 import { assign, bearer, bootApp, idem, makeOrgWithEvent, makeToken, makeUser, makeVolunteer, scan, systemRoleId, TestCtx } from './helpers';
 
 const todayIst = () => DateTime.now().setZone('Asia/Kolkata').toISODate()!;
@@ -164,26 +165,31 @@ describe('Access control, volunteers, configuration, reports (e2e)', () => {
       expect(pub.body.some((e: { id: string }) => e.id === event.id)).toBe(true);
 
       const mobile = `6${Date.now().toString().slice(-9)}`;
+      const email = `self${Date.now()}@test.dev`;
       const reg = await ctx.http().post(api('/auth/register')).send({
-        name: 'Self Registered', mobile, password: 'Secret@1234', organizationId: org.id, eventId: event.id, message: 'Evenings',
+        name: 'Self Registered', mobile, email, password: 'Secret@1234', organizationId: org.id, eventId: event.id, message: 'Evenings',
       });
       expect(reg.status).toBe(201);
-      expect(reg.body.user.events).toEqual([]);
-      expect(reg.body.user.organizations).toEqual([]);
-      expect(reg.body.user.applications[0].status).toBe('PENDING');
-      const selfAuth = `Bearer ${reg.body.accessToken}`;
+      expect(reg.body).toMatchObject({ verificationRequired: true, email });
+      const code = ctx.app.get(MailService).outbox.filter((m) => m.to === email).pop()!.text.match(/\b\d{6}\b/)![0];
+      const verified = await ctx.http().post(api('/auth/verify-email')).send({ email, code });
+      expect(verified.status).toBe(200);
+      expect(verified.body.user.events).toEqual([]);
+      expect(verified.body.user.organizations).toEqual([]);
+      expect(verified.body.user.applications[0].status).toBe('PENDING');
+      const selfAuth = `Bearer ${verified.body.accessToken}`;
 
       // Can't scan, can't see the event, can't approve themselves.
       const { qrPayload } = await makeToken(ctx, event.id);
       expect((await scan(ctx, selfAuth, { eventId: event.id, qrPayload, idempotencyKey: idem() })).status).toBe(403);
       expect((await ctx.http().get(api(`/events/${event.id}`)).set('Authorization', selfAuth)).status).toBe(404);
-      const appId = reg.body.user.applications[0].id;
+      const appId = verified.body.user.applications[0].id;
       const volunteerRole = await systemRoleId(ctx.prisma, 'VOLUNTEER');
       expect((await ctx.http().post(api(`/organizations/${org.id}/volunteer-applications/${appId}/approve`)).set('Authorization', selfAuth)
         .send({ eventId: event.id, roleId: volunteerRole })).status).toBe(404);
 
       const pending = await ctx.http().get(api(`/organizations/${org.id}/volunteer-applications?status=PENDING`)).set('Authorization', adminAuth);
-      expect(pending.body.some((a: { id: string }) => a.id === appId)).toBe(true);
+      expect(pending.body.items.some((a: { id: string }) => a.id === appId)).toBe(true);
       const approve = await ctx.http().post(api(`/organizations/${org.id}/volunteer-applications/${appId}/approve`)).set('Authorization', adminAuth)
         .send({ eventId: event.id, roleId: volunteerRole });
       expect(approve.status).toBe(200);
@@ -346,7 +352,7 @@ describe('Access control, volunteers, configuration, reports (e2e)', () => {
       const auth = bearer(ctx, sup);
       const summary = await ctx.http().get(api(`/events/${event.id}/reports/summary`)).set('Authorization', auth);
       expect(summary.status).toBe(200);
-      expect(summary.body).toMatchObject({ donations: null, expenses: null, balance: null, restricted: ['donations', 'expenses', 'balance'] });
+      expect(summary.body).toMatchObject({ donations: null, expenses: null, balance: null, restricted: ['donations', 'passSales', 'expenses', 'balance'] });
       expect((await ctx.http().get(api(`/events/${event.id}/reports/finance`)).set('Authorization', auth)).status).toBe(403);
       expect((await ctx.http().get(api(`/events/${event.id}/reports/tokens?format=csv`)).set('Authorization', auth)).status).toBe(403);
       const dash = await ctx.http().get(api(`/events/${event.id}/dashboard`)).set('Authorization', auth);

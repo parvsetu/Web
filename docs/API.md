@@ -344,3 +344,81 @@ All accept `?from=YYYY-MM-DD&to=YYYY-MM-DD` (event timezone) unless noted.
 ## Platform (super admin)
 - `GET /users?q&page` → paged `{ id, name, mobile, email, status, isSuperAdmin, createdAt }`
 - `PATCH /users/:userId` `{ status?: ACTIVE|DISABLED, isSuperAdmin?, reason? }` (can't change self)
+
+---
+
+## Added: public pass booking (no login)
+
+All under `/public/booking`, rate limited per IP. Money and capacity are
+decided by the server; the client never sends a price.
+
+- `GET /public/booking/events?state&city&q` →
+  `[{ id, name, festivalType, description, location, state, city, startDate, endDate, timezone, maxVisitorsPerToken, organization: { name, city }, fromPrice: "50.00"|null, onlinePayments: boolean }]`
+  (events with `publicBookingEnabled` and status ACTIVE)
+- `GET /public/booking/events/:eventId` → the above plus
+  `{ holdMinutes: 15, slots: [{ id, label, startTime, endTime, price: "50.00", capacity }] }` (404 if not bookable)
+- `GET /public/booking/events/:eventId/availability?date=YYYY-MM-DD` →
+  `{ date, slots: [{ id, label, startTime, endTime, price, validFrom, validUntil, ended: boolean, remaining: number|null }] }`
+  (`remaining` null = unlimited; ended slots have remaining 0)
+- `POST /public/booking/orders`
+  `{ eventId, timeSlotId, date, visitorCount, buyerName, buyerMobile, buyerEmail? }` →
+  `201 PassOrder & { accessKey }`. Errors: 409 `SLOT_FULL`, 400 (slot ended / date outside festival /
+  too many people), 503 (paid slot but no online payment configured), 429.
+  - price 0 → order comes back `PAID` with `pass` filled immediately.
+  - otherwise `PENDING`, `payment: { provider: "demo", demo: true }` → send the buyer to the demo checkout.
+  - The order holds the places for 15 minutes (`expiresAt`).
+- `GET /public/booking/orders/:orderId?k=<accessKey>` → `PassOrder` (404 for unknown id OR wrong key).
+  A PENDING order past `expiresAt` comes back `EXPIRED`.
+- `POST /public/booking/orders/:orderId/demo-pay` `{ k, outcome: "success" | "fail" }` → `PassOrder`
+  (only when the server has demo payments on; 409 `ORDER_EXPIRED` / `ORDER_CLOSED`). Idempotent.
+
+```ts
+PassOrder = {
+  id, status: 'PENDING'|'PAID'|'FAILED'|'EXPIRED', amount: "150.00", unitPrice: "50.00", currency: 'INR',
+  visitorCount, buyerName, buyerMobile, validFrom, validUntil, expiresAt, paidAt, createdAt,
+  payment: { provider: 'demo'|'free', demo: boolean },
+  event: { id, name, festivalType, timezone, location, organization: { name } },
+  timeSlot: { label },
+  pass: null | { tokenCode, qrPayload /* encode into the QR */, status: 'ACTIVE'|'USED'|'EXPIRED'|'NOT_YET_VALID'|'CANCELLED', usedAt }
+}
+```
+The buyer's link to their pass is `/pass/<orderId>?k=<accessKey>` — keep it like a ticket.
+
+Admin: `GET /events/:eventId/pass-orders?status&q&page` (DONATION_VIEW) → paged rows +
+`totals: { paidOrders, revenue, visitors }`. Event body gains `publicBookingEnabled`; time slots gain
+`price` (decimal string, "0" = free). Finance report gains `passSales: { total, count, visitors }` and
+`balance = donations + passSales − expenses`; summary gains `passSales` (null when restricted).
+
+## Added: accounts (mandal-wide expenses + yearly P&L)
+
+- `GET /organizations/:orgId/expenses?eventId=<id>|none&category&from&to&q&page` (EXPENSE_VIEW@org) → paged `Expense & { eventId, event: {id,name}|null }` + `totalAmount`
+- `POST /organizations/:orgId/expenses` `{ category, description, amount, expenseDate, vendor?, receiptRef?, eventId? }` (EXPENSE_CREATE@org; no eventId = general mandal expense)
+- `PATCH /organizations/:orgId/expenses/:id` (EXPENSE_UPDATE@org)
+- `GET /organizations/:orgId/reports/annual?year=2026&basis=calendar|financial&format=csv` (REPORT_VIEW + DONATION_VIEW + EXPENSE_VIEW @org) →
+  `{ year, basis, label: "2026"|"FY 2026-27", from, to, income: { total, donations, passSales, donationCount, passOrderCount }, expenses: { total, count }, net, result: 'PROFIT'|'LOSS'|'BREAK_EVEN', byMonth: [{ month, label, donations, passSales, income, expenses, net }], byEvent: [{ eventId|null, name, festivalType, donations, passSales, expenses, net }], byCategory: [{ category, total }] }`
+- `GET /public/expense-categories` → string[] (suggestions)
+
+## Added: places & festivals
+
+- `GET /public/locations` → `[{ code, name, type: 'STATE'|'UT', cities: string[] }]` (36 states/UTs)
+- `GET /public/festival-types` → now ~57 entries `{ key, label, defaultPrefix, group, months? }` (group: Hindu, Muslim, Sikh, Christian, Buddhist, Jain, Parsi, Regional & Harvest, National & Cultural, Other)
+- Organization and Event bodies/responses gain `state` (must be a listed state name; "" clears) and `city` (free text). New events default to the mandal's state/city.
+
+## Changed: auth (email activation, forgot password)
+
+- `POST /auth/register` now **requires `email`** and returns `{ verificationRequired: true, email, maskedEmail }` (no token). A 6-digit code is emailed.
+- `POST /auth/verify-email` `{ email, code }` → `{ accessToken, user }` (400 `INVALID_CODE`)
+- `POST /auth/resend-verification` `{ email }` → `{ sent: true }` always (server enforces 60 s cooldown, 5/hour)
+- `POST /auth/login` → additionally `403 { code: 'EMAIL_NOT_VERIFIED', email, maskedEmail }` for an unverified self-registered account (a fresh code is sent)
+- `POST /auth/forgot-password` `{ identifier }` (mobile or email) → `{ sent: true }` always
+- `POST /auth/reset-password` `{ identifier, code, newPassword }` → 204 (other sessions signed out)
+- `POST /auth/me/email/send-code`, `POST /auth/me/email/verify { code }` (logged in)
+- `MeUser` gains `emailVerified: boolean`. Codes: 6 digits, 10-minute expiry, 5 attempts.
+
+## Changed: lists are paged + searchable
+
+Now return `{ items, total, page, pageSize }` and accept `?q=&page=&pageSize=` (max 200):
+`/organizations`, `/organizations/:orgId/members`, `/organizations/:orgId/volunteers`,
+`/organizations/:orgId/volunteer-applications`, `/organizations/:orgId/events`,
+`/events/:eventId/assignments`. Search (`q`) also added to `/events/:eventId/scans`,
+expenses, and audit logs.

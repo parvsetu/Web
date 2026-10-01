@@ -81,7 +81,7 @@ export class DonationsService {
       },
     });
     const payment = await provider.createPayment({
-      donationId: draft.id, amount: draft.amount.toFixed(2), currency: draft.currency, donorName: draft.donorName,
+      reference: draft.id, amount: draft.amount.toFixed(2), currency: draft.currency, payerName: draft.donorName,
       description: `Donation — ${event.name}`,
     });
     await this.prisma.$transaction(async (tx) => {

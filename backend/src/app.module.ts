@@ -17,6 +17,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { PlatformModule } from './modules/platform/platform.module';
 import { PublicModule } from './modules/public/public.module';
+import { PassesModule } from './modules/passes/passes.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { PublicModule } from './modules/public/public.module';
     ReportsModule,
     PlatformModule,
     PublicModule,
+    PassesModule,
   ],
   providers: [
     // Order matters: authenticate → rate-limit (per user) → authorize.

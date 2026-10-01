@@ -6,6 +6,6 @@ import { ScanService } from './scan.service';
 @Module({
   controllers: [TokensController],
   providers: [TokensService, ScanService],
-  exports: [ScanService],
+  exports: [ScanService, TokensService],
 })
 export class TokensModule {}

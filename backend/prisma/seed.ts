@@ -192,11 +192,11 @@ async function seedDemo() {
   await prisma.event.update({ where: { id: durga.id }, data: { donationReceiptSeq: donations.length } });
   await prisma.expense.createMany({
     data: [
-      { eventId: durga.id, category: 'Decoration', description: 'Pandal lighting', amount: '12000.00', expenseDate: d(today.minus({ days: 1 })), vendor: 'Bright Lights Co.', createdById: treasurer.id },
-      { eventId: durga.id, category: 'Bhog', description: 'Prasad ingredients', amount: '4500.00', expenseDate: d(today), createdById: treasurer.id },
-      { eventId: durga.id, category: 'Idol', description: 'Pratima — balance payment', amount: '35000.00', expenseDate: d(today.minus({ days: 1 })), vendor: 'Kumartuli Artisans', createdById: treasurer.id },
-      { eventId: durga.id, category: 'Sound', description: 'Dhak players (2 days)', amount: '8000.00', expenseDate: d(today), vendor: 'Dhaki Sangha', createdById: treasurer.id },
-      { eventId: durga.id, category: 'Security', description: 'Night guards', amount: '6000.00', expenseDate: d(today), vendor: 'SafeGuard Services', createdById: treasurer.id },
+      { organizationId: mandal.id, eventId: durga.id, category: 'Decoration', description: 'Pandal lighting', amount: '12000.00', expenseDate: d(today.minus({ days: 1 })), vendor: 'Bright Lights Co.', createdById: treasurer.id },
+      { organizationId: mandal.id, eventId: durga.id, category: 'Bhog', description: 'Prasad ingredients', amount: '4500.00', expenseDate: d(today), createdById: treasurer.id },
+      { organizationId: mandal.id, eventId: durga.id, category: 'Idol', description: 'Pratima — balance payment', amount: '35000.00', expenseDate: d(today.minus({ days: 1 })), vendor: 'Kumartuli Artisans', createdById: treasurer.id },
+      { organizationId: mandal.id, eventId: durga.id, category: 'Sound', description: 'Dhak players (2 days)', amount: '8000.00', expenseDate: d(today), vendor: 'Dhaki Sangha', createdById: treasurer.id },
+      { organizationId: mandal.id, eventId: durga.id, category: 'Security', description: 'Night guards', amount: '6000.00', expenseDate: d(today), vendor: 'SafeGuard Services', createdById: treasurer.id },
     ],
   });
 
@@ -238,6 +238,55 @@ async function seedBootstrapAdmin() {
   console.log(`Bootstrap super admin created for ${mobile}.`);
 }
 
+/**
+ * Brings existing demo data up to date with later features (state/city,
+ * public pass booking, mandal-wide expenses). Idempotent: each change only
+ * applies while its field is still unset.
+ */
+async function upgradeDemo() {
+  const mandal = await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } });
+  if (!mandal) return;
+  const other = await prisma.organization.findUnique({ where: { slug: 'navratri-seva-samiti' } });
+  if (!mandal.state) {
+    await prisma.organization.update({ where: { id: mandal.id }, data: { state: 'West Bengal', city: 'Kolkata' } });
+    await prisma.event.updateMany({ where: { organizationId: mandal.id }, data: { state: 'West Bengal', city: 'Kolkata' } });
+  }
+  if (other && !other.state) {
+    await prisma.organization.update({ where: { id: other.id }, data: { state: 'Gujarat', city: 'Ahmedabad' } });
+    await prisma.event.updateMany({ where: { organizationId: other.id }, data: { state: 'Gujarat', city: 'Ahmedabad' } });
+  }
+  const durga = await prisma.event.findFirst({ where: { organizationId: mandal.id, festivalType: 'DURGA_PUJA' } });
+  if (durga && !durga.publicBookingEnabled) {
+    await prisma.event.update({ where: { id: durga.id }, data: { publicBookingEnabled: true } });
+    const prices: Record<string, string> = { 'Morning 06-08': '0', 'Morning 08-10': '30', 'Late morning 10-12': '30', 'Evening 17-19': '50', 'Evening 19-21': '100', 'Night 21-23': '75' };
+    for (const [label, price] of Object.entries(prices)) {
+      await prisma.timeSlot.updateMany({ where: { eventId: durga.id, label }, data: { price } });
+    }
+  }
+  if (other) {
+    const nav = await prisma.event.findFirst({ where: { organizationId: other.id, festivalType: 'NAVRATRI' } });
+    if (nav && !nav.publicBookingEnabled) {
+      await prisma.event.update({ where: { id: nav.id }, data: { publicBookingEnabled: true } });
+      await prisma.timeSlot.updateMany({ where: { eventId: nav.id }, data: { price: '150' } });
+    }
+  }
+  const treasurer = await prisma.user.findUnique({ where: { mobile: '9000000006' } });
+  if (!(await prisma.expense.findFirst({ where: { organizationId: mandal.id, eventId: null } }))) {
+    const y = DateTime.now().setZone('Asia/Kolkata').year;
+    const d = (mo: number, day = 5) => new Date(`${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00.000Z`);
+    await prisma.expense.createMany({
+      data: [
+        { organizationId: mandal.id, category: 'Rent', description: 'Godown rent (Jan–Jun) for idol & decoration storage', amount: '18000.00', expenseDate: d(1), createdById: treasurer?.id },
+        { organizationId: mandal.id, category: 'Rent', description: 'Godown rent (Jul–Dec)', amount: '18000.00', expenseDate: d(7), createdById: treasurer?.id },
+        { organizationId: mandal.id, category: 'Electricity', description: 'Mandal office electricity (annual)', amount: '6400.00', expenseDate: d(3, 15), createdById: treasurer?.id },
+        { organizationId: mandal.id, category: 'Insurance', description: 'Public liability insurance', amount: '9500.00', expenseDate: d(8, 20), createdById: treasurer?.id },
+        { organizationId: mandal.id, category: 'Charity & Seva', description: 'Winter blanket distribution', amount: '12000.00', expenseDate: d(1, 12), createdById: treasurer?.id },
+        { organizationId: mandal.id, category: 'Printing & Publicity', description: 'Annual souvenir magazine printing', amount: '7500.00', expenseDate: d(9, 1), createdById: treasurer?.id },
+      ],
+    });
+  }
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -245,6 +294,7 @@ async function main() {
   // Demo accounts use a password published in the README — never on by default in production.
   const demo = process.env.SEED_DEMO ?? (process.env.NODE_ENV === 'production' ? 'false' : 'true');
   if (demo === 'true') await seedDemo();
+  await upgradeDemo();
 }
 
 if (require.main === module) {

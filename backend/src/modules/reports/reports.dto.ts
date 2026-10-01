@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsUUID, Matches } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 import { PageQuery } from '../../common/http';
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -20,6 +20,7 @@ export class DashboardQuery {
 const RESULTS = ['SUCCESS', 'ALREADY_USED', 'EXPIRED', 'NOT_YET_VALID', 'CANCELLED', 'INVALID', 'WRONG_EVENT', 'UNAUTHORIZED'] as const;
 
 export class ScanLogQuery extends PageQuery {
+  @IsOptional() @IsString() @MaxLength(100) q?: string;
   @IsOptional() @IsIn(RESULTS) result?: (typeof RESULTS)[number];
   @IsOptional() @IsUUID() userId?: string;
   @IsOptional() @Matches(YMD) date?: string;
