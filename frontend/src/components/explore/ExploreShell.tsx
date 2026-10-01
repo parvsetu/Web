@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Building2, ChevronDown, ChevronRight, Globe2, HelpCircle, Landmark, LogIn, MapPin, Search, Ticket, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, HelpCircle, LogIn, MapPin, Search, Ticket, X } from 'lucide-react';
 import { LogoMark } from '../FestivalArt';
 import { Modal } from '../ui';
-import { CATEGORIES, POPULAR_CITIES } from '@/lib/explore';
+import { CATEGORIES } from '@/lib/explore';
+import { CityPicker } from './CityPicker';
 import { cx } from '@/lib/cx';
 
 /**
@@ -159,107 +160,5 @@ export function ExploreShell({
         }}
       />
     </div>
-  );
-}
-
-const CITY_ICONS = [Landmark, Building2];
-
-function CityPicker({
-  open,
-  onClose,
-  current,
-  counts,
-  allCities,
-  onPick,
-}: {
-  open: boolean;
-  onClose: () => void;
-  current: string;
-  counts: Map<string, number>;
-  allCities: { state: string; cities: string[] }[];
-  onPick: (city: string) => void;
-}) {
-  const [q, setQ] = useState('');
-  const t = q.trim().toLowerCase();
-  // Cities with live events first, then the usual big cities.
-  const popular = useMemo(() => {
-    const withEvents = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
-    const names = new Map(allCities.flatMap((s) => s.cities).map((c) => [c.toLowerCase(), c]));
-    const list = [...withEvents.map((c) => names.get(c) ?? c.replace(/\b\w/g, (m) => m.toUpperCase())), ...POPULAR_CITIES];
-    return [...new Map(list.map((c) => [c.toLowerCase(), c])).values()].slice(0, 12);
-  }, [counts, allCities]);
-  const matches = useMemo(
-    () => (t ? allCities.flatMap((s) => s.cities.filter((c) => c.toLowerCase().includes(t)).map((c) => ({ c, s: s.state }))).slice(0, 40) : []),
-    [t, allCities],
-  );
-
-  return (
-    <Modal open={open} onClose={onClose} title="Choose your city" wide>
-      <div className="flex flex-col gap-4">
-        <label className="relative block">
-          <span className="sr-only">Search city</span>
-          <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search for your city"
-            className="h-12 w-full rounded-xl border border-slate-200 pl-11 pr-3 outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
-          />
-        </label>
-        {t ? (
-          matches.length ? (
-            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
-              {matches.map(({ c, s }) => (
-                <li key={`${s}-${c}`}>
-                  <button type="button" onClick={() => onPick(c)} className="flex min-h-[48px] w-full items-center justify-between gap-2 px-4 text-left hover:bg-rose-50">
-                    <span>
-                      <span className="font-medium">{c}</span> <span className="text-sm text-slate-500">· {s}</span>
-                    </span>
-                    {counts.get(c.toLowerCase()) ? <span className="text-xs font-semibold text-rose-600">{counts.get(c.toLowerCase())} events</span> : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="py-6 text-center text-slate-500">No city matches “{q.trim()}”.</p>
-          )
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => onPick('')}
-              className={cx('flex min-h-[48px] items-center gap-2 rounded-xl border px-4 font-semibold', !current ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 hover:bg-slate-50')}
-            >
-              <Globe2 aria-hidden className="h-5 w-5" /> All cities in India
-            </button>
-            <div>
-              <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Popular cities</p>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-                {popular.map((c, i) => {
-                  const Icon = CITY_ICONS[i % CITY_ICONS.length];
-                  const n = counts.get(c.toLowerCase()) ?? 0;
-                  return (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => onPick(c)}
-                      className={cx(
-                        'flex min-h-[92px] flex-col items-center justify-center gap-1 rounded-2xl border p-2 text-center text-sm',
-                        current.toLowerCase() === c.toLowerCase() ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 hover:border-rose-200 hover:bg-rose-50/50',
-                      )}
-                    >
-                      <Icon aria-hidden className="h-7 w-7 text-slate-500" strokeWidth={1.5} />
-                      <span className="font-medium">{c}</span>
-                      <span className="text-[11px] text-slate-500">{n ? `${n} event${n === 1 ? '' : 's'}` : 'Coming soon'}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </Modal>
   );
 }
