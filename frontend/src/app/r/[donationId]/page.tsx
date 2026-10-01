@@ -54,7 +54,7 @@ function ReceiptView() {
       <Empty title="Receipt not found" icon={ReceiptText}>
         This link doesn’t match any receipt. Check that you copied the whole link, or ask the mandal to send it again.
         <div className="mt-4">
-          <Link href="/book" className="font-semibold text-orange-700 hover:underline">
+          <Link href="/" className="font-semibold text-orange-700 hover:underline">
             Browse festivals
           </Link>
         </div>

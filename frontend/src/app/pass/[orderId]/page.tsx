@@ -262,7 +262,7 @@ function FooterLinks() {
       <Link href="/book/my-passes" className="text-orange-700 hover:underline">
         My passes
       </Link>
-      <Link href="/book" className="text-orange-700 hover:underline">
+      <Link href="/" className="text-orange-700 hover:underline">
         Browse festivals
       </Link>
     </div>

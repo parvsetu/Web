@@ -146,7 +146,7 @@ export default function PartnerSignupPage() {
                 Log in
               </Link>
               {' · '}
-              <Link href="/book" className="font-semibold text-orange-700 underline">
+              <Link href="/" className="font-semibold text-orange-700 underline">
                 Explore events
               </Link>
             </p>

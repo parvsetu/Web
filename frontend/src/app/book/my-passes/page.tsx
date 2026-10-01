@@ -62,7 +62,7 @@ export default function MyPassesPage() {
             Passes you book here will show up in this list.
             <div className="mt-4">
               <Link
-                href="/book"
+                href="/"
                 className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 px-5 font-semibold text-white shadow-md"
               >
                 <Ticket aria-hidden className="h-5 w-5" /> Book a pass

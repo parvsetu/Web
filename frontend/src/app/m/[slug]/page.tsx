@@ -34,7 +34,7 @@ export default async function LandingPage({ params, searchParams }: Props) {
           <p className="text-4xl">🪔</p>
           <h1 className="text-xl font-extrabold">This page isn&apos;t available</h1>
           <p className="max-w-sm text-slate-600">The mandal&apos;s page may not be active right now. You can still find their festivals on Parvsetu.</p>
-          <Link href="/book" className="mt-2 inline-flex min-h-[48px] items-center rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 px-5 font-bold text-white">Explore festivals</Link>
+          <Link href="/" className="mt-2 inline-flex min-h-[48px] items-center rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 px-5 font-bold text-white">Explore festivals</Link>
         </div>
       </PublicShell>
     );

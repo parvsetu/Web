@@ -202,7 +202,7 @@ export default function BookEventPage() {
             <Empty title="This festival isn’t taking bookings" icon={CalendarX}>
               It may have ended, or the organiser has closed online booking.
               <div className="mt-4">
-                <Link href="/book" className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-orange-600 px-4 font-semibold text-white">
+                <Link href="/" className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-orange-600 px-4 font-semibold text-white">
                   <ArrowLeft aria-hidden className="h-5 w-5" /> Browse festivals
                 </Link>
               </div>
@@ -242,7 +242,7 @@ export default function BookEventPage() {
   return (
     <PublicShell bottomPad={!festivalOver}>
       <div className="flex flex-col gap-4">
-        <Link href="/book" className="inline-flex min-h-[40px] w-fit items-center gap-1.5 rounded-xl text-sm font-semibold text-slate-600 hover:text-orange-700">
+        <Link href="/" className="inline-flex min-h-[40px] w-fit items-center gap-1.5 rounded-xl text-sm font-semibold text-slate-600 hover:text-orange-700">
           <ArrowLeft aria-hidden className="h-4 w-4" /> All festivals
         </Link>
 

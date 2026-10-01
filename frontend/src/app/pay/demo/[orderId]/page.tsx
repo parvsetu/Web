@@ -110,7 +110,7 @@ function DemoCheckout() {
       <Empty title="This payment link is incomplete" icon={LinkIcon}>
         Please go back and book again.
         <div className="mt-4">
-          <Link href="/book" className="font-semibold text-orange-700 hover:underline">
+          <Link href="/" className="font-semibold text-orange-700 hover:underline">
             Browse festivals
           </Link>
         </div>
@@ -122,7 +122,7 @@ function DemoCheckout() {
       <Empty title="Booking not found" icon={XCircle}>
         This payment link doesn’t match a booking, or demo payments are switched off.
         <div className="mt-4">
-          <Link href="/book" className="font-semibold text-orange-700 hover:underline">
+          <Link href="/" className="font-semibold text-orange-700 hover:underline">
             Browse festivals
           </Link>
         </div>

@@ -41,13 +41,13 @@ export function PublicShell({ children, wide, bottomPad }: { children: ReactNode
       <main className={cx('mx-auto w-full flex-1 px-4 py-4', wide ? 'max-w-5xl' : 'max-w-2xl', bottomPad && 'pb-36')}>{children}</main>
 
       <footer className={cx('no-print border-t border-orange-100 bg-white/60', bottomPad && 'mb-28')}>
-        <div className={cx('mx-auto flex flex-col gap-2 px-4 py-6 text-sm text-slate-500 sm:flex-row sm:items-center', wide ? 'max-w-5xl' : 'max-w-2xl')}>
-          <div className="flex items-center gap-2">
+        <div className={cx('mx-auto flex flex-col gap-3 px-4 py-6 text-sm text-slate-500 lg:flex-row lg:items-center lg:gap-6', wide ? 'max-w-5xl' : 'max-w-2xl')}>
+          <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
             <LogoMark className="h-5 w-5" />
             <span className="font-semibold text-slate-700">Parvsetu</span>
             <span>· Festival passes</span>
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 sm:ml-auto">
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 lg:ml-auto lg:justify-end">
             <Link href="/" className="hover:text-orange-700">
               Browse festivals
             </Link>
