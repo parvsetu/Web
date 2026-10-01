@@ -5,7 +5,8 @@ import { useOrg } from '@/lib/org-context';
 import { canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
-import { Building2, FileBarChart, History, KeyRound, PartyPopper, Settings, UserCheck, UserCog, Users } from 'lucide-react';
+import { Building2, FileBarChart, History, KeyRound, PartyPopper, Settings, UserCheck, UserCog, Users, Wallet } from 'lucide-react';
+import { AccountsTab } from '@/components/org/AccountsTab';
 import type { LucideIcon } from 'lucide-react';
 import { Mandala, Toran } from '@/components/FestivalArt';
 import { Alert, SkeletonList, Tabs } from '@/components/ui';
@@ -24,6 +25,7 @@ const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] 
   { key: 'applications', label: 'Applications', icon: UserCheck, anyOf: ['VOLUNTEER_VIEW'] },
   { key: 'members', label: 'Members', icon: UserCog, anyOf: ['USER_VIEW'] },
   { key: 'roles', label: 'Roles', icon: KeyRound, anyOf: ['ROLE_VIEW'] },
+  { key: 'accounts', label: 'Accounts & P/L', icon: Wallet, anyOf: ['EXPENSE_VIEW'] },
   { key: 'audit', label: 'Audit log', icon: History, anyOf: ['AUDIT_VIEW'] },
   { key: 'reports', label: 'Reports', icon: FileBarChart, anyOf: ['REPORT_VIEW'] },
   { key: 'settings', label: 'Settings', icon: Settings, anyOf: ['SETTINGS_UPDATE'] },
@@ -81,6 +83,7 @@ function OrgAdmin() {
       {tab === 'applications' && <ApplicationsTab />}
       {tab === 'members' && <MembersTab />}
       {tab === 'roles' && <RolesTab />}
+      {tab === 'accounts' && <AccountsTab />}
       {tab === 'audit' && <AuditTab />}
       {tab === 'reports' && <OrgReportsTab />}
       {tab === 'settings' && <OrgSettingsTab />}

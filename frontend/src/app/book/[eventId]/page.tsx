@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, CalendarX, Clock, CreditCard, MapPin, RotateCcw, ShieldCheck, Ticket, Users } from 'lucide-react';
+import { ArrowLeft, CalendarX, Clock, CreditCard, MapPin, QrCode, RotateCcw, ShieldCheck, Ticket, Users } from 'lucide-react';
 import { FestivalBanner } from '@/components/FestivalBanner';
 import { PublicShell } from '@/components/booking/PublicShell';
 import { DateChips, PeopleStepper, SlotCard, Step, slotState } from '@/components/booking/BookingParts';
@@ -43,6 +43,7 @@ export default function BookEventPage() {
 
   const [slotId, setSlotId] = useState('');
   const [people, setPeople] = useState(1);
+  const [perPerson, setPerPerson] = useState(true);
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
@@ -147,6 +148,7 @@ export default function BookEventPage() {
         timeSlotId: slot.id,
         date,
         visitorCount: people,
+        perPersonPasses: people > 1 ? perPerson : undefined,
         buyerName: name.trim(),
         buyerMobile: v.mobile,
         ...(email.trim() ? { buyerEmail: email.trim() } : {}),
@@ -307,16 +309,44 @@ export default function BookEventPage() {
               hint={
                 slot && slot.remaining !== null && slot.remaining < event.maxVisitorsPerToken
                   ? `Only ${slot.remaining} place${slot.remaining === 1 ? '' : 's'} left in this slot`
-                  : `One pass admits up to ${event.maxVisitorsPerToken} people`
+                  : `Up to ${event.maxVisitorsPerToken} people per booking`
               }
               theme={theme}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <PeopleStepper value={people} max={maxPeople} onChange={setPeople} theme={theme} />
-                <span className="inline-flex items-center gap-1.5 text-sm text-slate-500">
-                  <Users aria-hidden className="h-4 w-4" /> Everyone enters together on one QR
-                </span>
-              </div>
+              <PeopleStepper value={people} max={maxPeople} onChange={setPeople} theme={theme} />
+              {people > 1 && (
+                <fieldset className="mt-4">
+                  <legend className="mb-2 text-sm font-semibold text-slate-800">Passes</legend>
+                  <div role="radiogroup" aria-label="Passes" className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      { v: true, title: 'Separate QR for each person', sub: `Recommended · ${people} passes, enter separately`, icon: QrCode },
+                      { v: false, title: 'One QR for the whole group', sub: `1 pass admits all ${people} together`, icon: Users },
+                    ].map((o) => {
+                      const sel = perPerson === o.v;
+                      return (
+                        <button
+                          key={String(o.v)}
+                          type="button"
+                          role="radio"
+                          aria-checked={sel}
+                          onClick={() => setPerPerson(o.v)}
+                          className={cx(
+                            'flex min-h-[64px] items-start gap-2 rounded-2xl border-2 p-3 text-left transition',
+                            sel ? 'shadow-sm' : 'border-orange-100 bg-white hover:border-orange-300',
+                          )}
+                          style={sel ? { borderColor: theme.via, background: theme.soft } : undefined}
+                        >
+                          <o.icon aria-hidden className="mt-0.5 h-5 w-5 shrink-0" style={{ color: sel ? theme.ink : '#94a3b8' }} />
+                          <span>
+                            <span className="block text-sm font-bold text-slate-900">{o.title}</span>
+                            <span className="block text-xs text-slate-500">{o.sub}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
             </Step>
 
             <Step n={4} id="step-details" title="Your details" hint="We put your name on the pass" theme={theme}>

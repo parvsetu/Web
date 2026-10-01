@@ -33,7 +33,7 @@ export class DonationsController {
   @RequireEventPermission('DONATION_CREATE')
   @Post('events/:eventId/donations')
   create(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Body() dto: CreateDonationDto) {
-    return this.donations.create(user, a.event!, dto);
+    return this.donations.create(user, a.event!, dto, a.perms);
   }
 
   @RequireEventPermission('DONATION_VIEW')

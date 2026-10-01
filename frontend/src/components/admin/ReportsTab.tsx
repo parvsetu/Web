@@ -107,6 +107,7 @@ function SummaryView({ range }: { range: Range }) {
             <Stat label="Cancelled" value={fmtNum(d.tokens.cancelled)} tone="red" />
             <Stat label="Scans (ok / failed)" value={`${fmtNum(d.scans.success)} / ${fmtNum(d.scans.failed)}`} />
             {d.donations && <Stat label={`Donations (${d.donations.count})`} value={fmtMoney(d.donations.total)} tone="green" />}
+            {d.passSales && <Stat label={`Pass sales (${d.passSales.count})`} value={fmtMoney(d.passSales.total)} tone="purple" />}
             {d.expenses && <Stat label={`Expenses (${d.expenses.count})`} value={fmtMoney(d.expenses.total)} tone="red" />}
             {d.balance !== null && <Stat label="Balance" value={fmtMoney(d.balance)} />}
           </div>
@@ -257,9 +258,10 @@ function FinanceView({ range }: { range: Range }) {
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label={`Donations (${d.donations.count})`} value={fmtMoney(d.donations.total)} tone="green" />
+            {d.passSales && <Stat label={`Pass sales (${d.passSales.count})`} value={fmtMoney(d.passSales.total)} tone="purple" />}
             <Stat label={`Expenses (${d.expenses.count})`} value={fmtMoney(d.expenses.total)} tone="red" />
             <Stat label="Balance" value={fmtMoney(d.balance)} />
-            <Stat label="Pending donations" value={typeof d.donations.pending === 'number' ? fmtNum(d.donations.pending) : fmtMoney(d.donations.pending)} tone="amber" />
+            <Stat label={`Pending donations (${d.donations.pending.count})`} value={fmtMoney(d.donations.pending.total)} tone="amber" />
           </div>
           <Card>
             <h3 className="mb-2 font-bold">Donations by method</h3>

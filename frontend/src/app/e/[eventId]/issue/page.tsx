@@ -17,8 +17,8 @@ import {
   initialValidity,
   type ValidityState,
 } from '@/components/TokenParts';
-import { Clock, Plus, Ticket, UserRound } from 'lucide-react';
-import { Alert, Button, Card, LabeledInput, SectionTitle, SkeletonList } from '@/components/ui';
+import { Clock, Plus, Printer, QrCode, Ticket, UserRound, Users } from 'lucide-react';
+import { Alert, Button, Card, LabeledInput, SectionTitle, SkeletonList, cx } from '@/components/ui';
 
 export default function IssuePage() {
   const ev = useEvent();
@@ -41,7 +41,8 @@ function IssueForm() {
   const [count, setCount] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [issued, setIssued] = useState<TokenWithQr | null>(null);
+  const [issued, setIssued] = useState<TokenWithQr[] | null>(null);
+  const [perPerson, setPerPerson] = useState(true);
   const maxVisitors = ev.detail?.maxVisitorsPerToken ?? 10;
 
   useEffect(() => {
@@ -57,11 +58,11 @@ function IssueForm() {
     if (mobile && !/^\+?\d{10,13}$/.test(mobile.replace(/\s/g, ''))) return setError('Enter a valid mobile number or leave it empty.');
     setBusy(true);
     try {
-      const body: Record<string, unknown> = { ...v, visitorCount: count };
+      const body: Record<string, unknown> = { ...v, visitorCount: count, ...(count > 1 ? { perPerson } : {}) };
       if (name.trim()) body.visitorName = name.trim();
       if (mobile.trim()) body.visitorMobile = mobile.replace(/\s/g, '');
-      const token = await api.post<TokenWithQr>(`/events/${ev.eventId}/tokens`, body);
-      setIssued(token);
+      const res = await api.post<TokenWithQr | { count: number; tokens: TokenWithQr[] }>(`/events/${ev.eventId}/tokens`, body);
+      setIssued('tokens' in res ? res.tokens : [res]);
       window.scrollTo({ top: 0 });
     } catch (err) {
       setError(errorMessage(err));
@@ -81,9 +82,23 @@ function IssueForm() {
   if (issued) {
     return (
       <div className="flex flex-col gap-4">
-        <Alert kind="success">Token issued. Show or print this QR for the visitor.</Alert>
-        <TokenTicket token={issued} eventName={ev.name} tz={ev.timezone} festivalType={ev.festivalType} />
-        <TokenShareButtons token={issued} eventName={ev.name} tz={ev.timezone} />
+        <Alert kind="success">
+          {issued.length > 1
+            ? `${issued.length} passes issued — one QR per person. Each can be used once.`
+            : 'Token issued. Show or print this QR for the visitor.'}
+        </Alert>
+        {issued.map((t, i) => (
+          <div key={t.id} className="flex flex-col gap-2">
+            {issued.length > 1 && <div className="text-center text-sm font-bold text-orange-800">Pass {i + 1} of {issued.length}</div>}
+            <TokenTicket token={t} eventName={ev.name} tz={ev.timezone} festivalType={ev.festivalType} />
+            <TokenShareButtons token={t} eventName={ev.name} tz={ev.timezone} showPrint={issued.length === 1} />
+          </div>
+        ))}
+        {issued.length > 1 && (
+          <Button variant="secondary" className="no-print" onClick={() => window.print()}>
+            <Printer aria-hidden className="h-5 w-5" /> Print all {issued.length} passes
+          </Button>
+        )}
         <Button size="lg" onClick={another} className="no-print">
           <Plus aria-hidden className="h-6 w-6" /> Issue another
         </Button>
@@ -106,6 +121,7 @@ function IssueForm() {
           onChange={setValidity}
           slots={slots.data ?? []}
           allowCustom={allowCustom}
+          durationOptions={ev.detail?.tokenDurationOptions ?? []}
           startDate={ev.startDate}
           endDate={ev.endDate}
           tz={ev.timezone}
@@ -114,6 +130,26 @@ function IssueForm() {
       <SectionTitle icon={UserRound}>Visitor</SectionTitle>
       <Card className="flex flex-col gap-4">
         <VisitorCountInput value={count} onChange={setCount} max={maxVisitors} />
+        {count > 1 && (
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="QR codes">
+            {[true, false].map((pp) => (
+              <button
+                key={String(pp)}
+                type="button"
+                role="radio"
+                aria-checked={perPerson === pp}
+                onClick={() => setPerPerson(pp)}
+                className={cx(
+                  'flex min-h-[64px] flex-col items-center justify-center rounded-xl border px-2 text-sm font-semibold',
+                  perPerson === pp ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-400' : 'border-orange-200 bg-white',
+                )}
+              >
+                {pp ? <QrCode aria-hidden className="h-5 w-5" /> : <Users aria-hidden className="h-5 w-5" />}
+                {pp ? `${count} QR codes (1 each)` : '1 group QR'}
+              </button>
+            ))}
+          </div>
+        )}
         <LabeledInput label="Visitor name (optional)" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         <LabeledInput label="Visitor mobile (optional)" type="tel" inputMode="numeric" value={mobile} onChange={(e) => setMobile(e.target.value)} autoComplete="off" />
       </Card>

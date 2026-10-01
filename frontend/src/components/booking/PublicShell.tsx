@@ -20,14 +20,14 @@ export function PublicShell({ children, wide, bottomPad }: { children: ReactNode
           <nav aria-label="Booking" className="ml-auto flex items-center gap-1">
             <Link
               href="/book/my-passes"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-orange-700 hover:bg-orange-50"
+              className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 text-sm font-semibold text-orange-700 hover:bg-orange-50"
             >
               <Ticket aria-hidden className="h-4 w-4" />
               My passes
             </Link>
             <Link
               href="/login"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-slate-600 hover:bg-orange-50"
+              className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 text-sm font-semibold text-slate-600 hover:bg-orange-50"
             >
               <LogIn aria-hidden className="h-4 w-4" />
               <span>

@@ -8,7 +8,7 @@ import { FestivalArt, Mandala, Toran } from '../FestivalArt';
 
 export function priceLabel(fromPrice: string | null): string | null {
   if (fromPrice === null) return null;
-  return isFree(fromPrice) ? 'Free entry' : `From ${fmtMoney(fromPrice)}`;
+  return isFree(fromPrice) ? 'Free entry available' : `From ${fmtMoney(fromPrice)}`;
 }
 
 export function placeLine(e: Pick<BookableEvent, 'location' | 'city' | 'state' | 'organization'>): string {

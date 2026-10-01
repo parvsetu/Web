@@ -46,6 +46,7 @@ export function OverviewTab() {
             <Stat label="Total visitors" value={fmtNum(d.overall.visitors.total)} tone="brand" icon={Users} />
             <Stat label="Tokens" value={fmtNum(d.overall.tokens.total)} tone="blue" icon={Ticket} />
             {d.overall.donations ? <Stat label="Donations" value={fmtMoney(d.overall.donations.total)} tone="green" icon={Wallet} /> : null}
+            {d.overall.passSales && Number(d.overall.passSales.total) > 0 ? <Stat label="Pass sales" value={fmtMoney(d.overall.passSales.total)} tone="purple" icon={TicketCheck} /> : null}
             {d.overall.expenses ? <Stat label="Expenses" value={fmtMoney(d.overall.expenses.total)} tone="red" icon={WalletCards} /> : null}
             {d.overall.balance !== null ? (
               <Stat label="Balance" value={fmtMoney(d.overall.balance)} tone={Number(d.overall.balance) < 0 ? 'red' : 'green'} icon={Landmark} />

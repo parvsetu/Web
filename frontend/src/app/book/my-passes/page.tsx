@@ -8,7 +8,7 @@ import { FestivalBadge } from '@/components/FestivalBanner';
 import { Badge, Empty, Skeleton } from '@/components/ui';
 import { festivalTheme } from '@/lib/festival-theme';
 import { fmtMoney } from '@/lib/format';
-import { BookingError, booking, bookingErrorMessage, demoPayHref, fmtPassWindow, isFree, loadSavedPasses, passHref, removeSavedPass } from '@/lib/booking';
+import { BookingError, booking, bookingErrorMessage, demoPayHref, fmtPassWindow, isFree, loadSavedPasses, orderPasses, passHref, removeSavedPass } from '@/lib/booking';
 import type { PassOrder, SavedPass } from '@/lib/booking-types';
 
 type Live = { state: 'loading' } | { state: 'ok'; order: PassOrder } | { state: 'gone' } | { state: 'error'; message: string };
@@ -84,9 +84,13 @@ export default function MyPassesPage() {
 }
 
 function statusOf(o: PassOrder): { value: string; text: string } {
-  if (o.status === 'PAID' && o.pass) {
+  const passes = orderPasses(o);
+  if (o.status === 'PAID' && passes.length) {
     const map: Record<string, string> = { ACTIVE: 'Valid', NOT_YET_VALID: 'Upcoming', USED: 'Used', EXPIRED: 'Expired', CANCELLED: 'Cancelled' };
-    return { value: o.pass.status, text: map[o.pass.status] ?? o.pass.status };
+    const used = passes.filter((p) => p.status === 'USED').length;
+    if (passes.length > 1 && used > 0 && used < passes.length) return { value: 'ACTIVE', text: `${used} of ${passes.length} used` };
+    const s = passes[0].status;
+    return { value: s, text: map[s] ?? s };
   }
   const map: Record<string, string> = { PENDING: 'Awaiting payment', PAID: 'Issuing…', FAILED: 'Payment failed', EXPIRED: 'Booking expired' };
   return { value: o.status, text: map[o.status] ?? o.status };
@@ -114,7 +118,11 @@ function PassRow({ saved, live, onRemove, onRetry }: { saved: SavedPass; live: L
                 {st && <Badge value={st.value}>{st.text}</Badge>}
                 <span>{order.visitorCount === 1 ? '1 person' : `${order.visitorCount} people`}</span>
                 <span>· {isFree(order.amount) ? 'Free' : fmtMoney(order.amount, order.currency)}</span>
-                {order.pass && <span className="font-mono font-semibold">{order.pass.tokenCode}</span>}
+                {orderPasses(order).length > 0 && (
+                  <span className="font-semibold">
+                    · {orderPasses(order).length === 1 ? '1 QR pass' : `${orderPasses(order).length} QR passes`}
+                  </span>
+                )}
               </div>
             </>
           )}

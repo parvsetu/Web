@@ -45,9 +45,7 @@ export function PassCard({ order, pass, index = 0, total = 1 }: { order: PassOrd
             <FestivalArt type={order.event.festivalType} className="h-full w-full" />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/85">
-              Entry pass{total > 1 ? ` · ${index + 1} of ${total}` : ''}
-            </p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/85">Entry pass</p>
             <h2 className="text-xl font-extrabold leading-tight drop-shadow-sm">{order.event.name}</h2>
             <p className="truncate text-sm text-white/90">{order.event.organization.name}</p>
           </div>
@@ -55,6 +53,11 @@ export function PassCard({ order, pass, index = 0, total = 1 }: { order: PassOrd
       </header>
 
       <div className="flex flex-col items-center gap-2 px-5 pb-2 pt-5">
+        {total > 1 && (
+          <p className="rounded-full px-3 py-1 text-sm font-bold" style={{ background: t.soft, color: t.ink }}>
+            Pass {index + 1} of {total} · admits {admits}
+          </p>
+        )}
         <div className={cx('relative rounded-2xl border border-slate-200 bg-white p-2', dim && 'opacity-40 grayscale')}>
           <QrImage payload={pass.qrPayload} size={280} alt={`QR code for pass ${pass.tokenCode}`} />
         </div>

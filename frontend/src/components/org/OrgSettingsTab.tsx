@@ -1,5 +1,7 @@
 'use client';
 
+import { StateCityPicker } from '../PlacePicker';
+
 import { useState } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -17,7 +19,7 @@ function Form() {
   const org = useOrg();
   const { refresh } = useAuth();
   const [name, setName] = useState(org.org?.name ?? '');
-  const [city, setCity] = useState(org.org?.city ?? '');
+  const [place, setPlace] = useState({ state: org.org?.state ?? '', city: org.org?.city ?? '' });
   const [address, setAddress] = useState(org.org?.address ?? '');
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -30,7 +32,7 @@ function Form() {
     setBusy(true);
     setError(null);
     try {
-      await api.patch(`/organizations/${org.orgId}`, { name: name.trim(), city: city.trim() || undefined, address: address.trim() || undefined });
+      await api.patch(`/organizations/${org.orgId}`, { name: name.trim(), state: place.state, city: place.city.trim(), address: address.trim() || undefined });
       setOk(true);
       org.reload();
       void refresh();
@@ -45,7 +47,7 @@ function Form() {
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <LabeledInput label="Mandal name" value={name} onChange={(e) => setName(e.target.value)} />
-        <LabeledInput label="City" value={city} onChange={(e) => setCity(e.target.value)} />
+        <StateCityPicker state={place.state} city={place.city} onChange={setPlace} />
         <Field label="Address (printed on receipts)">
           <Textarea value={address} onChange={(e) => setAddress(e.target.value)} />
         </Field>

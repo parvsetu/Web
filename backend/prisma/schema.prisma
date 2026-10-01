@@ -68,6 +68,14 @@ enum OtpPurpose {
   RESET_PASSWORD
 }
 
+enum SponsorTier {
+  TITLE
+  PLATINUM
+  GOLD
+  SILVER
+  PARTNER
+}
+
 enum ScanMethod {
   QR
   MANUAL
@@ -136,6 +144,7 @@ model Organization {
   applications VolunteerApplication[]
   auditLogs    AuditLog[]
   expenses     Expense[]
+  sponsors     Sponsor[]
 
   @@map("organizations")
 }
@@ -240,6 +249,7 @@ model Event {
   expenses     Expense[]
   auditLogs    AuditLog[]
   passOrders   PassOrder[]
+  sponsors     Sponsor[]
 
   @@index([organizationId])
   @@index([state, city])
@@ -359,8 +369,10 @@ model Token {
   usedBy     User?     @relation("TokenUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
   cancelledBy User?    @relation("TokenCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   scanLogs   ScanLog[]
-  // Set when the token was minted by an online pass order.
+  // Set when the token was minted by an online pass order / issued for a donation.
   passOrderId String?
+  donationId  String?
+  donation    Donation? @relation(fields: [donationId], references: [id], onDelete: SetNull)
   passOrder   PassOrder? @relation(fields: [passOrderId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, tokenCode])
@@ -428,6 +440,7 @@ model Donation {
 
   event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  passes    Token[]
 
   @@unique([eventId, receiptNo])
   @@unique([paymentProvider, providerOrderId])
@@ -539,4 +552,31 @@ model EmailOtp {
 
   @@index([userId, purpose, createdAt])
   @@map("email_otps")
+}
+
+// Collaboration partners / sponsors (e.g. a jeweller sponsoring the pandal).
+// eventId null = shown on every festival of the mandal. The logo is a small
+// raster image kept in the row and served by GET /public/sponsors/:id/logo.
+model Sponsor {
+  id             String      @id @default(uuid())
+  organizationId String
+  eventId        String?
+  name           String
+  tier           SponsorTier @default(PARTNER)
+  tagline        String?
+  bannerText     String?
+  websiteUrl     String?
+  logo           Bytes?
+  logoType       String?
+  isActive       Boolean     @default(true)
+  sortOrder      Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
+  @@index([eventId])
+  @@map("sponsors")
 }

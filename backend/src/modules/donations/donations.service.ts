@@ -1,4 +1,6 @@
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { TokensService } from '../tokens/tokens.service';
+import { QrSigner } from '../../common/qr/qr-signer';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -22,6 +24,8 @@ export class DonationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly tokens: TokensService,
+    private readonly qr: QrSigner,
     @Inject(PAYMENT_PROVIDERS) private readonly providers: PaymentProvider[],
   ) {}
 
@@ -60,13 +64,21 @@ export class DonationsService {
   }
 
   async get(eventId: string, id: string) {
-    const d = await this.prisma.donation.findFirst({ where: { id, eventId }, select: donationSelect });
+    const d = await this.prisma.donation.findFirst({
+      where: { id, eventId },
+      select: { ...donationSelect, passes: { select: { id: true, tokenCode: true, secureToken: true, visitorCount: true, status: true, validFrom: true, validUntil: true }, orderBy: { tokenCode: 'asc' } } },
+    });
     if (!d) throw new NotFoundException('Donation not found');
-    return d;
+    const { passes, ...rest } = d;
+    return {
+      ...rest,
+      passes: passes.map(({ secureToken, ...p }) => ({ ...p, qrPayload: this.qr.payloadFor(secureToken) })),
+    };
   }
 
-  async create(actor: RequestUser, event: EventRef, dto: CreateDonationDto) {
+  async create(actor: RequestUser, event: EventRef, dto: CreateDonationDto, perms: Set<string> = new Set()) {
     const provider = this.provider(dto.provider ?? 'manual');
+    if (dto.passes) return this.createWithPasses(actor, event, dto, perms, provider);
     if (provider.online && dto.method !== 'ONLINE' && dto.method !== 'UPI' && dto.method !== 'CARD') {
       throw new BadRequestException('Online providers take UPI, CARD or ONLINE payments');
     }
@@ -102,6 +114,39 @@ export class DonationsService {
     return provider.online
       ? { ...donation, payment: { provider: provider.key, providerOrderId: payment.providerOrderId, checkoutUrl: payment.checkoutUrl, upiUri: payment.upiUri } }
       : donation;
+  }
+
+  /**
+   * Cash/UPI-in-hand donation + entry passes for the donor, all in ONE
+   * transaction: if the slot is full (or anything else fails) neither the
+   * donation nor any pass is recorded. Needs TOKEN_CREATE as well.
+   */
+  private async createWithPasses(actor: RequestUser, event: EventRef, dto: CreateDonationDto, perms: Set<string>, provider: PaymentProvider) {
+    if (!perms.has('TOKEN_CREATE')) {
+      throw new ForbiddenException({ statusCode: 403, message: 'You need permission to issue tokens to give passes with a donation.', code: 'FORBIDDEN' });
+    }
+    if (provider.online) throw new BadRequestException('Passes can be issued with a donation only when the money is already received (manual).');
+    const id = await this.prisma.$transaction(async (tx) => {
+      const d = await tx.donation.create({
+        data: {
+          eventId: event.id, donorName: dto.donorName.trim(),
+          donorMobile: dto.donorMobile ? normalizeMobile(dto.donorMobile) : null, donorEmail: normalizeEmail(dto.donorEmail),
+          amount: new Prisma.Decimal(dto.amount), method: dto.method, paymentProvider: provider.key, paymentStatus: 'SUCCESS',
+          paymentReference: dto.paymentReference ?? null, notes: dto.notes ?? null,
+          donatedAt: dto.donatedAt ? new Date(dto.donatedAt) : new Date(), createdById: actor.id,
+          receiptNo: await this.nextReceipt(tx, event.id),
+        },
+      });
+      const passIds = await this.tokens.issueInTx(tx, actor, event, perms, {
+        ...dto.passes!, visitorName: dto.passes!.visitorName ?? dto.donorName.trim(), visitorMobile: dto.passes!.visitorMobile ?? dto.donorMobile,
+      }, d.id);
+      await this.audit.log({
+        organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'donation.created',
+        entityType: 'Donation', entityId: d.id, after: { amount: d.amount.toFixed(2), method: d.method, provider: provider.key, status: 'SUCCESS', passes: passIds.length },
+      }, tx);
+      return d.id;
+    });
+    return this.get(event.id, id);
   }
 
   async update(actor: RequestUser, event: EventRef, id: string, dto: UpdateDonationDto) {

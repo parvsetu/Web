@@ -1,5 +1,7 @@
 'use client';
 
+import { fmtMoney } from '@/lib/format';
+
 import { useState } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import { useEvent } from '@/lib/event-context';
@@ -56,6 +58,8 @@ export function SlotsTab() {
               <div className="text-sm text-slate-600">
                 {s.startTime} – {s.endTime}
                 {s.capacity ? ` · capacity ${s.capacity}` : ''}
+                {' · '}
+                <span className="font-semibold text-emerald-700">{Number(s.price ?? 0) > 0 ? `${fmtMoney(s.price)} / person` : 'Free'}</span>
               </div>
             </div>
             <div className="flex gap-2">
@@ -90,6 +94,7 @@ function SlotForm({ slot, nextSort, onClose, onSaved }: { slot: TimeSlot | null;
   const [startTime, setStart] = useState(slot?.startTime ?? '');
   const [endTime, setEnd] = useState(slot?.endTime ?? '');
   const [capacity, setCapacity] = useState(slot?.capacity ? String(slot.capacity) : '');
+  const [price, setPrice] = useState(slot?.price && Number(slot.price) > 0 ? String(Number(slot.price)) : '');
   const [isActive, setActive] = useState(slot?.isActive ?? true);
   const [sortOrder, setSort] = useState(String(slot?.sortOrder ?? nextSort));
   const [error, setError] = useState<string | null>(null);
@@ -103,11 +108,13 @@ function SlotForm({ slot, nextSort, onClose, onSaved }: { slot: TimeSlot | null;
     if (!HHMM.test(startTime) || !HHMM.test(endTime)) return setError('Times must be HH:mm (24-hour), e.g. 18:30.');
     if (startTime === endTime) return setError('Start and end time cannot be the same.');
     if (capacity && (!/^\d+$/.test(capacity) || Number(capacity) < 1)) return setError('Capacity must be a positive number or empty.');
+    if (price && !/^\d{1,8}(\.\d{1,2})?$/.test(price)) return setError('Price must be an amount like 50 or 99.50 (empty = free).');
     const body = {
       label: label.trim(),
       startTime,
       endTime,
       capacity: capacity ? Number(capacity) : null,
+      price: price || '0',
       isActive,
       sortOrder: Number(sortOrder) || 0,
     };
@@ -134,6 +141,7 @@ function SlotForm({ slot, nextSort, onClose, onSaved }: { slot: TimeSlot | null;
         {crosses && <p className="text-sm text-indigo-800">This slot crosses midnight — it ends the next day.</p>}
         <div className="grid grid-cols-2 gap-3">
           <LabeledInput label="Capacity (optional)" type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+          <LabeledInput label="Pass price per person (₹)" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0 = free" hint="Used for online booking" />
           <LabeledInput label="Sort order" type="number" value={sortOrder} onChange={(e) => setSort(e.target.value)} />
         </div>
         <Checkbox label="Active (can be used for new tokens)" checked={isActive} onChange={setActive} />

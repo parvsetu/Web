@@ -1,5 +1,9 @@
 'use client';
 
+import { StateCityPicker } from '@/components/PlacePicker';
+import { SearchBar } from '@/components/SearchBar';
+import { usePagedList } from '@/lib/paged';
+
 import Link from 'next/link';
 import { useState } from 'react';
 import { api, asArray, errorMessage } from '@/lib/api';
@@ -36,24 +40,25 @@ export default function PlatformPage() {
 }
 
 function Orgs() {
-  const q = useAsync(() => api.get<Organization[] | Paged<Organization>>('/organizations').then((r) => asArray(r)), []);
+  const q = usePagedList<Organization>('/organizations', {}, { pageSize: 20 });
   const [creating, setCreating] = useState(false);
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
         <Button onClick={() => setCreating(true)}><Building2 aria-hidden className="h-4 w-4" /> New organisation</Button>
       </div>
+      <SearchBar value={q.search} onChange={q.setSearch} placeholder="Search mandal name or city" total={q.total} />
       {q.error && <Alert>{q.error}</Alert>}
       {q.loading && !q.data ? (
         <SkeletonList />
-      ) : (q.data ?? []).length === 0 ? (
-        <Empty title="No organisations yet" />
+      ) : q.items.length === 0 ? (
+        <Empty title={q.searching ? 'No mandals match your search' : 'No organisations yet'} />
       ) : (
-        (q.data ?? []).map((o) => (
+        q.items.map((o) => (
           <Card key={o.id} className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="font-bold">{o.name}</div>
-              <div className="text-sm text-slate-600">{[o.city, o.slug].filter(Boolean).join(' · ')}</div>
+              <div className="text-sm text-slate-600">{[o.city, o.state, o.slug].filter(Boolean).join(' · ')}</div>
             </div>
             <Link href={`/org/${o.id}`} className="inline-flex min-h-[44px] items-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white">
               Manage
@@ -61,6 +66,7 @@ function Orgs() {
           </Card>
         ))
       )}
+      <Pager page={q.page} pageSize={q.pageSize} total={q.total} onPage={q.setPage} />
       {creating && (
         <CreateOrg
           onClose={() => setCreating(false)}
@@ -75,7 +81,7 @@ function Orgs() {
 }
 
 function CreateOrg({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const [form, setForm] = useState({ name: '', city: '', address: '', slug: '' });
+  const [form, setForm] = useState({ name: '', state: '', city: '', address: '', slug: '' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((x) => ({ ...x, [k]: e.target.value }));
@@ -84,6 +90,7 @@ function CreateOrg({ onClose, onDone }: { onClose: () => void; onDone: () => voi
     if (!form.name.trim()) return setError('Enter a name.');
     if (form.slug && !/^[a-z0-9-]+$/.test(form.slug)) return setError('Slug may contain lowercase letters, digits and hyphens only.');
     const body: Record<string, string> = { name: form.name.trim() };
+    if (form.state) body.state = form.state;
     if (form.city.trim()) body.city = form.city.trim();
     if (form.address.trim()) body.address = form.address.trim();
     if (form.slug.trim()) body.slug = form.slug.trim();
@@ -102,7 +109,7 @@ function CreateOrg({ onClose, onDone }: { onClose: () => void; onDone: () => voi
     <Modal open onClose={onClose} title="New organisation">
       <form onSubmit={submit} className="flex flex-col gap-4">
         <LabeledInput label="Name" value={form.name} onChange={set('name')} />
-        <LabeledInput label="City (optional)" value={form.city} onChange={set('city')} />
+        <StateCityPicker state={form.state} city={form.city} onChange={(p) => setForm((x) => ({ ...x, ...p }))} />
         <Field label="Address (optional)">
           <Textarea value={form.address} onChange={set('address')} />
         </Field>

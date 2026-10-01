@@ -45,7 +45,7 @@ export function DateChips({
   theme: FestivalTheme;
 }) {
   return (
-    <div role="radiogroup" aria-label="Festival day" className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+    <div role="radiogroup" aria-label="Festival day" className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 pt-2.5 [scrollbar-width:none]">
       {days.map((d) => {
         const p = dayParts(d);
         const past = d < today;

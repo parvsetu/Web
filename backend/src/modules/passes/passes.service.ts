@@ -13,6 +13,7 @@ import { TokensService } from '../tokens/tokens.service';
 import { effectiveStatus } from '../tokens/token-presenter';
 import { PaymentProvider } from '../donations/payment-provider';
 import { PASS_GATEWAYS, demoPaymentsEnabled } from './pass-gateways';
+import { SponsorsService } from '../sponsors/sponsors.service';
 import { CreatePassOrderDto, PassOrderListQuery } from './passes.dto';
 
 /** How long an unpaid order holds its places. */
@@ -46,6 +47,7 @@ export class PassesService {
     private readonly audit: AuditService,
     private readonly tokens: TokensService,
     private readonly qr: QrSigner,
+    private readonly sponsors: SponsorsService,
     @Inject(PASS_GATEWAYS) private readonly gateways: PaymentProvider[],
   ) {}
 
@@ -96,6 +98,7 @@ export class PassesService {
       startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, maxVisitorsPerToken: e.maxVisitorsPerToken,
       organization: e.organization, onlinePayments: this.gateways.length > 0, holdMinutes: ORDER_HOLD_MINUTES,
       slots: slots.map((s) => ({ ...s, price: s.price.toFixed(2) })),
+      sponsors: await this.sponsors.forEvent(e.id),
     };
   }
 

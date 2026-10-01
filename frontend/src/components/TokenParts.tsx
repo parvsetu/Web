@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { saveBlob } from '@/lib/api';
-import { clampDate, fmtDate, fmtDateTime, localInputToIso, nowHHmmIn, todayIn } from '@/lib/format';
+import { DURATION_PRESETS, clampDate, durationLabel, fmtDate, fmtDateTime, localInputToIso, nowHHmmIn, todayIn } from '@/lib/format';
 import type { TimeSlot, TokenWithQr, Validity } from '@/lib/types';
 import { CalendarClock, Download, Printer, Share2, Users } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
@@ -11,11 +11,14 @@ import { QrImage, qrCardPng } from './QrImage';
 import { Badge, Button, Field, Input, LabeledInput, Select, cx } from './ui';
 
 export interface ValidityState {
-  mode: 'slot' | 'custom';
+  mode: 'slot' | 'duration' | 'custom';
   timeSlotId: string;
   date: string;
   validFrom: string; // datetime-local
   validUntil: string;
+  durationHours: number;
+  startNow: boolean;
+  startAt: string; // datetime-local
 }
 
 /** A slot's window has already ended if `date` is today (event tz) and its end time has passed. UI hint only. */
@@ -29,7 +32,7 @@ export function initialValidity(slots: TimeSlot[], startDate: string, endDate: s
   const date = startDate && endDate ? clampDate(today, startDate, endDate) : today;
   const active = [...slots].filter((s) => s.isActive).sort((a, b) => a.sortOrder - b.sortOrder || a.startTime.localeCompare(b.startTime));
   const first = active.find((s) => !slotEnded(s, date, tz)) ?? active[0];
-  return { mode: 'slot', timeSlotId: first?.id ?? '', date, validFrom: '', validUntil: '' };
+  return { mode: 'slot', timeSlotId: first?.id ?? '', date, validFrom: '', validUntil: '', durationHours: 0, startNow: true, startAt: '' };
 }
 
 /** Returns the API validity object, or an error string. */
@@ -38,6 +41,12 @@ export function buildValidity(v: ValidityState): Validity | string {
     if (!v.timeSlotId) return 'Choose a time slot.';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(v.date)) return 'Choose a date.';
     return { timeSlotId: v.timeSlotId, date: v.date };
+  }
+  if (v.mode === 'duration') {
+    if (!Number.isInteger(v.durationHours) || v.durationHours < 1) return 'Choose how many hours the pass is valid.';
+    if (v.startNow) return { durationHours: v.durationHours };
+    if (!v.startAt) return 'Choose when the pass starts.';
+    return { durationHours: v.durationHours, startAt: localInputToIso(v.startAt) };
   }
   if (!v.validFrom || !v.validUntil) return 'Enter both start and end time.';
   const from = localInputToIso(v.validFrom);
@@ -51,6 +60,7 @@ export function ValidityPicker({
   onChange,
   slots,
   allowCustom,
+  durationOptions = [],
   startDate,
   endDate,
   tz,
@@ -59,34 +69,90 @@ export function ValidityPicker({
   onChange: (v: ValidityState) => void;
   slots: TimeSlot[];
   allowCustom: boolean;
+  /** Presets the desk may use; admins (allowCustom) may use any duration. */
+  durationOptions?: number[];
   startDate: string;
   endDate: string;
   tz: string;
 }) {
   const active = slots.filter((s) => s.isActive).sort((a, b) => a.sortOrder - b.sortOrder || a.startTime.localeCompare(b.startTime));
   const set = (patch: Partial<ValidityState>) => onChange({ ...value, ...patch });
+  const presets = allowCustom ? DURATION_PRESETS : durationOptions;
+  const modes = (['slot', 'duration', 'custom'] as const).filter((m) => m === 'slot' || (m === 'duration' ? presets.length > 0 : allowCustom));
+  const MODE_LABEL = { slot: 'Time slot', duration: 'For N hours', custom: 'Custom time' };
   return (
     <div className="flex flex-col gap-3">
-      {allowCustom && (
-        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Validity type">
-          {(['slot', 'custom'] as const).map((m) => (
+      {modes.length > 1 && (
+        <div className={cx('grid gap-2', modes.length === 3 ? 'grid-cols-3' : 'grid-cols-2')} role="radiogroup" aria-label="Validity type">
+          {modes.map((m) => (
             <button
               key={m}
               type="button"
               role="radio"
               aria-checked={value.mode === m}
-              onClick={() => set({ mode: m })}
+              onClick={() => set({ mode: m, durationHours: m === 'duration' && !value.durationHours ? presets[0] ?? 3 : value.durationHours })}
               className={cx(
-                'min-h-[48px] rounded-xl border text-sm font-semibold',
-                value.mode === m ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white',
+                'min-h-[48px] rounded-xl border px-2 text-sm font-semibold',
+                value.mode === m ? 'border-transparent bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow' : 'border-orange-200 bg-white',
               )}
             >
-              {m === 'slot' ? 'Time slot' : 'Custom time'}
+              {MODE_LABEL[m]}
             </button>
           ))}
         </div>
       )}
-      {value.mode === 'slot' ? (
+      {value.mode === 'duration' ? (
+        <>
+          <Field label="Valid for">
+            <div className="flex flex-wrap gap-2">
+              {presets.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  aria-pressed={value.durationHours === h}
+                  onClick={() => set({ durationHours: h })}
+                  className={cx(
+                    'min-h-[48px] rounded-full px-4 text-sm font-bold',
+                    value.durationHours === h ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow' : 'bg-white ring-1 ring-orange-200 hover:bg-orange-50',
+                  )}
+                >
+                  {durationLabel(h)}
+                </button>
+              ))}
+            </div>
+          </Field>
+          {allowCustom && (
+            <LabeledInput
+              label="Or any number of hours"
+              type="number"
+              min={1}
+              max={744}
+              value={value.durationHours || ''}
+              onChange={(e) => set({ durationHours: Math.max(0, Math.min(744, Math.floor(Number(e.target.value) || 0))) })}
+            />
+          )}
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Starts">
+            {[true, false].map((now) => (
+              <button
+                key={String(now)}
+                type="button"
+                role="radio"
+                aria-checked={value.startNow === now}
+                onClick={() => set({ startNow: now })}
+                className={cx('min-h-[44px] rounded-xl border text-sm font-semibold', value.startNow === now ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-400' : 'border-orange-200 bg-white')}
+              >
+                {now ? 'Starts now' : 'Starts later'}
+              </button>
+            ))}
+          </div>
+          {!value.startNow && <LabeledInput label="Starts at" type="datetime-local" value={value.startAt} onChange={(e) => set({ startAt: e.target.value })} hint="Your device's local time" />}
+          {value.durationHours > 0 && (
+            <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+              Valid for {durationLabel(value.durationHours)} from {value.startNow ? 'the moment it is issued' : 'the chosen start time'}.
+            </p>
+          )}
+        </>
+      ) : value.mode === 'slot' ? (
         <>
           {active.length === 0 ? (
             <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">

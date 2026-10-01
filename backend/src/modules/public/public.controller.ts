@@ -1,4 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { SponsorsService } from '../sponsors/sponsors.service';
 import { Public } from '../../common/auth/decorators';
 import { EXPENSE_CATEGORIES, FESTIVAL_TYPES } from '../../common/festival-types';
 import { INDIA_STATES } from '../../common/india-locations';
@@ -8,7 +10,34 @@ import { PrismaService } from '../../prisma/prisma.service';
 @Public()
 @Controller('public')
 export class PublicController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly sponsors: SponsorsService) {}
+
+  /**
+   * Shareable festival page data (social previews, posters, promotion).
+   * Only ACTIVE / COMPLETED festivals are public; drafts stay private.
+   */
+  @Get('events/:eventId')
+  async event(@Param('eventId') eventId: string) {
+    const e = await this.prisma.event.findFirst({
+      where: { id: eventId, status: { in: ['ACTIVE', 'COMPLETED'] } },
+      select: {
+        id: true, name: true, festivalType: true, description: true, location: true, state: true, city: true,
+        startDate: true, endDate: true, timezone: true, status: true, publicBookingEnabled: true, volunteerRegistrationOpen: true,
+        organization: { select: { name: true, city: true, state: true } },
+        timeSlots: { where: { isActive: true }, select: { label: true, startTime: true, endTime: true, price: true }, orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }] },
+      },
+    });
+    if (!e) throw new NotFoundException('Festival not found');
+    const { timeSlots, ...rest } = e;
+    return {
+      ...rest,
+      startDate: ymd(e.startDate),
+      endDate: ymd(e.endDate),
+      timings: timeSlots.map((s) => ({ label: s.label, startTime: s.startTime, endTime: s.endTime, price: s.price.toFixed(2) })),
+      fromPrice: timeSlots.length ? Prisma.Decimal.min(...timeSlots.map((s) => s.price)).toFixed(2) : null,
+      sponsors: await this.sponsors.forEvent(e.id),
+    };
+  }
 
   /** Only what a would-be volunteer needs to pick an event — no stats, no ids beyond event/org. */
   @Get('events')

@@ -1,4 +1,6 @@
-import { IsEmail, IsIn, IsISO8601, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { IsEmail, IsIn, IsISO8601, IsOptional, IsString, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IssueTokenDto } from '../tokens/tokens.dto';
 import { MoneyField } from '../../common/money';
 import { PageQuery } from '../../common/http';
 
@@ -15,6 +17,8 @@ export class CreateDonationDto {
   @IsOptional() @IsString() @MaxLength(120) paymentReference?: string;
   @IsOptional() @IsString() @MaxLength(1000) notes?: string;
   @IsOptional() @IsISO8601() donatedAt?: string;
+  /** Issue entry passes to the donor with this donation (validity + people + perPerson). */
+  @IsOptional() @ValidateNested() @Type(() => IssueTokenDto) passes?: IssueTokenDto;
 }
 
 export class UpdateDonationDto {

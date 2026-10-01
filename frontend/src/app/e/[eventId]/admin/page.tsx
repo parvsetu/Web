@@ -6,7 +6,7 @@ import { can, canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
 import { EventGate } from '@/components/EventGate';
-import { BarChart3, Clock, FileBarChart, HandCoins, LayoutDashboard, ReceiptIndianRupee, ScanLine, Settings, Ticket, Users } from 'lucide-react';
+import { BarChart3, Clock, Globe, FileBarChart, HandCoins, LayoutDashboard, ReceiptIndianRupee, ScanLine, Settings, Ticket, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { fmtDate } from '@/lib/format';
 import { FestivalBanner } from '@/components/FestivalBanner';
@@ -18,6 +18,7 @@ import { VolunteersTab } from '@/components/admin/VolunteersTab';
 import { ScansTab } from '@/components/admin/ScansTab';
 import { ReportsTab } from '@/components/admin/ReportsTab';
 import { DonationsTab } from '@/components/admin/DonationsTab';
+import { PassOrdersTab } from '@/components/admin/PassOrdersTab';
 import { ExpensesTab } from '@/components/admin/ExpensesTab';
 import { EventSettingsTab } from '@/components/admin/EventSettingsTab';
 
@@ -28,6 +29,7 @@ const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] 
   { key: 'volunteers', label: 'Volunteers', icon: Users, anyOf: ['VOLUNTEER_VIEW'] },
   { key: 'scans', label: 'Scans', icon: ScanLine, anyOf: ['REPORT_VIEW'] },
   { key: 'reports', label: 'Reports', icon: FileBarChart, anyOf: ['REPORT_VIEW'] },
+  { key: 'passes', label: 'Online passes', icon: Globe, anyOf: ['DONATION_VIEW'] },
   { key: 'donations', label: 'Donations', icon: HandCoins, anyOf: ['DONATION_VIEW'] },
   { key: 'expenses', label: 'Expenses', icon: ReceiptIndianRupee, anyOf: ['EXPENSE_VIEW'] },
   { key: 'settings', label: 'Settings', icon: Settings, anyOf: ['EVENT_UPDATE'] },
@@ -96,6 +98,7 @@ function Admin() {
       {tab === 'volunteers' && <VolunteersTab />}
       {tab === 'scans' && <ScansTab />}
       {tab === 'reports' && <ReportsTab />}
+      {tab === 'passes' && <PassOrdersTab />}
       {tab === 'donations' && <DonationsTab />}
       {tab === 'expenses' && <ExpensesTab />}
       {tab === 'settings' && (can(ev.perms, 'EVENT_UPDATE') ? <EventSettingsTab /> : null)}

@@ -6,9 +6,10 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { CircleX, Clock3, Hourglass, LinkIcon, RotateCcw, Ticket, TicketPlus, Wallet } from 'lucide-react';
 import { PublicShell } from '@/components/booking/PublicShell';
 import { PassActions, PassCard } from '@/components/booking/PassCard';
+import { PassCarousel } from '@/components/booking/PassCarousel';
 import { Alert, Button, Empty, Skeleton, Spinner } from '@/components/ui';
 import { fmtMoney } from '@/lib/format';
-import { BookingError, booking, bookingErrorMessage, demoPayHref, fmtPassTime, savePass } from '@/lib/booking';
+import { BookingError, booking, bookingErrorMessage, demoPayHref, fmtPassTime, orderPasses, savePass } from '@/lib/booking';
 import type { PassOrder } from '@/lib/booking-types';
 
 const POLL_MS = 4000;
@@ -45,7 +46,7 @@ function PassView() {
   }, [k, load]);
 
   // Wait for payment confirmation (PENDING, or PAID before the pass is minted).
-  const waiting = !!order && (order.status === 'PENDING' || (order.status === 'PAID' && !order.pass));
+  const waiting = !!order && (order.status === 'PENDING' || (order.status === 'PAID' && orderPasses(order).length === 0));
   useEffect(() => {
     if (!waiting) return;
     const id = setInterval(() => void load(), POLL_MS);
@@ -91,22 +92,33 @@ function PassView() {
 
   const bookAgain = `/book/${order.event.id}`;
 
-  if (order.status === 'PAID' && order.pass) {
-    const o = order as PassOrder & { pass: NonNullable<PassOrder['pass']> };
+  const passes = orderPasses(order);
+  if (order.status === 'PAID' && passes.length > 0) {
+    const multi = passes.length > 1;
     return (
       <div className="flex flex-col gap-4">
-        <style>{`@media print { .pass-ticket { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none !important; max-width: 420px; margin: 0 auto; } }`}</style>
+        <style>{`@media print { .pass-ticket { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none !important; max-width: 420px; margin: 0 auto 8mm; } }`}</style>
         <div className="no-print text-center">
-          <h1 className="text-2xl font-extrabold text-slate-900">Your pass is ready</h1>
-          <p className="text-sm text-slate-600">Keep this page or download the image — you’ll need the QR at the gate.</p>
+          <h1 className="text-2xl font-extrabold text-slate-900">{multi ? `Your ${passes.length} passes are ready` : 'Your pass is ready'}</h1>
+          <p className="text-sm text-slate-600">
+            {multi
+              ? 'One QR per person — swipe to see each one. Every QR is scanned once at the gate, so send each person their own.'
+              : 'Keep this page or download the image — you’ll need the QR at the gate.'}
+          </p>
         </div>
         {error && (
           <div className="no-print">
             <Alert kind="warning">Couldn’t refresh the pass status just now. Showing the last known details.</Alert>
           </div>
         )}
-        <PassCard order={o} />
-        <PassActions order={o} />
+        {multi ? (
+          <PassCarousel order={order} passes={passes} />
+        ) : (
+          <>
+            <PassCard order={order} pass={passes[0]} />
+            <PassActions order={order} pass={passes[0]} />
+          </>
+        )}
         <div className="no-print flex flex-col gap-2 pt-2 text-center text-sm">
           <p className="text-slate-500">Saved under My passes on this phone. Bookmark this page to open it anywhere.</p>
           <div className="flex justify-center gap-4 font-semibold">

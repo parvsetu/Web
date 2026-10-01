@@ -182,12 +182,22 @@ export class TokensService {
   // ─── Issue ───────────────────────────────────────────────────────────
 
   async issue(actor: RequestUser, event: EventRef, perms: Set<string>, dto: IssueTokenDto) {
+    const visitorCount = dto.visitorCount ?? 1;
+    const ids = await this.prisma.$transaction((tx) => this.issueInTx(tx, actor, event, perms, dto));
+    if (!(dto.perPerson && visitorCount > 1)) return this.getWithQr(event.id, ids[0]);
+    const tokens = await Promise.all(ids.map((id) => this.getWithQr(event.id, id)));
+    return { count: tokens.length, tokens };
+  }
+
+  /** Issue inside the caller's transaction (desk issuance, passes for a donation). Returns token ids. */
+  async issueInTx(
+    tx: Prisma.TransactionClient, actor: RequestUser, event: EventRef, perms: Set<string>, dto: IssueTokenDto, donationId?: string,
+  ): Promise<string[]> {
     this.assertCanIssue(event);
     const visitorCount = this.visitorCount(event, dto.visitorCount);
     const mobile = dto.visitorMobile ? normalizeMobile(dto.visitorMobile) : null;
-
     const perPerson = !!dto.perPerson && visitorCount > 1;
-    const ids = await this.prisma.$transaction(async (tx) => {
+    {
       const v = await this.resolveValidity(tx, event, dto, perms);
       await this.checkCapacity(tx, v, visitorCount);
       const n = perPerson ? visitorCount : 1;
@@ -201,16 +211,13 @@ export class TokensService {
           data: {
             eventId: event.id, tokenCode: this.code(event, first + i), secureToken: this.qr.newSecureToken(),
             visitorId: visitor?.id ?? null, timeSlotId: v.timeSlotId, visitorCount: perPerson ? 1 : visitorCount,
-            validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id,
+            validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id, donationId: donationId ?? null,
           },
         });
         out.push(token.id);
       }
       return out;
-    });
-    if (!perPerson) return this.getWithQr(event.id, ids[0]);
-    const tokens = await Promise.all(ids.map((id) => this.getWithQr(event.id, id)));
-    return { count: tokens.length, tokens };
+    }
   }
 
   async bulkGenerate(actor: RequestUser, event: EventRef, perms: Set<string>, dto: BulkGenerateDto) {
