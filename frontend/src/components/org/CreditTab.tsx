@@ -79,6 +79,45 @@ export function CreditBanner({ status, orgId }: { status: Pick<CreditStatus, 'st
   );
 }
 
+/** From `/events/:id/credit-status`: how many more passes this event can issue from prepaid credit. */
+export interface EventAllowance {
+  state: CreditStatus['state'];
+  message: string | null;
+  balance: string;
+  feePerPass: string;
+  commissionPerPass: string;
+  partnerPrintFeePerPass: string;
+  printedPartners: number;
+  tokensLeft: number | null;
+}
+
+/** "You can issue N more passes" — always shown to whoever issues passes, not only on low credit. */
+export function IssueAllowance({ data, className }: { data: EventAllowance | null | undefined; className?: string }) {
+  if (!data) return null;
+  const tone = data.state === 'EXHAUSTED' ? 'border-red-200 bg-red-50 text-red-900' : data.state === 'LOW' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-emerald-200 bg-emerald-50 text-emerald-900';
+  return (
+    <div className={cx('flex items-center gap-3 rounded-2xl border px-4 py-3', tone, className)}>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/80">
+        <Ticket aria-hidden className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        {data.tokensLeft === null ? (
+          <p className="font-bold">You can issue unlimited passes for this event</p>
+        ) : (
+          <p className="font-bold">
+            You are eligible to issue <span className="text-lg tabular-nums">{data.tokensLeft.toLocaleString('en-IN')}</span> more pass{data.tokensLeft === 1 ? '' : 'es'} for this event
+          </p>
+        )}
+        <p className="text-xs opacity-80">
+          Credit {fmtMoney(data.balance)}
+          {data.tokensLeft !== null && <> · {fmtMoney(data.feePerPass)} per person{data.printedPartners > 0 ? ` (incl. ${fmtMoney(data.partnerPrintFeePerPass)} partner printing)` : ''}</>}
+          {' · '}group passes use one per person
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function CreditTab() {
   const org = useOrg();
   const status = useAsync(() => api.get<CreditStatus>(`/organizations/${org.orgId}/billing`), [org.orgId]);

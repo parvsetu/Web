@@ -1,3 +1,4 @@
+import type { Venue } from '@/components/VenueDetails';
 // Types for the public (no-login) pass booking API — see docs/API.md,
 // "Added: public pass booking (no login)". Money is a decimal string; the
 // server's `amount` is the only authoritative price.
@@ -15,6 +16,7 @@ export interface BookableEvent {
   festivalType: string;
   description: string | null;
   location: string | null;
+  venue?: Venue;
   state: string | null;
   city: string | null;
   /** YYYY-MM-DD in the event timezone. */
@@ -92,6 +94,7 @@ export interface PassOrder {
     festivalType: string;
     timezone: string;
     location: string | null;
+    venue?: Venue;
     organization: { name: string };
   };
   timeSlot: { label: string } | null;

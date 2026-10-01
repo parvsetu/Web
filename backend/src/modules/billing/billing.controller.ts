@@ -96,7 +96,6 @@ export class BillingController {
   @RequireAnyEventPermission('TOKEN_CREATE', 'TOKEN_GENERATE', 'DONATION_CREATE')
   @Get('events/:eventId/credit-status')
   async eventCredit(@Access() a: AccessContext) {
-    const s = await this.billing.status(a.organizationId);
-    return { state: s.state, message: s.message, tokensLeft: s.tokensLeft, feePerPass: s.feePerPass, balance: s.balance };
+    return this.billing.eventAllowance(a.organizationId, a.event!.id);
   }
 }

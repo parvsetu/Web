@@ -5,6 +5,7 @@ import { Public } from '../../common/auth/decorators';
 import { EXPENSE_CATEGORIES, FESTIVAL_TYPES } from '../../common/festival-types';
 import { INDIA_STATES } from '../../common/india-locations';
 import { ymd } from '../../common/time/validity';
+import { presentVenue, VENUE_SELECT } from '../../common/venue';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Public()
@@ -21,7 +22,7 @@ export class PublicController {
     const e = await this.prisma.event.findFirst({
       where: { id: eventId, status: { in: ['ACTIVE', 'COMPLETED'] } },
       select: {
-        id: true, name: true, festivalType: true, description: true, location: true, state: true, city: true,
+        id: true, name: true, festivalType: true, description: true, ...VENUE_SELECT,
         startDate: true, endDate: true, timezone: true, status: true, publicBookingEnabled: true, volunteerRegistrationOpen: true,
         organization: { select: { name: true, city: true, state: true } },
         timeSlots: { where: { isActive: true }, select: { label: true, startTime: true, endTime: true, price: true }, orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }] },
@@ -31,6 +32,7 @@ export class PublicController {
     const { timeSlots, ...rest } = e;
     return {
       ...rest,
+      venue: presentVenue(e),
       startDate: ymd(e.startDate),
       endDate: ymd(e.endDate),
       timings: timeSlots.map((s) => ({ label: s.label, startTime: s.startTime, endTime: s.endTime, price: s.price.toFixed(2) })),

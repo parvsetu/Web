@@ -1,9 +1,10 @@
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { VenueFields } from '../../common/venue';
 
 const STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'] as const;
 
-export class CreateEventDto {
+export class CreateEventDto extends VenueFields {
   @IsString() @Length(2, 150) name: string;
   @IsString() @Matches(/^[A-Z][A-Z0-9_]{1,40}$/, { message: 'festivalType must be an UPPER_SNAKE key, e.g. DURGA_PUJA' }) festivalType: string;
   @IsOptional() @IsString() @MaxLength(2000) description?: string;
@@ -29,7 +30,7 @@ export class CreateEventDto {
   @IsOptional() @IsInt() @Min(1) @Max(100) maxVisitorsPerToken?: number;
 }
 
-export class UpdateEventDto {
+export class UpdateEventDto extends VenueFields {
   @IsOptional() @IsString() @Length(2, 150) name?: string;
   @IsOptional() @IsString() @Matches(/^[A-Z][A-Z0-9_]{1,40}$/) festivalType?: string;
   @IsOptional() @IsString() @MaxLength(2000) description?: string;

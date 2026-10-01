@@ -16,6 +16,7 @@ export function EventSettingsTab() {
       <EventForm
         key={ev.detail.id}
         initial={ev.detail}
+        festivalTypes={ev.detail.organization?.festivalTypes}
         submitLabel="Save settings"
         onSubmit={async (body) => {
           await api.patch<EventDetail>(`/events/${ev.eventId}`, body);

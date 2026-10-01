@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { VenueCard } from '@/components/VenueDetails';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CalendarDays, Clock, HandHeart, MapPin, Ticket } from 'lucide-react';
@@ -55,6 +56,7 @@ export default async function FestivalPage({ params }: Props) {
           </p>
         )}
         {f.description && <p className="whitespace-pre-line px-1 text-slate-700">{f.description}</p>}
+        <VenueCard venue={f.venue} accent={t.ink} />
 
         {f.status === 'ACTIVE' && f.publicBookingEnabled && (
           <Link

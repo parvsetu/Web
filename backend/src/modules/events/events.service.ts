@@ -5,6 +5,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AccessService } from '../../common/access/access.service';
 import { RequestUser } from '../../common/auth/request-user';
 import { defaultPrefixFor } from '../../common/festival-types';
+import { presentVenue, venueData } from '../../common/venue';
 import { dateOnly, isValidTimezone, slotCrossesMidnight, ymd } from '../../common/time/validity';
 
 import { RolesService } from '../organizations/roles.service';
@@ -24,7 +25,7 @@ function gstData(dto: { gstEnabled?: boolean; gstRatePercent?: number; gstBearer
   };
 }
 
-export function presentEvent(e: Event & { organization?: { id: string; name: string } }, myPermissions?: Set<string>) {
+export function presentEvent(e: Event & { organization?: { id: string; name: string; festivalTypes?: string[] } }, myPermissions?: Set<string>) {
   return {
     id: e.id, organizationId: e.organizationId, organization: e.organization,
     name: e.name, festivalType: e.festivalType, description: e.description, location: e.location, state: e.state, city: e.city,
@@ -34,6 +35,9 @@ export function presentEvent(e: Event & { organization?: { id: string; name: str
     gstEnabled: e.gstEnabled, gstRatePercent: e.gstRateBps / 100, gstBearer: e.gstBearer, gstSac: e.gstSac,
     gstMode: e.gstMode, gstLowRatePercent: e.gstLowRateBps / 100, gstSlabThreshold: e.gstSlabThresholdPaise / 100,
     passPrintFormat: e.passPrintFormat,
+    venueAddress: e.venueAddress, venueLandmark: e.venueLandmark, venuePincode: e.venuePincode, venueMapUrl: e.venueMapUrl,
+    venueLat: e.venueLat, venueLng: e.venueLng, venueNotes: e.venueNotes, venueContactPhone: e.venueContactPhone,
+    venue: presentVenue(e),
     maxVisitorsPerToken: e.maxVisitorsPerToken, createdAt: e.createdAt,
     myPermissions: myPermissions ? [...myPermissions].sort() : undefined,
   };
@@ -60,14 +64,14 @@ export class EventsService {
       ...(t ? { OR: [{ name: { contains: t, mode: 'insensitive' } }, { festivalType: { contains: t.replace(/\s+/g, '_'), mode: 'insensitive' } }, { city: { contains: t, mode: 'insensitive' } }, { location: { contains: t, mode: 'insensitive' } }] } : {}),
     };
     const [events, total] = await Promise.all([
-      this.prisma.event.findMany({ where, orderBy: { startDate: 'desc' }, skip, take, include: { organization: { select: { id: true, name: true } } } }),
+      this.prisma.event.findMany({ where, orderBy: { startDate: 'desc' }, skip, take, include: { organization: { select: { id: true, name: true, festivalTypes: true } } } }),
       this.prisma.event.count({ where }),
     ]);
     return paged(events.map((e) => presentEvent(e)), total, page, pageSize);
   }
 
   async get(eventId: string, perms: Set<string>) {
-    const e = await this.prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: { organization: { select: { id: true, name: true } } } });
+    const e = await this.prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: { organization: { select: { id: true, name: true, festivalTypes: true } } } });
     return presentEvent(e, perms);
   }
 
@@ -87,7 +91,7 @@ export class EventsService {
       const ev = await tx.event.create({
         data: {
           organizationId: orgId, name: dto.name.trim(), festivalType: dto.festivalType,
-          description: dto.description, location: dto.location, startDate: s, endDate: e, timezone,
+          description: dto.description, location: dto.location, startDate: s, endDate: e, timezone, ...venueData(dto),
           ...(await this.defaultPlace(orgId, dto)),
           status: dto.status ?? 'DRAFT', tokenPrefix: dto.tokenPrefix ?? defaultPrefixFor(dto.festivalType),
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen ?? false,
@@ -96,7 +100,7 @@ export class EventsService {
           ...gstData(dto),
           maxVisitorsPerToken: dto.maxVisitorsPerToken ?? 10,
         },
-        include: { organization: { select: { id: true, name: true } } },
+        include: { organization: { select: { id: true, name: true, festivalTypes: true } } },
       });
       await this.audit.log({ organizationId: orgId, eventId: ev.id, actorId: actor.id, action: 'event.created', entityType: 'Event', entityId: ev.id, after: presentEvent(ev) }, tx);
       return presentEvent(ev);
@@ -125,14 +129,14 @@ export class EventsService {
         where: { id: eventId },
         data: {
           name: dto.name?.trim(), festivalType: dto.festivalType, description: dto.description, location: dto.location,
-          state: stateOrThrow(dto.state), city: dto.city?.trim(),
+          state: stateOrThrow(dto.state), city: dto.city?.trim(), ...venueData(dto),
           startDate: s, endDate: e, timezone, status: dto.status, tokenPrefix: dto.tokenPrefix,
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen, publicBookingEnabled: dto.publicBookingEnabled,
           tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
           ...gstData(dto),
           maxVisitorsPerToken: dto.maxVisitorsPerToken,
         },
-        include: { organization: { select: { id: true, name: true } } },
+        include: { organization: { select: { id: true, name: true, festivalTypes: true } } },
       });
       await this.audit.log({
         organizationId: ev.organizationId, eventId, actorId: actor.id, action: 'event.updated', entityType: 'Event', entityId: eventId,
@@ -165,7 +169,7 @@ export class EventsService {
           { assignments: { some: { userId: actor.id, status: 'ACTIVE' } } },
         ],
       },
-      include: { organization: { select: { id: true, name: true } } },
+      include: { organization: { select: { id: true, name: true, festivalTypes: true } } },
       orderBy: { startDate: 'desc' },
     });
     const out = [];

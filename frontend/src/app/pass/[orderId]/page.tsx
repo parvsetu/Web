@@ -1,5 +1,6 @@
 'use client';
 
+import { VenueCard } from '@/components/VenueDetails';
 import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -121,6 +122,7 @@ function PassView() {
             <PassActions order={order} pass={passes[0]} />
           </>
         )}
+        <VenueCard venue={order.event.venue} className="no-print" />
         <OrderSponsors eventId={order.event.id} />
         <TaxInvoice order={order} />
         <PrintChooser initial={order.printFormat ?? 'A4'} />

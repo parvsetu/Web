@@ -19,7 +19,7 @@ import {
 } from '@/components/TokenParts';
 import { Clock, Plus, Printer, QrCode, Ticket, UserRound, Users } from 'lucide-react';
 import { Alert, Button, Card, LabeledInput, SectionTitle, SkeletonList, cx } from '@/components/ui';
-import { CreditBanner, type CreditStatus } from '@/components/org/CreditTab';
+import { CreditBanner, IssueAllowance, type EventAllowance } from '@/components/org/CreditTab';
 import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '@/components/PrintFormat';
 import type { SponsorPublic } from '@/components/SponsorStrip';
 
@@ -48,7 +48,7 @@ function IssueForm() {
   const [perPerson, setPerPerson] = useState(true);
   const [printFormat, setPrintFormat] = useState<PrintFormat>(ev.detail?.passPrintFormat ?? 'A4');
   const maxVisitors = ev.detail?.maxVisitorsPerToken ?? 10;
-  const credit = useAsync(() => api.get<CreditStatus>(`/events/${ev.eventId}/credit-status`), [ev.eventId, issued?.length ?? 0]);
+  const credit = useAsync(() => api.get<EventAllowance>(`/events/${ev.eventId}/credit-status`), [ev.eventId, issued?.length ?? 0]);
   const sponsors = useAsync(() => api.get<SponsorPublic[]>(`/events/${ev.eventId}/sponsors`), [ev.eventId]);
 
   useEffect(() => {
@@ -122,6 +122,7 @@ function IssueForm() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <CreditBanner status={credit.data} orgId={ev.organization?.id} />
+      <IssueAllowance data={credit.data} />
       {slots.error && <Alert>{slots.error}</Alert>}
       {ev.status && ev.status !== 'ACTIVE' && ev.status !== 'DRAFT' && (
         <Alert kind="warning">Tokens can only be issued for Draft or Active festivals.</Alert>

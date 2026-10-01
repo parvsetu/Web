@@ -1,5 +1,6 @@
 'use client';
 
+import { VenueCard } from '@/components/VenueDetails';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -263,6 +264,7 @@ export default function BookEventPage() {
         />
         {event.description && <p className="px-1 text-slate-700">{event.description}</p>}
         <SponsorStrip sponsors={event.sponsors} compact />
+        <VenueCard venue={event.venue} map={false} />
 
         {festivalOver ? (
           <Empty title="This festival has ended" icon={CalendarX}>

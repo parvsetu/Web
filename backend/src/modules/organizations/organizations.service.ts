@@ -48,7 +48,7 @@ export class OrganizationsService {
   async get(orgId: string) {
     return this.prisma.organization.findUniqueOrThrow({
       where: { id: orgId },
-      select: { id: true, name: true, slug: true, state: true, city: true, address: true, createdAt: true },
+      select: { id: true, name: true, slug: true, state: true, city: true, address: true, festivalTypes: true, createdAt: true },
     });
   }
 
@@ -66,7 +66,7 @@ export class OrganizationsService {
     return this.prisma.$transaction(async (tx) => {
       const org = await tx.organization.update({
         where: { id: orgId },
-        data: { name: dto.name, state: dto.state === undefined ? undefined : stateOrThrow(dto.state), city: dto.city?.trim(), address: dto.address },
+        data: { name: dto.name, state: dto.state === undefined ? undefined : stateOrThrow(dto.state), city: dto.city?.trim(), address: dto.address, festivalTypes: dto.festivalTypes ? [...new Set(dto.festivalTypes)] : undefined },
       });
       await this.audit.log({ organizationId: orgId, actorId: actor.id, action: 'organization.updated', entityType: 'Organization', entityId: orgId, before, after: org }, tx);
       return org;

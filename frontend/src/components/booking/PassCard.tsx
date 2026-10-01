@@ -1,6 +1,7 @@
 'use client';
 
 import { PassSponsors } from '@/components/SponsorStrip';
+import { hasVenue, VenueLines } from '@/components/VenueDetails';
 
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -95,10 +96,16 @@ export function PassCard({ order, pass, index = 0, total = 1 }: { order: PassOrd
         <Row icon={User} label="Name">
           {order.buyerName}
         </Row>
-        {order.event.location && (
+        {hasVenue(order.event.venue) ? (
           <Row icon={MapPin} label="Venue">
-            {order.event.location}
+            <VenueLines venue={order.event.venue} />
           </Row>
+        ) : (
+          order.event.location && (
+            <Row icon={MapPin} label="Venue">
+              {order.event.location}
+            </Row>
+          )
         )}
         <Row icon={IndianRupee} label={total > 1 ? 'Order' : 'Paid'}>
           {isFree(order.amount) ? 'Free pass' : fmtMoney(order.amount, order.currency)}

@@ -160,6 +160,8 @@ model Organization {
   state     String?
   city      String?
   address   String?
+  /// Festival/event types this mandal celebrates; the event form lists only these. Empty = show all.
+  festivalTypes String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -251,6 +253,14 @@ model Event {
   location                  String?
   state                     String?
   city                      String?
+  venueAddress              String?
+  venueLandmark             String?
+  venuePincode              String?
+  venueMapUrl               String?
+  venueLat                  Float?
+  venueLng                  Float?
+  venueNotes                String?
+  venueContactPhone         String?
   startDate                 DateTime    @db.Date
   endDate                   DateTime    @db.Date
   timezone                  String      @default("Asia/Kolkata")

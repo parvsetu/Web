@@ -74,9 +74,11 @@ export function StateCityPicker({
 }
 
 /** Festival type dropdown grouped by tradition, with the usual months as a hint. */
-export function FestivalTypeSelect({ value, onChange, label = 'Festival type' }: { value: string; onChange: (v: string) => void; label?: string }) {
+/** `only`: the mandal's chosen festivals (empty/undefined = all). The current value always stays listed. */
+export function FestivalTypeSelect({ value, onChange, label = 'Festival type', only }: { value: string; onChange: (v: string) => void; label?: string; only?: string[] }) {
   const types = useFestivalTypes();
-  const list = types.data ?? [];
+  const all = types.data ?? [];
+  const list = only?.length ? all.filter((t) => only.includes(t.key) || t.key === value) : all;
   const groups = [...new Set(list.map((t) => t.group))];
   const sel = list.find((t) => t.key === value);
   return (
@@ -89,7 +91,7 @@ export function FestivalTypeSelect({ value, onChange, label = 'Festival type' }:
           ))}
         </optgroup>
       ))}
-      {value && list.length > 0 && !sel && <option value={value}>{humanize(value)}</option>}
+      {value && all.length > 0 && !sel && <option value={value}>{humanize(value)}</option>}
     </LabeledSelect>
   );
 }

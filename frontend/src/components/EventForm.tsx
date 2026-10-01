@@ -6,6 +6,7 @@ import { DEFAULT_TZ, DURATION_PRESETS, durationLabel, humanize } from '@/lib/for
 import type { EventBody, EventDetail, EventStatus } from '@/lib/types';
 import { FestivalBadge } from './FestivalBanner';
 import { Alert, Button, Checkbox, Field, LabeledInput, LabeledSelect, Textarea, cx } from './ui';
+import { LocateFixed, MapPin } from 'lucide-react';
 import { FestivalTypeSelect, StateCityPicker } from './PlacePicker';
 import { PrintFormatPicker, type PrintFormat } from './PrintFormat';
 import { useFestivalTypes } from '@/lib/catalog';
@@ -18,7 +19,10 @@ export function EventForm({
   initial,
   onSubmit,
   submitLabel,
+  festivalTypes,
 }: {
+  /** The mandal's chosen festivals; the type dropdown lists only these (empty = all). */
+  festivalTypes?: string[];
   initial?: EventDetail | null;
   onSubmit: (body: EventBody) => Promise<void>;
   submitLabel: string;
@@ -48,7 +52,15 @@ export function EventForm({
     gstBearer: (initial?.gstBearer ?? 'CUSTOMER') as 'CUSTOMER' | 'MANDAL',
     gstSac: initial?.gstSac ?? '9996',
     passPrintFormat: (initial?.passPrintFormat ?? 'A4') as PrintFormat,
+    venueAddress: initial?.venueAddress ?? '',
+    venueLandmark: initial?.venueLandmark ?? '',
+    venuePincode: initial?.venuePincode ?? '',
+    venueMapUrl: initial?.venueMapUrl ?? '',
+    venueCoords: initial?.venueLat != null && initial?.venueLng != null ? `${initial.venueLat}, ${initial.venueLng}` : '',
+    venueNotes: initial?.venueNotes ?? '',
+    venueContactPhone: initial?.venueContactPhone ?? '',
   });
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,6 +74,9 @@ export function EventForm({
     setOk(false);
     if (!form.name.trim()) return setError('Enter a festival name.');
     if (!form.festivalType) return setError('Choose a festival type.');
+    const coords = parseCoords(form.venueCoords);
+    if (form.venueCoords.trim() && !coords) return setError('Map pin must be "latitude, longitude", e.g. 18.5204, 73.8567.');
+    if (form.venuePincode.trim() && !/^\d{6}$/.test(form.venuePincode.trim())) return setError('PIN code must be 6 digits.');
     if (!form.startDate || !form.endDate) return setError('Choose start and end dates.');
     if (form.endDate < form.startDate) return setError('End date cannot be before start date.');
     if (form.tokenPrefix && !/^[A-Z0-9]{2,6}$/.test(form.tokenPrefix)) return setError('Token prefix must be 2–6 capital letters or digits.');
@@ -88,6 +103,14 @@ export function EventForm({
       gstBearer: form.gstBearer,
       gstSac: form.gstSac.trim() || '9996',
       passPrintFormat: form.passPrintFormat,
+      venueAddress: form.venueAddress.trim(),
+      venueLandmark: form.venueLandmark.trim(),
+      venuePincode: form.venuePincode.trim(),
+      venueMapUrl: form.venueMapUrl.trim(),
+      venueLat: coords ? coords[0] : null,
+      venueLng: coords ? coords[1] : null,
+      venueNotes: form.venueNotes.trim(),
+      venueContactPhone: form.venueContactPhone.trim(),
       maxVisitorsPerToken: max,
       ...(form.state || initial ? { state: form.state } : {}),
       ...(form.city || initial ? { city: form.city.trim() } : {}),
@@ -108,17 +131,69 @@ export function EventForm({
       <LabeledInput label="Festival name" value={form.name} onChange={set('name')} placeholder="e.g. Sarvajanik Utsav 2026" />
       <div className="flex items-end gap-3">
         <div className="min-w-0 flex-1">
-          <FestivalTypeSelect value={form.festivalType} onChange={(v) => setForm((x) => ({ ...x, festivalType: v }))} />
+          <FestivalTypeSelect only={festivalTypes} value={form.festivalType} onChange={(v) => setForm((x) => ({ ...x, festivalType: v }))} />
         </div>
         <FestivalBadge type={form.festivalType || null} className="h-14 w-14" />
       </div>
+      {!!festivalTypes?.length && (
+        <p className="-mt-2 text-xs text-slate-500">Showing only your mandal’s festivals. Change the list in Mandal → Settings.</p>
+      )}
       {types.error && <Alert kind="warning">Could not load festival types: {types.error}</Alert>}
       <div className="grid grid-cols-2 gap-3">
         <LabeledInput label="Start date" type="date" value={form.startDate} onChange={set('startDate')} />
         <LabeledInput label="End date" type="date" value={form.endDate} onChange={set('endDate')} />
       </div>
       <StateCityPicker state={form.state} city={form.city} onChange={(p) => setForm((x) => ({ ...x, ...p }))} />
-      <LabeledInput label="Venue / pandal address" value={form.location} onChange={set('location')} placeholder="e.g. Salt Lake Sector 1, near FD Park" />
+      <div className="flex flex-col gap-3 rounded-2xl border border-sky-200 bg-sky-50/40 p-3">
+        <p className="flex items-center gap-2 font-semibold text-slate-800">
+          <MapPin aria-hidden className="h-5 w-5 text-sky-600" /> Venue &amp; directions <span className="text-xs font-normal text-slate-500">— printed on every pass</span>
+        </p>
+        <LabeledInput label="Venue / pandal name" value={form.location} onChange={set('location')} placeholder="e.g. Salt Lake Central Park pandal" />
+        <LabeledInput label="Street address" value={form.venueAddress} onChange={set('venueAddress')} placeholder="e.g. Sector 1, Salt Lake" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <LabeledInput label="Landmark" value={form.venueLandmark} onChange={set('venueLandmark')} placeholder="e.g. FD Park gate no. 2" />
+          <LabeledInput label="PIN code" value={form.venuePincode} onChange={set('venuePincode')} inputMode="numeric" maxLength={6} placeholder="700064" />
+        </div>
+        <LabeledInput
+          label="Google Maps link (optional)"
+          value={form.venueMapUrl}
+          onChange={set('venueMapUrl')}
+          inputMode="url"
+          placeholder="https://maps.app.goo.gl/…"
+        />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1">
+            <LabeledInput label="Map pin (latitude, longitude — optional)" value={form.venueCoords} onChange={set('venueCoords')} placeholder="22.5800, 88.4150" />
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            loading={locating}
+            onClick={() => {
+              if (!navigator.geolocation) return setError('This browser can’t share your location.');
+              setLocating(true);
+              navigator.geolocation.getCurrentPosition(
+                (p) => {
+                  setForm((x) => ({ ...x, venueCoords: `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}` }));
+                  setLocating(false);
+                },
+                () => {
+                  setError('Couldn’t get your location — allow location access, or paste the pin.');
+                  setLocating(false);
+                },
+                { enableHighAccuracy: true, timeout: 15000 },
+              );
+            }}
+          >
+            <LocateFixed aria-hidden className="h-4 w-4" /> I’m at the venue
+          </Button>
+        </div>
+        <Field label="Entry, parking &amp; other directions (optional)">
+          <Textarea value={form.venueNotes} onChange={set('venueNotes')} placeholder="e.g. Enter from Gate 2. Parking at Central Park lot. Wheelchair ramp near the main stage." />
+        </Field>
+        <LabeledInput label="Help-desk phone (optional)" value={form.venueContactPhone} onChange={set('venueContactPhone')} inputMode="tel" placeholder="98xxxxxxxx" />
+        <p className="text-xs text-slate-500">No link or pin? Visitors get directions from the address. A pin or link is more accurate.</p>
+      </div>
       <Field label="Description">
         <Textarea value={form.description} onChange={set('description')} />
       </Field>
@@ -256,4 +331,12 @@ export function EventForm({
       </Button>
     </form>
   );
+}
+
+/** "18.52, 73.85" → [lat, lng]; null when blank or out of range. */
+function parseCoords(v: string): [number, number] | null {
+  const m = v.trim().match(/^(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)$/);
+  if (!m) return null;
+  const lat = Number(m[1]), lng = Number(m[2]);
+  return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? [lat, lng] : null;
 }

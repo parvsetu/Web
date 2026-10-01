@@ -115,6 +115,7 @@ export interface Organization {
   state?: string | null;
   city?: string | null;
   address?: string | null;
+  festivalTypes?: string[];
   createdAt?: string;
 }
 
@@ -191,7 +192,7 @@ export interface AuditLog {
 export interface EventDetail {
   id: string;
   organizationId: string;
-  organization: IdName;
+  organization: IdName & { festivalTypes?: string[] };
   name: string;
   festivalType: string;
   description: string | null;
@@ -214,6 +215,14 @@ export interface EventDetail {
   gstBearer?: 'CUSTOMER' | 'MANDAL';
   gstSac?: string;
   passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
+  venueAddress?: string | null;
+  venueLandmark?: string | null;
+  venuePincode?: string | null;
+  venueMapUrl?: string | null;
+  venueLat?: number | null;
+  venueLng?: number | null;
+  venueNotes?: string | null;
+  venueContactPhone?: string | null;
   maxVisitorsPerToken: number;
   createdAt: string;
   myPermissions: string[];
@@ -240,6 +249,14 @@ export interface EventBody {
   gstBearer?: 'CUSTOMER' | 'MANDAL';
   gstSac?: string;
   passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
+  venueAddress?: string;
+  venueLandmark?: string;
+  venuePincode?: string;
+  venueMapUrl?: string;
+  venueLat?: number | null;
+  venueLng?: number | null;
+  venueNotes?: string;
+  venueContactPhone?: string;
   maxVisitorsPerToken?: number;
   state?: string;
   city?: string;

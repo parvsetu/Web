@@ -1,6 +1,9 @@
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsEmail, IsIn, IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from 'class-validator';
 import { SearchPageQuery } from '../../common/http';
+import { FESTIVAL_TYPES } from '../../common/festival-types';
+
+const FESTIVAL_KEYS = FESTIVAL_TYPES.map((f) => f.key);
 
 export class CreateOrganizationDto {
   @IsString() @Length(2, 150) name: string;
@@ -15,6 +18,7 @@ export class UpdateOrganizationDto {
   @IsOptional() @IsString() @MaxLength(80) state?: string;
   @IsOptional() @IsString() @MaxLength(100) city?: string;
   @IsOptional() @IsString() @MaxLength(500) address?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(200) @IsIn(FESTIVAL_KEYS, { each: true }) festivalTypes?: string[];
 }
 
 export class AddMemberDto {

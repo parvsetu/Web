@@ -1,4 +1,5 @@
 import type { SponsorPublic } from '@/components/SponsorStrip';
+import type { Venue } from '@/components/VenueDetails';
 
 export interface PublicFestival {
   id: string;
@@ -6,6 +7,7 @@ export interface PublicFestival {
   festivalType: string;
   description: string | null;
   location: string | null;
+  venue?: Venue;
   state: string | null;
   city: string | null;
   startDate: string;

@@ -181,6 +181,25 @@ export class BillingService {
 
   // ─── Status / history ──────────────────────────────────────────────
 
+  /**
+   * How many single-person passes this event can still issue from credit: each one costs the
+   * commission plus the partner printing fee for every partner printed on this event's passes.
+   */
+  async eventAllowance(organizationId: string, eventId: string) {
+    const st = await this.status(organizationId);
+    const [b, r, sponsors] = await Promise.all([
+      this.prisma.orgBilling.findUniqueOrThrow({ where: { organizationId } }),
+      this.rates(this.prisma, organizationId),
+      this.passSponsors(this.prisma, organizationId, eventId),
+    ]);
+    const perPass = r.unitFeePaise + r.sponsorPassFeePaise * sponsors.length;
+    return {
+      state: st.state, message: st.message, balance: st.balance, feePerPass: rupees(perPass),
+      commissionPerPass: rupees(r.unitFeePaise), partnerPrintFeePerPass: rupees(r.sponsorPassFeePaise * sponsors.length), printedPartners: sponsors.length,
+      tokensLeft: perPass > 0 ? Math.floor(b.creditBalancePaise / perPass) : null,
+    };
+  }
+
   async status(organizationId: string) {
     await this.ensureAccount(this.prisma, organizationId);
     const [b, r] = await Promise.all([

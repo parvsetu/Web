@@ -77,6 +77,7 @@ export function OrgEventsTab() {
       <Pager page={q.page} pageSize={q.pageSize} total={q.total} onPage={q.setPage} />
       <Modal open={creating} onClose={() => setCreating(false)} title="New festival" wide>
         <EventForm
+          festivalTypes={org.org?.festivalTypes}
           submitLabel="Create festival"
           onSubmit={async (body) => {
             const created = await api.post<EventDetail>(`/organizations/${org.orgId}/events`, body);
