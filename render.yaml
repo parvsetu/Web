@@ -39,8 +39,10 @@ services:
         value: "1"
       - key: PAYMENTS_MOCK_ENABLED
         value: "false"
-      - key: SEED_DEMO
+      - key: SEED_DEMO            # set "true" (plus DEMO_PASSWORD) to load demo mandals/events/tokens once
         value: "false"
+      - key: DEMO_PASSWORD        # password for the demo accounts on this deployment (min 10 chars)
+        sync: false
       - key: CORS_ORIGINS          # your Vercel URL(s), comma separated; * = one label, e.g. https://parvsetu-*.vercel.app
         sync: false
       - key: BOOTSTRAP_ADMIN_MOBILE

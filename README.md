@@ -31,7 +31,10 @@ cp .env.example .env.local
 npm install && npm run dev           # http://localhost:3000
 ```
 
-### Demo logins (password `Parvsetu@123`)
+### Demo logins (local password `Parvsetu@123`)
+
+On a deployed instance the demo accounts use `DEMO_PASSWORD` from the host's
+environment instead, and the demo super admin (`9000000001`) is not created.
 
 | Who | Login | Can |
 |---|---|---|

@@ -27,19 +27,29 @@ export async function seedCatalog(db: PrismaClient = prisma) {
   }
 }
 
-const DEMO_PASSWORD = 'Parvsetu@123';
+const LOCAL_DEMO_PASSWORD = 'Parvsetu@123';
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 async function seedDemo() {
   if (await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } })) {
     console.log('Demo data already present — skipping (delete the demo orgs to reseed).');
     return;
   }
-  const hash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  // The local default password is published in the README. On a deployed
+  // (public) instance the demo password must come from env, and no demo super
+  // admin is created — the BOOTSTRAP_ADMIN account already is one.
+  const password = process.env.DEMO_PASSWORD ?? (IS_PROD ? '' : LOCAL_DEMO_PASSWORD);
+  if (password.length < 10) {
+    // Warn, don't throw: a failed seed would also stop the API from starting.
+    console.warn('SEED_DEMO is on but DEMO_PASSWORD (min 10 chars) is not set — skipping demo data.');
+    return;
+  }
+  const hash = await bcrypt.hash(password, 10);
   const role = async (key: string) => (await prisma.role.findFirstOrThrow({ where: { organizationId: null, key } })).id;
   const user = (name: string, mobile: string, email: string, isSuperAdmin = false) =>
     prisma.user.create({ data: { name, mobile, email, passwordHash: hash, isSuperAdmin } });
 
-  const superAdmin = await user('Platform Admin', '9000000001', 'super@parvsetu.dev', true);
+  const superAdmin = IS_PROD ? null : await user('Platform Admin', '9000000001', 'super@parvsetu.dev', true);
   const admin = await user('Ananya Sen', '9000000002', 'admin@parvsetu.dev');
   const gate = await user('Rahul Das', '9000000003', 'gate@parvsetu.dev');
   const desk = await user('Priya Roy', '9000000004', 'desk@parvsetu.dev');
@@ -47,6 +57,9 @@ async function seedDemo() {
   const treasurer = await user('Meera Bose', '9000000006', 'treasurer@parvsetu.dev');
   const otherAdmin = await user('Kiran Patel', '9000000007', 'navratri-admin@parvsetu.dev');
   const applicant = await user('Arjun Mehta', '9000000008', 'applicant@parvsetu.dev');
+  const gate2 = await user('Sourav Pal', '9000000009', 'gate2@parvsetu.dev');
+  const gate3 = await user('Ishita Dey', '9000000010', 'gate3@parvsetu.dev');
+  const supervisor = await user('Debasish Kar', '9000000011', 'supervisor@parvsetu.dev');
 
   const tz = 'Asia/Kolkata';
   const today = DateTime.now().setZone(tz).startOf('day');
@@ -88,6 +101,10 @@ async function seedDemo() {
     data: [
       { eventId: durga.id, userId: gate.id, roleId: await role('VOLUNTEER'), assignedById: admin.id },
       { eventId: durga.id, userId: desk.id, roleId: await role('TOKEN_ISSUER'), assignedById: admin.id },
+      { eventId: durga.id, userId: gate2.id, roleId: await role('VOLUNTEER'), assignedById: admin.id },
+      { eventId: durga.id, userId: gate3.id, roleId: await role('VOLUNTEER'), assignedById: admin.id },
+      { eventId: durga.id, userId: supervisor.id, roleId: await role('GATE_SUPERVISOR'), assignedById: admin.id },
+      { eventId: navratri.id, userId: gate.id, roleId: await role('VOLUNTEER'), assignedById: otherAdmin.id, status: 'INACTIVE' },
     ],
   });
   await prisma.volunteerApplication.create({ data: { userId: applicant.id, organizationId: mandal.id, eventId: durga.id, message: 'I can help at the gate in the evenings.' } });
@@ -102,57 +119,90 @@ async function seedDemo() {
     }
   }
 
-  // A few Durga Puja tokens: some used today, one cancelled, the rest open.
+  // Durga Puja tokens for yesterday and today, every slot. Ended slots are
+  // mostly used (spread across three gates), with some no-shows, cancellations,
+  // duplicate attempts and the odd too-early / expired / invalid scan, so every
+  // report and the dashboard have something real to show.
   const slots = await prisma.timeSlot.findMany({ where: { eventId: durga.id }, orderBy: { sortOrder: 'asc' } });
+  const gates = [gate, gate2, gate3];
   let seq = 0;
   const now = new Date();
-  for (const slot of slots) {
-    const from = DateTime.fromISO(`${today.toISODate()}T${slot.startTime}`, { zone: tz });
-    const until = DateTime.fromISO(`${today.toISODate()}T${slot.endTime}`, { zone: tz });
-    for (let i = 0; i < 8; i++) {
-      seq++;
+  for (const day of [today.minus({ days: 1 }), today]) {
+    for (const slot of slots) {
+      const from = DateTime.fromISO(`${day.toISODate()}T${slot.startTime}`, { zone: tz });
+      const until = DateTime.fromISO(`${day.toISODate()}T${slot.endTime}`, { zone: tz });
       const ended = until.toJSDate() <= now;
-      const used = ended ? i < 6 : i < 2 && from.toJSDate() <= now;
-      const token = await prisma.token.create({
-        data: {
-          eventId: durga.id, tokenCode: `DUR-${today.year}-${String(seq).padStart(6, '0')}`, secureToken: randomBytes(16).toString('base64url'),
-          timeSlotId: slot.id, visitorCount: 1 + (i % 3), validFrom: from.toJSDate(), validUntil: until.toJSDate(), issuedById: desk.id,
-          status: used ? 'USED' : i === 7 ? 'CANCELLED' : 'ACTIVE',
-          usedAt: used ? from.plus({ minutes: 10 + i * 7 }).toJSDate() : null, usedById: used ? gate.id : null,
-          cancelledAt: !used && i === 7 ? now : null, cancelledById: !used && i === 7 ? admin.id : null,
-          cancellationReason: !used && i === 7 ? 'Duplicate booking' : null,
-        },
-      });
-      if (used) {
-        await prisma.scanLog.create({ data: { tokenId: token.id, eventId: durga.id, userId: gate.id, result: 'SUCCESS', scanTime: token.usedAt! } });
-        if (i === 0) await prisma.scanLog.create({ data: { tokenId: token.id, eventId: durga.id, userId: gate.id, result: 'ALREADY_USED', scanTime: from.plus({ minutes: 40 }).toJSDate() } });
+      const started = from.toJSDate() <= now;
+      const perSlot = 10 + ((seq * 7) % 9);
+      for (let i = 0; i < perSlot; i++) {
+        seq++;
+        const cancelled = i === perSlot - 1;
+        const used = !cancelled && (ended ? i < perSlot - 3 : started && i < 3);
+        const scanner = gates[seq % gates.length];
+        const usedAt = used ? from.plus({ minutes: 5 + ((i * 11) % 110) }) : null;
+        const token = await prisma.token.create({
+          data: {
+            eventId: durga.id, tokenCode: `DUR-${today.year}-${String(seq).padStart(6, '0')}`, secureToken: randomBytes(16).toString('base64url'),
+            timeSlotId: slot.id, visitorCount: 1 + (seq % 4), validFrom: from.toJSDate(), validUntil: until.toJSDate(), issuedById: desk.id,
+            issuedAt: from.minus({ hours: 2 + (i % 5) }).toJSDate(),
+            status: used ? 'USED' : cancelled ? 'CANCELLED' : 'ACTIVE',
+            usedAt: usedAt?.toJSDate() ?? null, usedById: used ? scanner.id : null,
+            cancelledAt: cancelled ? from.minus({ hours: 1 }).toJSDate() : null, cancelledById: cancelled ? admin.id : null,
+            cancellationReason: cancelled ? 'Visitor booked twice' : null,
+          },
+        });
+        if (used) {
+          await prisma.scanLog.create({ data: { tokenId: token.id, eventId: durga.id, userId: scanner.id, result: 'SUCCESS', scanTime: usedAt!.toJSDate() } });
+          if (i % 6 === 0) {
+            await prisma.scanLog.create({ data: { tokenId: token.id, eventId: durga.id, userId: gates[(seq + 1) % 3].id, result: 'ALREADY_USED', scanTime: usedAt!.plus({ minutes: 12 }).toJSDate() } });
+          }
+        }
+        if (cancelled && ended) {
+          await prisma.scanLog.create({ data: { tokenId: token.id, eventId: durga.id, userId: scanner.id, result: 'CANCELLED', scanTime: from.plus({ minutes: 20 }).toJSDate() } });
+        }
+        if (!used && !cancelled && ended && i === perSlot - 2) {
+          await prisma.scanLog.create({ data: { tokenId: token.id, eventId: durga.id, userId: scanner.id, result: 'EXPIRED', scanTime: until.plus({ minutes: 15 }).toJSDate() } });
+        }
+        if (i === 1 && started) {
+          await prisma.scanLog.create({ data: { tokenId: null, eventId: durga.id, userId: scanner.id, result: 'INVALID', failureReason: 'bad QR signature/format', scanTime: from.plus({ minutes: 30 }).toJSDate() } });
+        }
       }
     }
   }
   await prisma.event.update({ where: { id: durga.id }, data: { tokenSeq: seq } });
 
   const donations = [
-    ['Ravi Chatterjee', '5001.00', 'CASH'], ['Sunita Mukherjee', '2100.00', 'UPI'], ['Local Traders Assn.', '25000.00', 'BANK_TRANSFER'],
+    ['Ravi Chatterjee', '5001.00', 'CASH', 1], ['Sunita Mukherjee', '2100.00', 'UPI', 1], ['Local Traders Assn.', '25000.00', 'BANK_TRANSFER', 1],
+    ['Amit Banerjee', '1101.00', 'CASH', 0], ['Rina Saha', '501.00', 'UPI', 0], ['Salt Lake Residents Welfare', '15000.00', 'BANK_TRANSFER', 0],
+    ['Anonymous', '251.00', 'CASH', 0], ['Gupta Sweets', '3100.00', 'UPI', 0],
   ] as const;
-  for (const [i, [donorName, amount, method]] of donations.entries()) {
+  for (const [i, [donorName, amount, method, daysAgo]] of donations.entries()) {
     await prisma.donation.create({
       data: {
         eventId: durga.id, donorName, amount, method, paymentStatus: 'SUCCESS', paymentProvider: 'manual',
         receiptNo: `DUR-R-${today.year}-${String(i + 1).padStart(5, '0')}`, createdById: treasurer.id,
+        donatedAt: today.minus({ days: daysAgo }).plus({ hours: 10 + i }).toJSDate(),
+        paymentReference: method === 'UPI' ? `UPI${4100 + i}` : null,
       },
     });
   }
+  await prisma.donation.create({
+    data: { eventId: durga.id, donorName: 'Online donor (pending)', amount: '1001.00', method: 'ONLINE', paymentStatus: 'PENDING', paymentProvider: 'manual', createdById: treasurer.id },
+  });
   await prisma.event.update({ where: { id: durga.id }, data: { donationReceiptSeq: donations.length } });
   await prisma.expense.createMany({
     data: [
       { eventId: durga.id, category: 'Decoration', description: 'Pandal lighting', amount: '12000.00', expenseDate: d(today.minus({ days: 1 })), vendor: 'Bright Lights Co.', createdById: treasurer.id },
       { eventId: durga.id, category: 'Bhog', description: 'Prasad ingredients', amount: '4500.00', expenseDate: d(today), createdById: treasurer.id },
+      { eventId: durga.id, category: 'Idol', description: 'Pratima — balance payment', amount: '35000.00', expenseDate: d(today.minus({ days: 1 })), vendor: 'Kumartuli Artisans', createdById: treasurer.id },
+      { eventId: durga.id, category: 'Sound', description: 'Dhak players (2 days)', amount: '8000.00', expenseDate: d(today), vendor: 'Dhaki Sangha', createdById: treasurer.id },
+      { eventId: durga.id, category: 'Security', description: 'Night guards', amount: '6000.00', expenseDate: d(today), vendor: 'SafeGuard Services', createdById: treasurer.id },
     ],
   });
 
   console.log(`
-Demo data created. Password for every demo account: ${DEMO_PASSWORD}
-  super admin        9000000001  super@parvsetu.dev
+Demo data created (${seq} Durga Puja tokens). Demo password: ${IS_PROD ? '(DEMO_PASSWORD from env)' : password}
+  super admin        9000000001  super@parvsetu.dev          ${IS_PROD ? '(not created in production)' : ''}
   mandal admin       9000000002  admin@parvsetu.dev          (Shree Durga Mandal)
   gate volunteer     9000000003  gate@parvsetu.dev           (Durga Puja: scan only)
   token desk         9000000004  desk@parvsetu.dev           (Durga Puja: issue + scan)
@@ -160,7 +210,8 @@ Demo data created. Password for every demo account: ${DEMO_PASSWORD}
   treasurer          9000000006  treasurer@parvsetu.dev
   other mandal admin 9000000007  navratri-admin@parvsetu.dev (Navratri Seva Samiti — isolated)
   pending applicant  9000000008  applicant@parvsetu.dev
-super admin id: ${superAdmin.id}`);
+  more gate staff    9000000009 / 9000000010, supervisor 9000000011
+${superAdmin ? `super admin id: ${superAdmin.id}` : ''}`);
 }
 
 /**
