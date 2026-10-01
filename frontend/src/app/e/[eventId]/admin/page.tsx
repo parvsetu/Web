@@ -10,7 +10,7 @@ import { BarChart3, Clock, Globe, Megaphone, FileBarChart, HandCoins, LayoutDash
 import type { LucideIcon } from 'lucide-react';
 import { fmtDate } from '@/lib/format';
 import { FestivalBanner } from '@/components/FestivalBanner';
-import { Alert, Badge, Tabs } from '@/components/ui';
+import { Alert, Badge, SideTabsLayout } from '@/components/ui';
 import { OverviewTab } from '@/components/admin/OverviewTab';
 import { TokensTab } from '@/components/admin/TokensTab';
 import { SlotsTab } from '@/components/admin/SlotsTab';
@@ -93,7 +93,7 @@ function Admin() {
           }
         />
       </div>
-      <Tabs tabs={visible} active={tab} onChange={change} />
+      <SideTabsLayout tabs={visible} active={tab} onChange={change}>
       {tab === 'overview' && <OverviewTab />}
       {tab === 'tokens' && <TokensTab />}
       {tab === 'slots' && <SlotsTab />}
@@ -105,6 +105,7 @@ function Admin() {
       {tab === 'donations' && <DonationsTab />}
       {tab === 'expenses' && <ExpensesTab />}
       {tab === 'settings' && (can(ev.perms, 'EVENT_UPDATE') ? <EventSettingsTab /> : null)}
+      </SideTabsLayout>
     </div>
   );
 }

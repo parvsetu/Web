@@ -10,7 +10,7 @@ import { AccountsTab } from '@/components/org/AccountsTab';
 import { SponsorsTab } from '@/components/org/SponsorsTab';
 import type { LucideIcon } from 'lucide-react';
 import { Mandala, Toran } from '@/components/FestivalArt';
-import { Alert, SkeletonList, Tabs } from '@/components/ui';
+import { Alert, SkeletonList, SideTabsLayout } from '@/components/ui';
 import { OrgEventsTab } from '@/components/org/OrgEventsTab';
 import { OrgVolunteersTab } from '@/components/org/OrgVolunteersTab';
 import { ApplicationsTab } from '@/components/org/ApplicationsTab';
@@ -79,7 +79,7 @@ function OrgAdmin() {
           </div>
         </div>
       </section>
-      <Tabs tabs={visible} active={tab} onChange={change} />
+      <SideTabsLayout tabs={visible} active={tab} onChange={change}>
       {tab === 'events' && <OrgEventsTab />}
       {tab === 'volunteers' && <OrgVolunteersTab />}
       {tab === 'applications' && <ApplicationsTab />}
@@ -90,6 +90,7 @@ function OrgAdmin() {
       {tab === 'audit' && <AuditTab />}
       {tab === 'reports' && <OrgReportsTab />}
       {tab === 'settings' && <OrgSettingsTab />}
+      </SideTabsLayout>
     </div>
   );
 }

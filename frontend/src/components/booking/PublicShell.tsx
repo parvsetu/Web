@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { LogIn, Ticket } from 'lucide-react';
 import { LogoMark } from '../FestivalArt';
-import { cx } from '../ui';
+import { cx } from '@/lib/cx';
 
 /**
  * Layout for the public (no-login) booking pages: brand header, content,

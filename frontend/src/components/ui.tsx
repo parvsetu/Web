@@ -5,9 +5,8 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, Info, Inbox, X, XCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export function cx(...c: (string | false | null | undefined)[]): string {
-  return c.filter(Boolean).join(' ');
-}
+import { cx } from '@/lib/cx';
+export { cx };
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
 
@@ -363,6 +362,43 @@ export function Tabs({ tabs, active, onChange }: { tabs: TabDef[]; active: strin
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Section navigation: a vertical sidebar on desktop (sticky, content to the
+ * right) and a wrapping grid of buttons on phones — never a scroll bar.
+ */
+export function SideTabsLayout({ tabs, active, onChange, children }: { tabs: TabDef[]; active: string; onChange: (k: string) => void; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <nav aria-label="Sections" className="no-print lg:sticky lg:top-20 lg:w-56 lg:shrink-0">
+        <div role="tablist" aria-orientation="vertical" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:flex-col lg:gap-1 lg:rounded-2xl lg:border lg:border-orange-100 lg:bg-white lg:p-2 lg:shadow-sm">
+          {tabs.map((t) => {
+            const on = active === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => onChange(t.key)}
+                className={cx(
+                  'flex min-h-[44px] items-center gap-2.5 rounded-xl px-3 text-left text-sm font-semibold transition-all',
+                  on
+                    ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-md shadow-orange-500/25'
+                    : 'bg-white text-slate-700 ring-1 ring-orange-200 hover:bg-orange-50 lg:ring-0',
+                )}
+              >
+                {t.icon && <t.icon aria-hidden className={cx('h-4 w-4 shrink-0', on ? 'text-white' : 'text-orange-500')} />}
+                <span className="truncate">{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }

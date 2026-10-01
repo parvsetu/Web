@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { FestivalArt, Mandala, Toran } from './FestivalArt';
-import { cx } from './ui';
+import { cx } from '@/lib/cx';
 
 /** Gradient hero with the festival's illustration, a toran and a faint mandala. */
 export function FestivalBanner({
