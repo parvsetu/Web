@@ -14,6 +14,7 @@ import type { Pass, PassOrder, PassStatus } from '@/lib/booking-types';
 import { FestivalArt, Mandala, Toran } from '../FestivalArt';
 import { QrImage, qrCardPng } from '../QrImage';
 import { Badge, Button, cx } from '../ui';
+import { apiImageSrc } from '@/lib/media';
 
 const STATUS_TEXT: Record<PassStatus, string> = {
   ACTIVE: 'Valid',
@@ -50,7 +51,13 @@ export function PassCard({ order, pass, index = 0, total = 1 }: { order: PassOrd
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/85">Entry pass</p>
             <h2 className="text-xl font-extrabold leading-tight drop-shadow-sm">{order.event.name}</h2>
-            <p className="truncate text-sm text-white/90">{order.event.organization.name}</p>
+            <p className="flex min-w-0 items-center gap-1.5 text-sm text-white/90">
+              {apiImageSrc(order.event.organization.logoUrl) && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={apiImageSrc(order.event.organization.logoUrl)!} alt="" className="h-6 w-6 shrink-0 rounded-full bg-white object-contain p-0.5" />
+              )}
+              <span className="truncate">{order.event.organization.name}</span>
+            </p>
           </div>
         </div>
       </header>

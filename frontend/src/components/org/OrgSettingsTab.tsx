@@ -11,11 +11,17 @@ import { useAuth } from '@/lib/auth';
 import { useOrg } from '@/lib/org-context';
 import { Alert, Button, Card, Field, Input, LabeledInput, SkeletonList, Textarea } from '../ui';
 import { Save } from 'lucide-react';
+import { OrgBrandingCard } from './OrgBrandingCard';
 
 export function OrgSettingsTab() {
   const org = useOrg();
   if (!org.org) return org.loading ? <SkeletonList rows={2} /> : <Alert>Could not load mandal details.</Alert>;
-  return <Form key={org.org.id} />;
+  return (
+    <div className="flex flex-col gap-4">
+      <OrgBrandingCard />
+      <Form key={org.org.id} />
+    </div>
+  );
 }
 
 function Form() {

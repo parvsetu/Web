@@ -23,6 +23,7 @@ import { paged, paging, userRef } from '../../common/http';
 import { dayRange } from '../../common/time/validity';
 import { PAYMENT_PROVIDERS, PaymentProvider } from './payment-provider';
 import { CreateDonationDto, DonationListQuery, UpdateDonationDto } from './donations.dto';
+import { ORG_BRAND_SELECT, presentOrgBrand } from '../../common/org-brand';
 
 const donationSelect = {
   id: true, receiptNo: true, donorName: true, donorMobile: true, donorEmail: true, amount: true, currency: true,
@@ -235,7 +236,7 @@ export class DonationsService {
   async receipt(eventId: string, id: string) {
     const d = await this.prisma.donation.findFirst({
       where: { id, eventId },
-      include: { event: { select: { name: true, festivalType: true, organizationId: true, organization: { select: { name: true, city: true, state: true, address: true } } } } },
+      include: { event: { select: { name: true, festivalType: true, organizationId: true, organization: { select: { name: true, city: true, state: true, address: true, ...ORG_BRAND_SELECT } } } } },
     });
     if (!d) throw new NotFoundException('Donation not found');
     if (d.paymentStatus !== 'SUCCESS' || !d.receiptNo) {
@@ -243,7 +244,7 @@ export class DonationsService {
     }
     const identity = await this.payouts.receiptIdentity(d.event.organizationId);
     return {
-      receiptNo: d.receiptNo, organization: d.event.organization, event: { name: d.event.name, festivalType: d.event.festivalType },
+      receiptNo: d.receiptNo, organization: presentOrgBrand(d.event.organization), event: { name: d.event.name, festivalType: d.event.festivalType },
       issuer: identity,
       donorMobile: d.donorMobile, donorEmail: d.donorEmail,
       donorName: d.donorName, amount: d.amount.toFixed(2), amountInWords: amountInWords(d.amount.toFixed(2)),

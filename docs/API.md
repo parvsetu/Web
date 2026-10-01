@@ -573,3 +573,106 @@ Partner ads print on passes, so the **super admin** picks the layout per mandal;
   donation-with-passes responses. `GET /organizations/:orgId/billing` and `GET /events/:id` return the setting as
   `passPrintFormat`; `passPrintFormat` sent in an event POST/PATCH is accepted but ignored.
 
+
+## Mandal logo & banner, festival photo gallery
+
+Bytes live behind the `ImageStore` interface (see ARCHITECTURE.md); payloads only ever carry URLs. Uploads are
+**multipart/form-data**; the server sniffs the real format from the bytes (PNG / JPEG / WebP only — anything else 400)
+and reads width/height from the header. Clients resize before upload (logo 512 px, banner 1920 px wide, photos
+1920 px + a 400 px thumbnail, WebP/JPEG ≈0.85).
+
+### Logo & banner — SETTINGS_UPDATE@org
+- `PUT /organizations/:orgId/logo` (field `file`, ≤ 512 KB) / `PUT /organizations/:orgId/banner` (≤ 2 MB) →
+  `{ logoUrl, bannerUrl }`. Oversize → 413. Replacing deletes the old bytes. Audited.
+- `DELETE /organizations/:orgId/logo` | `/banner` → `{ logoUrl, bannerUrl }`.
+- `GET /public/organizations/:orgId/logo` | `/banner` — public bytes, `Cache-Control: public, max-age=31536000, immutable`
+  (the URL carries `?v=<updatedAt>`).
+- Every public `organization` object (`/public/events/:id`, `/public/booking/events[/:id]`, pass orders, donation
+  receipts, `GET /organizations/:orgId`) now has `logoUrl` and `bannerUrl` (null when absent) and, on public
+  payloads, `landingSlug` (set only while the mandal's paid landing page is live — link the mandal name to `/m/<slug>`).
+
+### Photos
+Permissions: `GALLERY_VIEW` (view incl. private photos; Mandal Admin, Treasurer, Report Viewer) and `GALLERY_MANAGE`
+(upload/caption/publish/delete; Mandal Admin).
+- `GET /events/:eventId/photos?page&pageSize&public=true` — GALLERY_VIEW@event →
+  `Paged<Photo> & { usage: { usedBytes, quotaBytes, photos } }`.
+  `Photo = { id, eventId, caption, isPublic, width, height, sizeBytes, mimeType, takenAt, createdAt, uploadedById,
+  url, thumbUrl, publicUrl, publicThumbUrl }`. `url`/`thumbUrl` need the bearer token (fetch as a blob);
+  `publicUrl`/`publicThumbUrl` are set only while `isPublic`.
+- `POST /events/:eventId/photos` — GALLERY_MANAGE@event, multipart: `files` (1–10 images, ≤ 3 MB each),
+  optional `thumbs` (same count & order, ≤ 300 KB each; without them the full image doubles as the thumbnail),
+  optional `meta` = JSON array `[{ caption?, takenAt?, isPublic? }]` per file → `201 { items: Photo[], usage }`.
+  Photos are **private by default**. Per-mandal quota **300 MB** (full + thumbnail bytes) → `413 GALLERY_QUOTA_EXCEEDED`
+  `{ usedBytes, quotaBytes }`.
+- `PATCH /events/:eventId/photos/:photoId` `{ caption?, isPublic? }` — GALLERY_MANAGE@event.
+- `DELETE /events/:eventId/photos/:photoId` — GALLERY_MANAGE@event → 204 (bytes deleted).
+- `GET /events/:eventId/photos/:photoId/image?size=thumb|full` — GALLERY_VIEW@event, `private, max-age=31536000, immutable`.
+- `GET /organizations/:orgId/photos/summary` — GALLERY_VIEW@org → `{ usage, years: [{ year, events: [{ id, name,
+  festivalType, startDate, endDate, status, photos, publicPhotos, sizeBytes, coverThumbUrl }] }] }` (newest first).
+- `GET /organizations/:orgId/photos?eventId&public=true&page` — GALLERY_VIEW@org → `Paged<Photo>`.
+- Public (no login, only for ACTIVE/COMPLETED festivals): `GET /public/events/:eventId/photos?page&pageSize` →
+  `Paged<{ id, eventId, caption, width, height, takenAt, url, thumbUrl }>`;
+  `GET /public/photos/:photoId/image?size=thumb|full` (404 unless public; `public, max-age=86400`).
+
+## Paid mandal landing page (`/m/<slug>`)
+
+A mandal buys a yearly public page. Price = per-mandal override (`OrgBilling.landingPageYearlyPricePaise`) or the
+platform default (`PlatformSettings.landingPageYearlyPricePaise`, ₹999 initially). The page is served only while
+`paidUntil > now` **and** `enabled`; otherwise 404.
+
+### Mandal
+- `GET /organizations/:orgId/landing-page` — SETTINGS_VIEW@org → `{ state: NOT_ACTIVE|ACTIVE|EXPIRED|DISABLED,
+  paidUntil, price, slug, publicPath, demoPayments, content, purchases (latest 5) }`.
+- `PUT /organizations/:orgId/landing-page` — SETTINGS_UPDATE@org `{ enabled?, headline? (≤120), about? (≤4000, plain
+  text), highlights? (≤6 × ≤80), contactPhone?, contactEmail?, instagramUrl?, facebookUrl?, youtubeUrl?,
+  whatsappNumber?, featuredEventIds? (own festivals; empty = all active/upcoming), photoIds? (own PUBLIC photos;
+  empty = latest 12 public), themeColor? (saffron|crimson|marigold|peacock|emerald|royal|magenta|indigo) }`.
+  Social links must be `https://` on instagram.com / facebook.com, fb.com, fb.me / youtube.com, youtu.be (400 otherwise);
+  WhatsApp is a phone number (10 digits get +91; stored as digits, shown as `https://wa.me/<digits>`). Empty string
+  clears a field. `paidUntil` is **not** accepted (400 — unknown field).
+- `GET /organizations/:orgId/landing-page/preview` — SETTINGS_VIEW@org → the public payload even when not active (`preview: true`).
+- `POST /organizations/:orgId/landing-page/purchases` — SETTINGS_UPDATE@org → `{ id, amount, years: 1, status: PENDING, … }`
+  (demo gateway; 403 `PAYMENT_UNAVAILABLE` when `BOOKING_DEMO_PAYMENTS` is off).
+- `POST /organizations/:orgId/landing-page/purchases/:id/demo-pay` `{ outcome: success|fail }` — idempotent; on
+  success `paidUntil = max(now, current paidUntil) + 1 year`. Audited `landing.purchased`.
+
+### Super admin
+- `PUT /platform/billing/settings` `{ landingPageYearlyPrice }`; `PATCH /platform/billing/mandals/:orgId` `{ landingPagePrice | null }`.
+- `GET /platform/billing/mandals` rows' `billing.landingPage = { price, paidUntil, active }`; `overrides.landingPagePrice`.
+- `GET /platform/billing/summary` adds `landingPageEarned`, `landingPagesSold` (PAID purchases); both are part of `totalEarned`.
+- `POST /platform/landing-pages/:orgId/grant` `{ years (1–5) | until: YYYY-MM-DD, reason }` (free, audited `landing.granted`);
+  `POST /platform/landing-pages/:orgId/revoke` `{ reason }` (sets paidUntil = now, audited); `GET /platform/landing-pages/:orgId`;
+  `GET /platform/landing-purchases?page`.
+
+### Public
+- `GET /public/landing/:slug` → `{ slug, organization: { id, name, city, state, address, logoUrl, bannerUrl }, theme,
+  headline, about, highlights, contact: { phone, email }, social: { instagram, facebook, youtube, whatsapp },
+  upcoming: EventCard[], past: [{ year, events: EventCard[] }], photos: PublicPhoto[], sponsors }` where
+  `EventCard = { id, name, festivalType, description, location, city, startDate, endDate, status, bookable, fromPrice }`.
+  `sponsors` are the mandal-wide (not festival-specific) active sponsors.
+
+## Peak-day pricing
+
+Date-based overrides of slot prices, resolved in one place (`backend/src/common/pricing.ts`) for availability,
+order creation and the admin preview.
+
+**Precedence for (slot, date):** only active rules covering the date and the slot (`timeSlotIds` empty = all slots);
+any matching `DATES` rule beats every `WEEKENDS` rule; within the winning kind the **highest** resulting price wins
+(ties → the oldest rule). A rule is either `fixedPrice` or `upliftPercent` (price = base × (1 + %), rounded to the paisa).
+Weekends = Saturday and Sunday of the calendar date.
+
+- `GET /events/:eventId/price-rules` — EVENT_VIEW@event → `PriceRule[] = { id, label, kind: DATES|WEEKENDS, dates[],
+  timeSlotIds[], fixedPrice | null, upliftPercent | null, isActive, createdAt }`.
+- `POST /events/:eventId/price-rules` — SETTINGS_UPDATE@event `{ label, kind, dates? (DATES: ≥1, all within the
+  festival), timeSlotIds?, fixedPrice? | upliftPercent? (exactly one; 1–1000 %), isActive? }`. 400 for dates outside
+  the festival, foreign slots, both/neither price, or a weekend rule on a festival with no Sat/Sun. Audited.
+- `PATCH /events/:eventId/price-rules/:ruleId` (same fields; sending one price kind clears the other), `DELETE …` → 204.
+- `GET /events/:eventId/price-rules/preview` — EVENT_VIEW@event → `{ days: [{ date, weekend, slots: [{ slotId, label,
+  basePrice, price, ruleLabel }] }], truncated }` (first 120 days).
+- Public: `GET /public/booking/events/:id/availability?date` slots now carry `price` (effective), `basePrice`,
+  `ruleLabel`; `GET /public/booking/events/:id` adds `peakDates: [{ date, label }]` (days where some slot costs more
+  than base). Its `slots[].price` and every `fromPrice` stay the **minimum base price** (catalogue/explore filters
+  aren't date-specific).
+- `POST /public/booking/orders` charges the effective price: `unitPrice` is the effective per-person price, the GST
+  slab is decided on it (₹90 base +20% = ₹108 → 18% with a ₹100 threshold), and commission/settlement follow the
+  order amount. Orders return `priceRuleLabel`. Desk/bulk tokens carry no price, so rules don't apply there.

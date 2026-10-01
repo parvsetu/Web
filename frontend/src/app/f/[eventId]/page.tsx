@@ -8,7 +8,8 @@ import { PublicShell } from '@/components/booking/PublicShell';
 import { ShareButtons } from '@/components/ShareButtons';
 import { SponsorStrip } from '@/components/SponsorStrip';
 import { festivalTheme } from '@/lib/festival-theme';
-import { fmtRange, getPublicFestival, siteUrl } from '@/lib/public-festival';
+import { fmtRange, getPublicFestival, getPublicPhotos, siteUrl } from '@/lib/public-festival';
+import { PublicGallery } from '@/components/gallery/PublicGallery';
 
 type Props = { params: { eventId: string } };
 
@@ -29,6 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function FestivalPage({ params }: Props) {
   const f = await getPublicFestival(params.eventId);
   if (!f) notFound();
+  const photos = await getPublicPhotos(f.id);
   const t = festivalTheme(f.festivalType);
   const url = `${siteUrl()}/f/${f.id}`;
   const place = [f.location, f.city, f.state].filter(Boolean).join(', ');
@@ -42,7 +44,15 @@ export default async function FestivalPage({ params }: Props) {
         <FestivalBanner
           type={f.festivalType}
           title={f.name}
-          subtitle={f.organization.name}
+          subtitle={
+            f.organization.landingSlug ? (
+              <Link href={`/m/${f.organization.landingSlug}`} className="underline decoration-white/50 underline-offset-2 hover:decoration-white">{f.organization.name}</Link>
+            ) : (
+              f.organization.name
+            )
+          }
+          logoUrl={f.organization.logoUrl}
+          bannerUrl={f.organization.bannerUrl}
           meta={
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1">
               <CalendarDays aria-hidden className="h-4 w-4" /> {fmtRange(f.startDate, f.endDate)}
@@ -83,6 +93,8 @@ export default async function FestivalPage({ params }: Props) {
             </ul>
           </section>
         )}
+
+        <PublicGallery photos={photos} accent={t.ink} />
 
         <SponsorStrip sponsors={f.sponsors} title="Festival partners" />
 

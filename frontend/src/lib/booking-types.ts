@@ -1,4 +1,5 @@
 import type { Venue } from '@/components/VenueDetails';
+import type { OrgBrand } from './media';
 // Types for the public (no-login) pass booking API — see docs/API.md,
 // "Added: public pass booking (no login)". Money is a decimal string; the
 // server's `amount` is the only authoritative price.
@@ -24,8 +25,8 @@ export interface BookableEvent {
   endDate: string;
   timezone: string;
   maxVisitorsPerToken: number;
-  organization: { name: string; city: string | null };
-  /** Cheapest slot price, "0.00" = a free slot exists, null = no slots. */
+  organization: { name: string; city: string | null } & OrgBrand;
+  /** Cheapest BASE slot price (peak-day rules can raise it on some dates), "0.00" = a free slot exists, null = no slots. */
   fromPrice: string | null;
   onlinePayments: boolean;
 }
@@ -42,7 +43,10 @@ export interface BookingSlot {
 export interface BookableEventDetail extends BookableEvent {
   gst?: { ratePercent: number; bearer: 'CUSTOMER' | 'MANDAL'; mode?: 'FLAT' | 'SLAB'; lowRatePercent?: number; threshold?: string } | null;
   holdMinutes: number;
+  /** Base slot prices; the price for a date comes from availability(). */
   slots: BookingSlot[];
+  /** Event days where some slot costs more than its base price. */
+  peakDates?: { date: string; label: string }[];
   sponsors?: import('@/components/SponsorStrip').SponsorPublic[];
 }
 
@@ -51,7 +55,12 @@ export interface AvailabilitySlot {
   label: string;
   startTime: string;
   endTime: string;
+  /** Effective price for this date (peak rules applied). */
   price: string;
+  /** The slot's base price. */
+  basePrice?: string;
+  /** Peak rule that applies on this date, if any. */
+  ruleLabel?: string | null;
   validFrom: string;
   validUntil: string;
   ended: boolean;
@@ -79,6 +88,7 @@ export interface PassOrder {
   status: PassOrderStatus;
   amount: string;
   unitPrice: string;
+  priceRuleLabel?: string | null;
   currency: string;
   visitorCount: number;
   buyerName: string;
@@ -96,7 +106,7 @@ export interface PassOrder {
     timezone: string;
     location: string | null;
     venue?: Venue;
-    organization: { name: string };
+    organization: { name: string } & OrgBrand;
   };
   timeSlot: { label: string } | null;
   /** true = one QR per person; false = one group QR admitting everyone. */

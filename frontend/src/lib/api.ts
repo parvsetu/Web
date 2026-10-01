@@ -197,3 +197,35 @@ export function asArray<T>(x: T[] | { items: T[] } | null | undefined): T[] {
   if (!x) return [];
   return Array.isArray(x) ? x : Array.isArray(x.items) ? x.items : [];
 }
+
+/**
+ * Multipart upload (FormData) with the bearer token and upload progress (0–1).
+ * Uses XHR because fetch() can't report upload progress.
+ */
+export function uploadForm<T>(path: string, form: FormData, opts: { method?: 'POST' | 'PUT'; onProgress?: (fraction: number) => void } = {}): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(opts.method ?? 'POST', buildUrl(path));
+    const token = getToken();
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) opts.onProgress?.(e.loaded / e.total);
+    };
+    xhr.onerror = () => reject(new NetworkError(false));
+    xhr.ontimeout = () => reject(new NetworkError(true));
+    xhr.onload = () => {
+      let body: unknown = null;
+      try {
+        body = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        body = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(body as T);
+      if (xhr.status === 401) handleUnauthorized();
+      const fallback = xhr.status === 413 ? 'That file is too large.' : `Upload failed (${xhr.status}).`;
+      reject(new ApiError(xhr.status, body as ApiErrorBody | null, fallback));
+    };
+    xhr.send(form);
+  });
+}

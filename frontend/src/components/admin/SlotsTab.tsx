@@ -9,6 +9,7 @@ import { useAsync } from '@/lib/hooks';
 import type { TimeSlot } from '@/lib/types';
 import { Alert, Badge, Button, Card, Checkbox, Empty, LabeledInput, Modal, SkeletonList } from '../ui';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { PeakPricingSection } from './PeakPricing';
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -84,6 +85,7 @@ export function SlotsTab() {
           }}
         />
       )}
+      {sorted.length > 0 && <PeakPricingSection slots={sorted} />}
     </div>
   );
 }

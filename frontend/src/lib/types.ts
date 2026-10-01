@@ -10,7 +10,8 @@ export type Permission =
   | 'REPORT_VIEW' | 'REPORT_EXPORT'
   | 'ROLE_VIEW' | 'ROLE_CREATE' | 'ROLE_UPDATE' | 'ROLE_DELETE'
   | 'SETTINGS_VIEW' | 'SETTINGS_UPDATE'
-  | 'AUDIT_VIEW';
+  | 'AUDIT_VIEW'
+  | 'GALLERY_VIEW' | 'GALLERY_MANAGE';
 
 export interface Paged<T> {
   items: T[];
@@ -119,6 +120,8 @@ export interface Organization {
   address?: string | null;
   festivalTypes?: string[];
   createdAt?: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
 }
 
 export interface Member {
@@ -415,7 +418,7 @@ export interface ReceiptIssuer {
 
 export interface Receipt {
   receiptNo: string;
-  organization: { name: string; city: string | null; state: string | null; address: string | null };
+  organization: { name: string; city: string | null; state: string | null; address: string | null; logoUrl?: string | null };
   event: { name: string; festivalType: string | null };
   issuer: ReceiptIssuer | null;
   donorName: string;

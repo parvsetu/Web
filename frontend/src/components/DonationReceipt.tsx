@@ -3,6 +3,7 @@ import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { DEFAULT_TZ, fmtMoney, humanize } from '@/lib/format';
 import type { Receipt } from '@/lib/types';
 import { FestivalArt, Mandala, Toran } from './FestivalArt';
+import { apiImageSrc } from '@/lib/media';
 
 const METHOD_LABEL: Record<string, string> = { UPI: 'UPI', CASH: 'Cash', CARD: 'Card', BANK_TRANSFER: 'Bank transfer', ONLINE: 'Online', OTHER: 'Other' };
 
@@ -24,6 +25,7 @@ export function DonationReceipt({ r, timezone }: { r: Receipt; timezone?: string
   const t = festivalTheme(r.event.festivalType);
   const issuer = r.issuer;
   const orgAddress = [r.organization.address, r.organization.city, r.organization.state].filter(Boolean).join(', ');
+  const logo = apiImageSrc(r.organization.logoUrl);
   return (
     <article className="donation-receipt mx-auto w-full max-w-xl overflow-hidden rounded-3xl border border-orange-200 bg-white shadow-xl shadow-orange-900/10">
       <style>{`@media print { .donation-receipt { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none !important; border-color: #fdba74 !important; break-inside: avoid; max-width: 160mm; } }`}</style>
@@ -31,8 +33,13 @@ export function DonationReceipt({ r, timezone }: { r: Receipt; timezone?: string
         <Toran className="absolute inset-x-0 top-0 w-full" />
         <Mandala className="pointer-events-none absolute -right-14 -top-10 h-48 w-48 text-white/15" />
         <div className="relative flex items-center gap-4">
-          <div className="h-20 w-20 shrink-0 rounded-full bg-white/95 p-2 shadow-md ring-4 ring-white/30">
-            <FestivalArt type={r.event.festivalType} className="h-full w-full" />
+          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white/95 p-2 shadow-md ring-4 ring-white/30">
+            {logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logo} alt={`${r.organization.name} logo`} className="h-full w-full rounded-full object-contain" />
+            ) : (
+              <FestivalArt type={r.event.festivalType} className="h-full w-full" />
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80">{r.event.name}</p>

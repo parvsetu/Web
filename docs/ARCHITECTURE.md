@@ -172,6 +172,44 @@ snapshotted on the token and on the held credit row (online orders mint at payme
 failure/expiry, once). The mandal is no longer charged for printing its own sponsors. Pass print layout is a
 platform setting per mandal (`AUTO` = A4 with 2+ ads), resolved server-side per pass.
 
+## Images (logo, banner, festival photos)
+
+All image bytes go through one small interface, `ImageStore` (`backend/src/common/images/image-store.ts`):
+`put({ prefix, organizationId, bytes, mimeType }) → key`, `get(key)`, `delete(keys)`. Callers keep only keys and
+metadata on their own rows (`Organization.logoKey/bannerKey`, `EventPhoto.imageKey/thumbKey`), so moving to S3/R2 is a
+new implementation bound to the `IMAGE_STORE` token — no caller changes. Today's `DbImageStore` keeps bytes in the
+`stored_images` table (Postgres bytea); an `AFTER DELETE` trigger on `event_photos` and an FK cascade from
+organizations remove orphaned bytes when a draft event or org is deleted (DB store only — an object store would need
+an equivalent cleanup job).
+
+- Formats are sniffed from the bytes (PNG/JPEG/WebP) and width/height read from the header
+  (`common/images/image-info.ts`, which also holds every limit: logo 512 KB, banner 2 MB, photo 3 MB, thumbnail
+  300 KB, 10 per upload, **300 MB gallery quota per mandal**). Phones resize before upload (canvas), and each photo is
+  sent with a 400 px thumbnail so grids stay fast.
+- The quota is checked under the organization row lock (`SELECT … FOR UPDATE`), so parallel uploads can't overshoot it.
+- Payloads carry URLs, never bytes: list queries select only `logoUpdatedAt/bannerUpdatedAt` (`common/org-brand.ts`),
+  and the URL is busted by that time (`?v=`), so public logo/banner bytes are cached `immutable`.
+- Photos are private by default. Private bytes need GALLERY_VIEW and the bearer token (`private, immutable`
+  caching); a public photo of an ACTIVE/COMPLETED festival is served without login (`public, max-age=86400`, since
+  it can be made private again).
+
+## Mandal landing page
+
+`LandingPage` (1:1 with the org) holds the editable content and `paidUntil`; `LandingPurchase` mirrors
+`CreditRecharge` (demo gateway, 15-minute expiry, idempotent confirm). The confirm serializes on the purchase row and
+then the page row and extends from `max(now, paidUntil)`. `paidUntil` changes only there or through an audited
+super-admin grant/revoke — the mandal's update DTO has no such field, so `forbidNonWhitelisted` rejects it. The page
+(and every `landingSlug` on public payloads) is live only while paid **and** enabled. Paid purchases are platform
+revenue (`landingPageEarned`, included in `totalEarned`); grants are free.
+
+## Peak-day pricing
+
+`PriceRule` rows (per event: DATES or WEEKENDS, optional slot subset, fixed price or % uplift) are resolved by one
+pure function, `effectivePrice()` in `backend/src/common/pricing.ts`, used by availability, order creation and the
+admin preview — so the price a visitor sees is the price charged. Precedence: explicit DATES beat WEEKENDS; within
+the winning kind the highest price wins; ties go to the oldest rule. GST slabs are decided on the effective
+per-ticket price. Catalogue `fromPrice` stays the minimum base slot price (it isn't date-specific).
+
 ## Hardening checklist
 
 - Input validation: global `ValidationPipe` with `whitelist` +

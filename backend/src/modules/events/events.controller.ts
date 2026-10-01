@@ -5,13 +5,15 @@ import { RequestUser } from '../../common/auth/request-user';
 import { AccessContext } from '../../common/access/access.service';
 import { RequireEventPermission, RequireOrgPermission } from '../../common/access/permission.guard';
 import { EventsService } from './events.service';
+import { PriceRulesService } from './price-rules.service';
+import { CreatePriceRuleDto, UpdatePriceRuleDto } from './price-rules.dto';
 import {
   CreateAssignmentDto, CreateEventDto, CreateTimeSlotDto, UpdateAssignmentDto, UpdateEventDto, UpdateTimeSlotDto,
 } from './events.dto';
 
 @Controller()
 export class EventsController {
-  constructor(private readonly events: EventsService) {}
+  constructor(private readonly events: EventsService, private readonly priceRules: PriceRulesService) {}
 
   @Get('events')
   mine(@CurrentUser() user: RequestUser) {
@@ -74,6 +76,42 @@ export class EventsController {
   @Delete('events/:eventId/time-slots/:slotId')
   removeSlot(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Param('slotId') slotId: string) {
     return this.events.removeSlot(user, a.organizationId, eventId, slotId);
+  }
+
+  // ─── Peak-day pricing ──────────────────────────────────────────────
+
+  @RequireEventPermission('EVENT_VIEW')
+  @Get('events/:eventId/price-rules')
+  priceRuleList(@Param('eventId') eventId: string) {
+    return this.priceRules.list(eventId);
+  }
+
+  @RequireEventPermission('EVENT_VIEW')
+  @Get('events/:eventId/price-rules/preview')
+  priceRulePreview(@Param('eventId') eventId: string) {
+    return this.priceRules.preview(eventId);
+  }
+
+  @RequireEventPermission('SETTINGS_UPDATE')
+  @Post('events/:eventId/price-rules')
+  createPriceRule(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Body() dto: CreatePriceRuleDto) {
+    return this.priceRules.create(user, a.organizationId, eventId, dto);
+  }
+
+  @RequireEventPermission('SETTINGS_UPDATE')
+  @Patch('events/:eventId/price-rules/:ruleId')
+  updatePriceRule(
+    @CurrentUser() user: RequestUser, @Access() a: AccessContext,
+    @Param('eventId') eventId: string, @Param('ruleId') ruleId: string, @Body() dto: UpdatePriceRuleDto,
+  ) {
+    return this.priceRules.update(user, a.organizationId, eventId, ruleId, dto);
+  }
+
+  @RequireEventPermission('SETTINGS_UPDATE')
+  @Delete('events/:eventId/price-rules/:ruleId')
+  @HttpCode(204)
+  async removePriceRule(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Param('ruleId') ruleId: string) {
+    await this.priceRules.remove(user, a.organizationId, eventId, ruleId);
   }
 
   @RequireEventPermission('VOLUNTEER_VIEW')

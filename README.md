@@ -48,6 +48,11 @@ environment instead, and the demo super admin (`9000000001`) is not created.
 | Pending applicant | `applicant@parvsetu.dev` | nothing until approved |
 | Promotional partner (brand) | `partner@parvsetu.dev` / `9000000020` | Tanishq Jewellers' partner portal (`/partner`): ₹5,000 wallet, an approved campaign on every Jan Utsav Samiti festival this month. A second brand, Amul, has a campaign at Shree Durga Mandal waiting in the super admin's *Promotional partners* queue |
 
+`admin@parvsetu.dev` is also the admin of **Jan Utsav Samiti** (Pune), which has an active paid landing page at
+[`/m/jan-utsav-samiti`](http://localhost:3000/m/jan-utsav-samiti) (paid until one year after the first seed) and
+peak-day pricing on its Diwali Mela (weekends +25%, a dated "Lakshmi Puja peak" +50% on the evening/night slots).
+The seed adds no images — upload a logo/banner in Mandal → Settings and photos in a festival's Photos tab.
+
 ## Tests
 
 ```bash

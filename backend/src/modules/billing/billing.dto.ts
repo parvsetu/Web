@@ -16,6 +16,8 @@ export class PlatformSettingsDto {
   @IsOptional() @IsIn(PASS_PRINT_FORMATS) defaultPassPrintFormat?: PassPrintSetting;
   /** Gateway fee taken from the mandal's share of online payments (%). */
   @IsOptional() @Matches(PERCENT) gatewayFeePercent?: string;
+  /** Default yearly fee for a mandal landing page (/m/<slug>). */
+  @IsOptional() @Matches(RUPEES) landingPageYearlyPrice?: string;
 }
 
 /** Per-mandal overrides; send null to fall back to the platform default. */
@@ -27,6 +29,8 @@ export class MandalPricingDto {
   @IsOptional() @ValidateIf((_o, v) => v !== null) @Matches(RUPEES) partnerRate?: string | null;
   /** Pass print layout — only the super admin sets it. */
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsIn(PASS_PRINT_FORMATS) passPrintFormat?: PassPrintSetting | null;
+  /** Landing page yearly fee at this mandal. */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @Matches(RUPEES) landingPagePrice?: string | null;
 }
 
 export class AdjustCreditDto {

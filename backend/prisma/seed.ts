@@ -427,6 +427,38 @@ async function seedPartners() {
   console.log('Demo promotional partners created (Tanishq Jewellers: 9000000020 / partner@parvsetu.dev; Amul campaign awaiting approval).');
 }
 
+/**
+ * Jan Utsav Samiti showcases the newer features: an active paid landing page
+ * (/m/jan-utsav-samiti, paid until +1 year) and peak-day pricing on Diwali Mela
+ * (weekends +25%, plus a dated "Lakshmi Puja peak" on the evening/night slots).
+ * Each part is guarded by an existence check, so reruns on a live DB are no-ops.
+ */
+async function seedLandingAndPeakPricing() {
+  const jan = await prisma.organization.findUnique({ where: { slug: 'jan-utsav-samiti' } });
+  if (!jan) return;
+  if (!(await prisma.landingPage.findUnique({ where: { organizationId: jan.id } }))) {
+    const paidUntil = new Date();
+    paidUntil.setUTCFullYear(paidUntil.getUTCFullYear() + 1);
+    await prisma.landingPage.create({ data: {
+      organizationId: jan.id, paidUntil, themeColor: 'marigold',
+      headline: 'Pune’s people’s festival committee since 2015',
+      about: 'Jan Utsav Samiti brings Pune together for melas, kathas, craft fairs and food festivals all year round.\nEvery rupee of entry and donation goes back into the festivals and our community kitchen.',
+      highlights: ['Diwali Mela with 120+ stalls', 'Free bhandara every evening', 'Artisans from 18 states', 'Family-friendly, step-free venues'],
+      contactPhone: '9000000002', contactEmail: 'admin@parvsetu.dev',
+      instagramUrl: 'https://www.instagram.com/parvsetu', youtubeUrl: 'https://www.youtube.com/@parvsetu', whatsappNumber: '919000000002',
+    } });
+    console.log('Demo landing page activated for Jan Utsav Samiti (/m/jan-utsav-samiti).');
+  }
+  const mela = await prisma.event.findFirst({ where: { organizationId: jan.id, festivalType: 'MELA' }, include: { timeSlots: true } });
+  if (mela && !(await prisma.priceRule.findFirst({ where: { eventId: mela.id } }))) {
+    await prisma.priceRule.create({ data: { eventId: mela.id, label: 'Weekend rush', kind: 'WEEKENDS', upliftBps: 2500 } });
+    const peakDay = new Date(Math.min(mela.startDate.getTime() + 3 * 86400000, mela.endDate.getTime()));
+    const evening = mela.timeSlots.filter((t) => t.startTime >= '16:00').map((t) => t.id);
+    await prisma.priceRule.create({ data: { eventId: mela.id, label: 'Lakshmi Puja peak', kind: 'DATES', dates: [peakDay], timeSlotIds: evening, upliftBps: 5000 } });
+    console.log('Demo peak pricing added to Diwali Mela.');
+  }
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -438,6 +470,7 @@ async function main() {
   if (demo === 'true' || (await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } }))) {
     await seedMoreEvents();
     await seedPartners();
+    await seedLandingAndPeakPricing();
   }
 }
 

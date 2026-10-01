@@ -6,6 +6,7 @@ import { SearchPageQuery, paged, paging, searchTerm, userRef } from '../../commo
 import { Prisma } from '@prisma/client';
 import { canonicalState } from '../../common/india-locations';
 import { RolesService } from './roles.service';
+import { presentOrgBrand } from '../../common/org-brand';
 import { UserProvisioningService } from './user-provisioning.service';
 import { AddMemberDto, AuditQuery, CreateOrganizationDto, UpdateMemberDto, UpdateOrganizationDto } from './organizations.dto';
 
@@ -46,10 +47,11 @@ export class OrganizationsService {
   }
 
   async get(orgId: string) {
-    return this.prisma.organization.findUniqueOrThrow({
+    const o = await this.prisma.organization.findUniqueOrThrow({
       where: { id: orgId },
-      select: { id: true, name: true, slug: true, state: true, city: true, address: true, festivalTypes: true, createdAt: true },
+      select: { id: true, name: true, slug: true, state: true, city: true, address: true, festivalTypes: true, createdAt: true, logoUpdatedAt: true, bannerUpdatedAt: true },
     });
+    return presentOrgBrand(o);
   }
 
   async create(actor: RequestUser, dto: CreateOrganizationDto) {
@@ -68,8 +70,10 @@ export class OrganizationsService {
         where: { id: orgId },
         data: { name: dto.name, state: dto.state === undefined ? undefined : stateOrThrow(dto.state), city: dto.city?.trim(), address: dto.address, festivalTypes: dto.festivalTypes ? [...new Set(dto.festivalTypes)] : undefined },
       });
-      await this.audit.log({ organizationId: orgId, actorId: actor.id, action: 'organization.updated', entityType: 'Organization', entityId: orgId, before, after: org }, tx);
-      return org;
+      const { logoKey: _l, bannerKey: _b, ...plain } = org;
+      const after = presentOrgBrand(plain);
+      await this.audit.log({ organizationId: orgId, actorId: actor.id, action: 'organization.updated', entityType: 'Organization', entityId: orgId, before, after }, tx);
+      return after;
     });
   }
 

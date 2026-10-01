@@ -37,12 +37,15 @@ export function DateChips({
   value,
   onChange,
   theme,
+  peak,
 }: {
   days: string[];
   today: string;
   value: string;
   onChange: (d: string) => void;
   theme: FestivalTheme;
+  /** Days with a peak-pricing uplift → "Peak" badge (label in the tooltip). */
+  peak?: Map<string, string>;
 }) {
   return (
     <div role="radiogroup" aria-label="Festival day" className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 pt-2.5 [scrollbar-width:none]">
@@ -56,7 +59,8 @@ export function DateChips({
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={`${p.weekday} ${p.day} ${p.month}${d === today ? ', today' : ''}${past ? ', past' : ''}`}
+            aria-label={`${p.weekday} ${p.day} ${p.month}${d === today ? ', today' : ''}${past ? ', past' : ''}${peak?.has(d) ? `, peak pricing (${peak.get(d)})` : ''}`}
+            title={peak?.get(d)}
             disabled={past}
             onClick={() => onChange(d)}
             className={cx(
@@ -78,6 +82,9 @@ export function DateChips({
               >
                 Today
               </span>
+            )}
+            {peak?.has(d) && !past && (
+              <span className="absolute -bottom-2 rounded-full bg-rose-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white shadow">Peak</span>
             )}
           </button>
         );
@@ -162,9 +169,13 @@ export function SlotCard({
         </span>
       </span>
       <span className="shrink-0 text-right">
+        {slot.basePrice && slot.basePrice !== slot.price && (
+          <span className="block text-xs text-slate-400 line-through">{isFree(slot.basePrice) ? 'Free' : fmtMoney(slot.basePrice)}</span>
+        )}
         <span className={cx('block text-lg font-extrabold', free ? 'text-emerald-700' : disabled ? 'text-slate-400' : 'text-slate-900')}>
           {free ? 'Free' : fmtMoney(slot.price)}
         </span>
+        {slot.ruleLabel && <span className="block rounded-full bg-rose-100 px-2 py-px text-[11px] font-bold text-rose-700">{slot.ruleLabel}</span>}
         {!free && <span className="block text-xs text-slate-500">per person</span>}
       </span>
     </button>

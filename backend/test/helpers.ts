@@ -137,3 +137,26 @@ export function scan(ctx: TestCtx, auth: string, body: Record<string, unknown>) 
 }
 
 export const idem = () => randomUUID();
+
+/** Header-valid PNG (signature + IHDR) padded to `size` bytes — enough for the server's sniffer. */
+export function fakePng(width = 800, height = 600, size = 2048) {
+  const b = Buffer.alloc(Math.max(size, 33));
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b, 0);
+  b.writeUInt32BE(13, 8);
+  b.write('IHDR', 12, 'ascii');
+  b.writeUInt32BE(width, 16);
+  b.writeUInt32BE(height, 20);
+  return b;
+}
+
+export function fakeJpeg(width = 1920, height = 1080, size = 4096) {
+  const b = Buffer.alloc(size);
+  // SOI, APP0 (len 16), SOF0 (len 17) with height/width.
+  Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]).copy(b, 0);
+  b.write('JFIF', 6, 'ascii');
+  const sof = 2 + 2 + 16;
+  Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08]).copy(b, sof);
+  b.writeUInt16BE(height, sof + 5);
+  b.writeUInt16BE(width, sof + 7);
+  return b;
+}

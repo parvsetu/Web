@@ -1,5 +1,7 @@
 import type { SponsorPublic } from '@/components/SponsorStrip';
 import type { Venue } from '@/components/VenueDetails';
+import type { OrgBrand } from './media';
+import type { PublicPhoto } from './gallery-types';
 
 export interface PublicFestival {
   id: string;
@@ -16,7 +18,7 @@ export interface PublicFestival {
   status: 'ACTIVE' | 'COMPLETED';
   publicBookingEnabled: boolean;
   volunteerRegistrationOpen: boolean;
-  organization: { name: string; city: string | null; state: string | null };
+  organization: { name: string; city: string | null; state: string | null } & OrgBrand;
   timings: { label: string; startTime: string; endTime: string; price: string }[];
   fromPrice: string | null;
   sponsors: SponsorPublic[];
@@ -31,6 +33,16 @@ export async function getPublicFestival(eventId: string): Promise<PublicFestival
     return res.ok ? ((await res.json()) as PublicFestival) : null;
   } catch {
     return null;
+  }
+}
+
+/** Public photos of a festival for the gallery strip (cached 5 minutes). */
+export async function getPublicPhotos(eventId: string): Promise<PublicPhoto[]> {
+  try {
+    const res = await fetch(`${API}/public/events/${encodeURIComponent(eventId)}/photos?pageSize=24`, { next: { revalidate: 300 } });
+    return res.ok ? ((await res.json()) as { items: PublicPhoto[] }).items : [];
+  } catch {
+    return [];
   }
 }
 

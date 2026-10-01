@@ -23,12 +23,16 @@ import { BillingModule } from './modules/billing/billing.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { MailModule } from './common/mail/mail.module';
+import { ImagesModule } from './common/images/image-store';
+import { GalleryModule } from './modules/gallery/gallery.module';
+import { LandingModule } from './modules/landing/landing.module';
 
 @Module({
   imports: [
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: Number(process.env.RATE_LIMIT_PER_MIN ?? 600) }]),
     PrismaModule,
     MailModule,
+    ImagesModule,
     AccessModule,
     AuthModule,
     OrganizationsModule,
@@ -45,6 +49,8 @@ import { MailModule } from './common/mail/mail.module';
     BillingModule,
     PayoutsModule,
     PartnersModule,
+    GalleryModule,
+    LandingModule,
   ],
   providers: [
     // Order matters: authenticate → rate-limit (per user) → authorize.

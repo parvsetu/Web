@@ -58,6 +58,12 @@ export class SponsorsService {
     return this.sort(rows).map(publicSponsor);
   }
 
+  /** Active mandal-wide sponsors (not tied to one festival) — for the mandal landing page. */
+  async forOrg(organizationId: string) {
+    const rows = await this.prisma.sponsor.findMany({ where: { organizationId, isActive: true, eventId: null } });
+    return this.sort(rows).map(publicSponsor);
+  }
+
   /** Public view of specific sponsors (those printed on a pass). */
   async byIds(ids: string[]) {
     if (!ids.length) return [];

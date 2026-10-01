@@ -235,6 +235,7 @@ export default function BookEventPage() {
   }
 
   const theme = festivalTheme(event.festivalType);
+  const peak = new Map((event.peakDates ?? []).map((p) => [p.date, p.label]));
   const place = placeLine(event);
   const festivalOver = openDays.length === 0;
 
@@ -248,7 +249,15 @@ export default function BookEventPage() {
         <FestivalBanner
           type={event.festivalType}
           title={event.name}
-          subtitle={event.organization.name}
+          subtitle={
+            event.organization.landingSlug ? (
+              <Link href={`/m/${event.organization.landingSlug}`} className="underline decoration-white/50 underline-offset-2 hover:decoration-white">{event.organization.name}</Link>
+            ) : (
+              event.organization.name
+            )
+          }
+          logoUrl={event.organization.logoUrl}
+          bannerUrl={event.organization.bannerUrl}
           meta={
             <>
               {place && (
@@ -273,7 +282,8 @@ export default function BookEventPage() {
         ) : (
           <form onSubmit={submit} noValidate className="flex flex-col gap-4">
             <Step n={1} title="Choose a day" hint={`${openDays.length} day${openDays.length === 1 ? '' : 's'} left to book`} theme={theme}>
-              <DateChips days={days} today={today} value={date} onChange={(d) => setDate(d)} theme={theme} />
+              <DateChips days={days} today={today} value={date} onChange={(d) => setDate(d)} theme={theme} peak={peak} />
+              {peak.size > 0 && <p className="mt-3 text-xs text-slate-500">Days marked <span className="font-bold text-rose-700">Peak</span> have higher prices for some slots.</p>}
             </Step>
 
             <Step n={2} id="step-slot" title="Pick a time slot" hint={date ? fmtDate(date) : undefined} theme={theme}>

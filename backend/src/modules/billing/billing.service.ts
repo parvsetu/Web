@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { paged, paging } from '../../common/http';
 import { PartnerBillingService } from '../partners/partner-billing.service';
+import { landingActive } from '../../common/org-brand';
 
 type Db = Prisma.TransactionClient | PrismaService;
 
@@ -97,6 +98,8 @@ export class BillingService {
       /** What a promotional PARTNER pays per pass printed at this mandal (never the mandal). */
       sponsorPassFeePaise: b?.sponsorPassFeePaise ?? s.sponsorPassFeePaise,
       passPrintFormat: (b?.passPrintFormat ?? s.defaultPassPrintFormat) as PassPrintSetting,
+      /** Yearly fee for the mandal's /m/<slug> landing page. */
+      landingPagePricePaise: b?.landingPageYearlyPricePaise ?? s.landingPageYearlyPricePaise,
     };
   }
 
@@ -247,6 +250,7 @@ export class BillingService {
       this.rates(this.prisma, organizationId),
     ]);
     const tokensLeft = r.unitFeePaise > 0 ? Math.floor(b.creditBalancePaise / r.unitFeePaise) : null;
+    const lp = await this.prisma.landingPage.findUnique({ where: { organizationId }, select: { paidUntil: true, enabled: true } });
     const state: CreditState = r.unitFeePaise > 0 && b.creditBalancePaise < r.unitFeePaise
       ? 'EXHAUSTED'
       : b.creditBalancePaise < r.lowCreditThresholdPaise ? 'LOW' : 'OK';
@@ -264,7 +268,9 @@ export class BillingService {
       tokensLeft,
       lowCreditThreshold: rupees(r.lowCreditThresholdPaise),
       totals: { tokens: b.totalTokens, persons: b.totalPersons, fees: rupees(b.totalFeesPaise), partnerFees: rupees(b.totalSponsorFeesPaise), recharged: rupees(b.totalRechargedPaise) },
-      overrides: { tokenPrice: b.tokenPricePaise !== null, commission: b.commissionBps !== null, lowCreditThreshold: b.lowCreditThresholdPaise !== null, partnerRate: b.sponsorPassFeePaise !== null, passPrintFormat: b.passPrintFormat !== null },
+      /** Paid landing page at /m/<slug>: yearly fee and how long it is paid for. */
+      landingPage: { price: rupees(r.landingPagePricePaise), paidUntil: lp?.paidUntil ?? null, active: landingActive(lp) },
+      overrides: { tokenPrice: b.tokenPricePaise !== null, commission: b.commissionBps !== null, lowCreditThreshold: b.lowCreditThresholdPaise !== null, partnerRate: b.sponsorPassFeePaise !== null, passPrintFormat: b.passPrintFormat !== null, landingPagePrice: b.landingPageYearlyPricePaise !== null },
     };
   }
 
@@ -353,7 +359,7 @@ export class BillingService {
 
   // ─── Super admin ───────────────────────────────────────────────────
 
-  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerRate?: string; gatewayFeePercent?: string; defaultPassPrintFormat?: PassPrintSetting }) {
+  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerRate?: string; gatewayFeePercent?: string; defaultPassPrintFormat?: PassPrintSetting; landingPageYearlyPrice?: string }) {
     const before = await this.settings();
     const data: Prisma.PlatformSettingsUpdateInput = { updatedById: actorId };
     if (dto.defaultTokenPrice !== undefined) data.defaultTokenPricePaise = toPaise(dto.defaultTokenPrice);
@@ -362,22 +368,24 @@ export class BillingService {
     if (dto.welcomeCredit !== undefined) data.welcomeCreditPaise = toPaise(dto.welcomeCredit);
     if (dto.partnerRate !== undefined) data.sponsorPassFeePaise = toPaise(dto.partnerRate);
     if (dto.defaultPassPrintFormat !== undefined) data.defaultPassPrintFormat = dto.defaultPassPrintFormat;
+    if (dto.landingPageYearlyPrice !== undefined) data.landingPageYearlyPricePaise = toPaise(dto.landingPageYearlyPrice);
     if (dto.gatewayFeePercent !== undefined) data.gatewayFeeBps = Math.round(Number(dto.gatewayFeePercent) * 100);
     const after = await this.prisma.platformSettings.update({ where: { id: 'default' }, data });
     await this.audit.log({ actorId, action: 'billing.settings_updated', entityType: 'PlatformSettings', entityId: 'default', before, after });
     return this.presentSettings(after);
   }
 
-  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; defaultPassPrintFormat: string; updatedAt: Date }) {
+  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; defaultPassPrintFormat: string; landingPageYearlyPricePaise: number; updatedAt: Date }) {
     return {
       defaultTokenPrice: rupees(s.defaultTokenPricePaise), defaultCommissionPercent: (s.defaultCommissionBps / 100).toFixed(2),
       lowCreditThreshold: rupees(s.lowCreditThresholdPaise), welcomeCredit: rupees(s.welcomeCreditPaise),
-      feePerPass: rupees(unitFeePaise(s.defaultTokenPricePaise, s.defaultCommissionBps)), partnerRate: rupees(s.sponsorPassFeePaise), gatewayFeePercent: (s.gatewayFeeBps / 100).toFixed(2), defaultPassPrintFormat: s.defaultPassPrintFormat, updatedAt: s.updatedAt,
+      feePerPass: rupees(unitFeePaise(s.defaultTokenPricePaise, s.defaultCommissionBps)), partnerRate: rupees(s.sponsorPassFeePaise), gatewayFeePercent: (s.gatewayFeeBps / 100).toFixed(2), defaultPassPrintFormat: s.defaultPassPrintFormat,
+      landingPageYearlyPrice: rupees(s.landingPageYearlyPricePaise), updatedAt: s.updatedAt,
     };
   }
 
   /** Per-mandal pricing overrides; null resets to the platform default. */
-  async updateMandal(actorId: string, organizationId: string, dto: { tokenPrice?: string | null; commissionPercent?: string | null; lowCreditThreshold?: string | null; partnerRate?: string | null; passPrintFormat?: PassPrintSetting | null }) {
+  async updateMandal(actorId: string, organizationId: string, dto: { tokenPrice?: string | null; commissionPercent?: string | null; lowCreditThreshold?: string | null; partnerRate?: string | null; passPrintFormat?: PassPrintSetting | null; landingPagePrice?: string | null }) {
     await this.ensureAccount(this.prisma, organizationId);
     const data: Prisma.OrgBillingUpdateInput = {};
     if (dto.tokenPrice !== undefined) data.tokenPricePaise = dto.tokenPrice === null ? null : toPaise(dto.tokenPrice);
@@ -385,6 +393,7 @@ export class BillingService {
     if (dto.lowCreditThreshold !== undefined) data.lowCreditThresholdPaise = dto.lowCreditThreshold === null ? null : toPaise(dto.lowCreditThreshold);
     if (dto.partnerRate !== undefined) data.sponsorPassFeePaise = dto.partnerRate === null ? null : toPaise(dto.partnerRate);
     if (dto.passPrintFormat !== undefined) data.passPrintFormat = dto.passPrintFormat;
+    if (dto.landingPagePrice !== undefined) data.landingPageYearlyPricePaise = dto.landingPagePrice === null ? null : toPaise(dto.landingPagePrice);
     const before = await this.prisma.orgBilling.findUniqueOrThrow({ where: { organizationId } });
     const after = await this.prisma.orgBilling.update({ where: { organizationId }, data });
     await this.audit.log({ organizationId, actorId, action: 'billing.mandal_pricing_updated', entityType: 'OrgBilling', entityId: organizationId, before, after });
@@ -405,6 +414,8 @@ export class BillingService {
 
   async summary() {
     const split = await this.prisma.paymentSettlement.aggregate({ _sum: { commissionPaise: true, grossPaise: true, gatewayFeePaise: true } });
+    const landing = await this.prisma.landingPurchase.aggregate({ where: { status: 'PAID' }, _sum: { amountPaise: true }, _count: { _all: true } });
+    const landingPaise = landing._sum.amountPaise ?? 0;
     const [agg, recharges, byType, accounts, partnerNet, wallets] = await Promise.all([
       this.prisma.orgBilling.aggregate({ _sum: { totalSponsorFeesPaise: true, totalFeesPaise: true, totalTokens: true, totalPersons: true, creditBalancePaise: true, totalRechargedPaise: true } }),
       this.prisma.creditRecharge.count({ where: { status: 'PAID' } }),
@@ -424,7 +435,10 @@ export class BillingService {
       partnerWalletsOutstanding: rupees(wallets._sum.walletBalancePaise ?? 0),
       splitCommissionEarned: rupees(split._sum.commissionPaise ?? 0),
       onlineGross: rupees(split._sum.grossPaise ?? 0),
-      totalEarned: rupees((agg._sum.totalFeesPaise ?? 0) + (agg._sum.totalSponsorFeesPaise ?? 0) + (split._sum.commissionPaise ?? 0) + partnerEarned),
+      /** Paid mandal landing pages (yearly fees; manual super-admin grants are free and not counted). */
+      landingPageEarned: rupees(landingPaise),
+      landingPagesSold: landing._count._all,
+      totalEarned: rupees((agg._sum.totalFeesPaise ?? 0) + (agg._sum.totalSponsorFeesPaise ?? 0) + (split._sum.commissionPaise ?? 0) + partnerEarned + landingPaise),
       tokensGenerated: agg._sum.totalTokens ?? 0,
       personsAdmitted: agg._sum.totalPersons ?? 0,
       creditOutstanding: rupees(agg._sum.creditBalancePaise ?? 0),

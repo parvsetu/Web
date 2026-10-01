@@ -189,6 +189,11 @@ model Organization {
   address       String?
   /// Festival/event types this mandal celebrates; the event form lists only these. Empty = show all.
   festivalTypes String[] @default([])
+  /// ImageStore keys (bytes live behind the ImageStore interface, never on this row).
+  logoKey         String?
+  logoUpdatedAt   DateTime?
+  bannerKey       String?
+  bannerUpdatedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -206,6 +211,10 @@ model Organization {
   creditTransactions CreditTransaction[]
   creditRecharges    CreditRecharge[]
   partnerCampaigns   PartnerCampaign[]
+  photos             EventPhoto[]
+  storedImages       StoredImage[]
+  landingPage        LandingPage?
+  landingPurchases   LandingPurchase[]
 
   @@map("organizations")
 }
@@ -334,6 +343,8 @@ model Event {
   passOrders       PassOrder[]
   sponsors         Sponsor[]
   partnerCampaigns PartnerCampaign[]
+  photos           EventPhoto[]
+  priceRules       PriceRule[]
 
   @@index([organizationId])
   @@index([state, city])
@@ -602,6 +613,8 @@ model PassOrder {
   buyerMobile      String
   buyerEmail       String?
   unitPrice        Decimal         @db.Decimal(10, 2)
+  /// Peak-pricing rule that set unitPrice (null = the slot's base price).
+  priceRuleLabel   String?
   /// Taxable value (price × people, ex-GST).
   baseAmount       Decimal         @default(0) @db.Decimal(12, 2)
   gstRateBps       Int             @default(0)
@@ -700,6 +713,8 @@ model PlatformSettings {
   /// Pass print layout for mandals without an override: AUTO | A4 | THERMAL_80 | THERMAL_58.
   /// AUTO = A4 when a pass carries 2+ ads (sponsors + platform partners), else THERMAL_80.
   defaultPassPrintFormat  String   @default("AUTO")
+  /// Yearly fee for a mandal landing page at /m/<slug>, for mandals without an override.
+  landingPageYearlyPricePaise Int  @default(99900)
   updatedAt               DateTime @updatedAt
   updatedById             String?
 
@@ -718,6 +733,8 @@ model OrgBilling {
   sponsorPassFeePaise     Int?
   /// Pass print layout, set by the super admin (null = platform default). The mandal can't change it.
   passPrintFormat         String?
+  /// Landing page yearly fee at this mandal (null = platform default).
+  landingPageYearlyPricePaise Int?
   totalTokens             Int      @default(0)
   totalSponsorFeesPaise   Int      @default(0)
   totalPersons            Int      @default(0)
@@ -985,4 +1002,141 @@ model PartnerRecharge {
 
   @@index([partnerId, createdAt])
   @@map("partner_recharges")
+}
+
+// ─── Images: mandal logo/banner + festival photo gallery ───────────────
+// Bytes are reached only through the ImageStore interface
+// (src/common/images/image-store.ts). The DB-backed implementation keeps them
+// in stored_images; an S3/R2 store would keep only the key on callers' rows.
+
+model StoredImage {
+  key            String   @id
+  organizationId String?
+  mimeType       String
+  sizeBytes      Int
+  bytes          Bytes
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("stored_images")
+}
+
+/// One festival photo. sizeBytes = full image + thumbnail (counts toward the
+/// mandal's gallery quota). Private by default; isPublic photos get a public URL.
+model EventPhoto {
+  id             String    @id @default(uuid())
+  organizationId String
+  eventId        String
+  imageKey       String
+  thumbKey       String?
+  mimeType       String
+  width          Int
+  height         Int
+  sizeBytes      Int
+  caption        String?
+  isPublic       Boolean   @default(false)
+  takenAt        DateTime?
+  uploadedById   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([eventId, isPublic])
+  @@map("event_photos")
+}
+
+// ─── Paid mandal landing page (/m/<slug>) ──────────────────────────────
+// Served only while paidUntil > now AND enabled. paidUntil moves only through
+// a confirmed LandingPurchase or an audited super-admin grant/revoke — the
+// mandal's own update endpoint can't touch it.
+
+model LandingPage {
+  organizationId   String    @id
+  enabled          Boolean   @default(true)
+  paidUntil        DateTime?
+  headline         String?
+  about            String?
+  /// Up to 6 short bullet items.
+  highlights       String[]  @default([])
+  contactPhone     String?
+  contactEmail     String?
+  instagramUrl     String?
+  facebookUrl      String?
+  youtubeUrl       String?
+  whatsappNumber   String?
+  /// Empty = every active/upcoming public festival.
+  featuredEventIds String[]  @default([])
+  /// Empty = the latest public photos. Only photos that are (still) public are ever shown.
+  photoIds         String[]  @default([])
+  themeColor       String    @default("saffron")
+  totalPaidPaise   Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([paidUntil])
+  @@map("landing_pages")
+}
+
+/// One yearly landing page payment (demo gateway today, like CreditRecharge).
+model LandingPurchase {
+  id               String          @id @default(uuid())
+  organizationId   String
+  amountPaise      Int
+  years            Int             @default(1)
+  status           PassOrderStatus @default(PENDING)
+  paymentProvider  String
+  providerOrderId  String?
+  paymentReference String?
+  createdById      String?
+  /// paidUntil after this payment was applied.
+  paidUntil        DateTime?
+  paidAt           DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime        @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([status, paidAt])
+  @@map("landing_purchases")
+}
+
+// ─── Peak-day pricing ──────────────────────────────────────────────────
+// Date-based overrides of a slot's base price. Resolved in ONE place
+// (src/common/pricing.ts): DATES rules beat WEEKENDS rules; within the
+// winning tier the highest resulting price wins (ties: oldest rule).
+
+enum PriceRuleKind {
+  DATES
+  WEEKENDS
+}
+
+model PriceRule {
+  id          String        @id @default(uuid())
+  eventId     String
+  label       String
+  kind        PriceRuleKind
+  /// DATES only: calendar dates in the event's timezone.
+  dates       DateTime[]    @db.Date
+  /// Empty = every slot of the event.
+  timeSlotIds String[]      @default([])
+  /// Exactly one of fixedPricePaise / upliftBps is set (CHECK).
+  fixedPricePaise Int?
+  upliftBps   Int?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("price_rules")
 }

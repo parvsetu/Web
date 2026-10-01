@@ -9,6 +9,7 @@ import { isFree } from '@/lib/booking';
 import { eventCity, isLive } from '@/lib/explore';
 import type { BookableEvent } from '@/lib/booking-types';
 import { cx } from '@/lib/cx';
+import { apiImageSrc } from '@/lib/media';
 import { FestivalArt, Mandala, Toran } from '../FestivalArt';
 
 const dates = (e: BookableEvent) => (e.startDate === e.endDate ? fmtDate(e.startDate) : `${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}`);
@@ -18,22 +19,51 @@ const typeLabel = (type: string) => {
   return t.label === 'Festival' ? type.replace(/_/g, ' ').toLowerCase() : t.label;
 };
 
-/** Portrait "poster" card: themed artwork on top, details below. */
+/** Mandal name, linking to its landing page (/m/<slug>) while that page is live. */
+export function MandalName({ org, className }: { org: BookableEvent['organization']; className?: string }) {
+  const logo = apiImageSrc(org.logoUrl);
+  const inner = (
+    <>
+      {logo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logo} alt="" className="h-4 w-4 shrink-0 rounded-full bg-white object-contain" />
+      )}
+      <span className="truncate">{org.name}</span>
+    </>
+  );
+  return org.landingSlug ? (
+    <Link href={`/m/${org.landingSlug}`} className={cx('inline-flex min-w-0 items-center gap-1 hover:underline', className)}>{inner}</Link>
+  ) : (
+    <span className={cx('inline-flex min-w-0 items-center gap-1', className)}>{inner}</span>
+  );
+}
+
+/** Portrait "poster" card: the mandal's banner (or themed festival artwork) on top, details below. */
 export function PosterCard({ event, className }: { event: BookableEvent; className?: string }) {
   const t = festivalTheme(event.festivalType);
   const live = isLive(event);
+  const banner = apiImageSrc(event.organization.bannerUrl);
   return (
-    <Link
-      href={`/book/${event.id}`}
-      className={cx('group flex flex-col gap-2 rounded-2xl focus:outline-none focus-visible:ring-4 focus-visible:ring-orange-500/40', className)}
-    >
-      <div className="relative aspect-[3/4] overflow-hidden rounded-2xl shadow-md shadow-orange-900/10 transition group-hover:-translate-y-1 group-hover:shadow-xl" style={{ background: gradient(t, 160) }}>
-        <Toran className="absolute inset-x-0 top-0 w-full" />
-        <Mandala className="pointer-events-none absolute -right-10 top-8 h-40 w-40 text-white/15" />
-        <Mandala className="pointer-events-none absolute -bottom-14 -left-12 h-40 w-40 text-white/10" />
-        <span className="absolute left-1/2 top-[38%] h-[46%] w-[66%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 p-[9%] shadow-lg ring-4 ring-white/40">
-          <FestivalArt type={event.festivalType} className="h-full w-full" />
-        </span>
+    <div className={cx('group flex flex-col gap-2 rounded-2xl', className)}>
+      <Link
+        href={`/book/${event.id}`}
+        className="relative block aspect-[3/4] overflow-hidden rounded-2xl shadow-md shadow-orange-900/10 transition group-hover:-translate-y-1 group-hover:shadow-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-orange-500/40"
+        style={{ background: gradient(t, 160) }}
+        aria-label={event.name}
+      >
+        {banner ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={banner} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <>
+            <Toran className="absolute inset-x-0 top-0 w-full" />
+            <Mandala className="pointer-events-none absolute -right-10 top-8 h-40 w-40 text-white/15" />
+            <Mandala className="pointer-events-none absolute -bottom-14 -left-12 h-40 w-40 text-white/10" />
+            <span className="absolute left-1/2 top-[38%] h-[46%] w-[66%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 p-[9%] shadow-lg ring-4 ring-white/40">
+              <FestivalArt type={event.festivalType} className="h-full w-full" />
+            </span>
+          </>
+        )}
         {live && (
           <span className="absolute left-2 top-3 inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white shadow">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Live
@@ -44,10 +74,13 @@ export function PosterCard({ event, className }: { event: BookableEvent; classNa
             <CalendarDays aria-hidden className="h-3.5 w-3.5" /> {dates(event)}
           </p>
         </div>
-      </div>
+      </Link>
       <div className="px-0.5">
-        <h3 className="line-clamp-2 text-[15px] font-bold leading-snug text-slate-900">{event.name}</h3>
-        <p className="mt-0.5 line-clamp-1 text-xs capitalize text-slate-500">{typeLabel(event.festivalType)} · {event.organization.name}</p>
+        <Link href={`/book/${event.id}`} className="line-clamp-2 text-[15px] font-bold leading-snug text-slate-900 hover:underline">{event.name}</Link>
+        <p className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-500">
+          <span className="shrink-0 capitalize">{typeLabel(event.festivalType)} ·</span>
+          <MandalName org={event.organization} />
+        </p>
         {eventCity(event) && (
           <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
             <MapPin aria-hidden className="h-3 w-3 shrink-0" />
@@ -58,7 +91,7 @@ export function PosterCard({ event, className }: { event: BookableEvent; classNa
           {priceText(event.fromPrice)}
         </p>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -135,9 +168,18 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
       >
         {events.map((e, i) => {
           const t = festivalTheme(e.festivalType);
+          const banner = apiImageSrc(e.organization.bannerUrl);
+          const logo = apiImageSrc(e.organization.logoUrl);
           return (
             <div key={e.id} role="group" aria-roledescription="slide" aria-label={`${i + 1} of ${events.length}`} className="relative w-full shrink-0 snap-start">
               <div className="relative flex min-h-[230px] items-center overflow-hidden px-5 py-7 text-white sm:min-h-[300px] sm:px-10 md:px-20" style={{ background: gradient(t, 110) }}>
+                {banner && (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={banner} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    <span aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
+                  </>
+                )}
                 <Toran className="absolute inset-x-0 top-0 w-full" />
                 <Mandala className="pointer-events-none absolute -right-20 -top-16 h-80 w-80 text-white/15" />
                 <Mandala className="pointer-events-none absolute -bottom-24 left-1/3 h-64 w-64 text-white/10" />
@@ -150,7 +192,10 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
                     <span className="inline-flex rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide">{typeLabel(e.festivalType)}</span>
                   )}
                   <h2 className="mt-2 line-clamp-2 text-2xl font-extrabold leading-tight drop-shadow sm:text-4xl">{e.name}</h2>
-                  <p className="mt-1 line-clamp-1 text-sm text-white/90 sm:text-base">{e.organization.name}{eventCity(e) ? ` · ${eventCity(e)}` : ''}</p>
+                  <p className="mt-1 flex min-w-0 items-center gap-1 text-sm text-white/90 sm:text-base">
+                    <MandalName org={e.organization} />
+                    {eventCity(e) ? <span className="shrink-0">· {eventCity(e)}</span> : null}
+                  </p>
                   <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold">
                     <CalendarDays aria-hidden className="h-4 w-4" /> {dates(e)}
                   </p>
@@ -163,7 +208,12 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
                   </Link>
                 </div>
                 <span className="absolute right-4 top-1/2 h-36 w-36 -translate-y-1/2 rounded-full bg-white/95 p-4 shadow-2xl ring-8 ring-white/30 sm:right-12 sm:h-56 sm:w-56 md:right-20 sm:p-6">
-                  <FestivalArt type={e.festivalType} className="h-full w-full" />
+                  {logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={logo} alt={`${e.organization.name} logo`} className="h-full w-full rounded-full object-contain" />
+                  ) : (
+                    <FestivalArt type={e.festivalType} className="h-full w-full" />
+                  )}
                 </span>
               </div>
             </div>

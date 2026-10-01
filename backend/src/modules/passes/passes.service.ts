@@ -16,6 +16,9 @@ import { PASS_GATEWAYS, demoPaymentsEnabled } from './pass-gateways';
 import { SponsorsService } from '../sponsors/sponsors.service';
 import { computeGst, slabRateBps } from '../../common/gst';
 import { presentVenue, VENUE_SELECT } from '../../common/venue';
+import { ORG_BRAND_SELECT, presentOrgBrand } from '../../common/org-brand';
+import { decimalToPaise, effectivePrice, loadPricingRules, PricingRule } from '../../common/pricing';
+import { DateTime } from 'luxon';
 import { BillingService } from '../billing/billing.service';
 import { PartnerBillingService } from '../partners/partner-billing.service';
 import { PayoutsService } from '../payouts/payouts.service';
@@ -27,7 +30,7 @@ export const ORDER_HOLD_MINUTES = 15;
 const BOOKABLE = { publicBookingEnabled: true, status: 'ACTIVE' as const };
 
 const orderInclude = {
-  event: { select: { id: true, name: true, festivalType: true, timezone: true, ...VENUE_SELECT, organizationId: true, gstSac: true, organization: { select: { name: true } } } },
+  event: { select: { id: true, name: true, festivalType: true, timezone: true, ...VENUE_SELECT, organizationId: true, gstSac: true, organization: { select: { name: true, ...ORG_BRAND_SELECT } } } },
   timeSlot: { select: { label: true } },
   tokens: {
     select: { tokenCode: true, secureToken: true, status: true, validFrom: true, validUntil: true, usedAt: true, visitorCount: true, sponsorIds: true, partnerCampaignIds: true },
@@ -72,15 +75,16 @@ export class PassesService {
       orderBy: { startDate: 'asc' },
       select: {
         id: true, organizationId: true, name: true, festivalType: true, description: true, ...VENUE_SELECT, startDate: true, endDate: true, timezone: true,
-        maxVisitorsPerToken: true, organization: { select: { name: true, city: true } },
+        maxVisitorsPerToken: true, organization: { select: { name: true, city: true, ...ORG_BRAND_SELECT } },
         timeSlots: { where: { isActive: true }, select: { price: true } },
       },
     });
     const verified = new Set(
       (await this.prisma.payoutAccount.findMany({ where: { status: 'VERIFIED', organizationId: { in: events.map((e) => e.organizationId) } }, select: { organizationId: true } })).map((p) => p.organizationId),
     );
-    return events.map(({ timeSlots, organizationId, ...e }) => ({
+    return events.map(({ timeSlots, organizationId, organization, ...e }) => ({
       ...e,
+      organization: presentOrgBrand(organization),
       startDate: ymd(e.startDate),
       endDate: ymd(e.endDate),
       fromPrice: timeSlots.length ? Prisma.Decimal.min(...timeSlots.map((s) => s.price)).toFixed(2) : null,
@@ -92,7 +96,7 @@ export class PassesService {
   private async bookableEvent(eventId: string) {
     const event = await this.prisma.event.findFirst({
       where: { id: eventId, ...BOOKABLE },
-      include: { organization: { select: { name: true, city: true } } },
+      include: { organization: { select: { name: true, city: true, ...ORG_BRAND_SELECT } } },
     });
     if (!event) throw new NotFoundException('This festival is not taking bookings.');
     return event;
@@ -105,12 +109,16 @@ export class PassesService {
       orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }],
       select: { id: true, label: true, startTime: true, endTime: true, price: true, capacity: true },
     });
+    const rules = await loadPricingRules(this.prisma, e.id);
     return {
       id: e.id, name: e.name, festivalType: e.festivalType, description: e.description, location: e.location, state: e.state, city: e.city,
       venue: presentVenue(e),
       startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, maxVisitorsPerToken: e.maxVisitorsPerToken,
-      organization: e.organization, onlinePayments: this.gateways.length > 0 && (await this.payouts.isVerified(e.organizationId)), holdMinutes: ORDER_HOLD_MINUTES,
+      organization: presentOrgBrand(e.organization), onlinePayments: this.gateways.length > 0 && (await this.payouts.isVerified(e.organizationId)), holdMinutes: ORDER_HOLD_MINUTES,
+      // Slot prices here are BASE prices; the per-date effective price comes from availability().
       slots: slots.map((s) => ({ ...s, price: s.price.toFixed(2) })),
+      /** Days on which at least one slot costs more than its base price (for "Peak" chips). */
+      peakDates: peakDates(ymd(e.startDate), ymd(e.endDate), slots, rules),
       gst: e.gstEnabled
         ? {
             ratePercent: e.gstRateBps / 100, bearer: e.gstBearer, mode: e.gstMode,
@@ -130,13 +138,17 @@ export class PassesService {
       orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }],
     });
     const now = new Date();
+    const rules = await loadPricingRules(this.prisma, e.id);
     return {
       date,
       slots: await Promise.all(slots.map(async (s) => {
         const w = slotWindow(date, s.startTime, s.endTime, e.timezone);
         const ended = w.validUntil <= now;
+        const p = effectivePrice(decimalToPaise(s.price), s.id, date, rules);
         return {
-          id: s.id, label: s.label, startTime: s.startTime, endTime: s.endTime, price: s.price.toFixed(2),
+          id: s.id, label: s.label, startTime: s.startTime, endTime: s.endTime,
+          /** Effective per-person price for this date (peak rules applied). */
+          price: (p.pricePaise / 100).toFixed(2), basePrice: s.price.toFixed(2), ruleLabel: p.rule?.label ?? null,
           validFrom: w.validFrom, validUntil: w.validUntil, ended,
           remaining: ended ? 0 : await this.tokens.slotRemaining(s.id, w.validFrom, s.capacity),
         };
@@ -163,9 +175,12 @@ export class PassesService {
     const w = slotWindow(dto.date, slot.startTime, slot.endTime, event.timezone);
     if (w.validUntil <= new Date()) throw new BadRequestException('This time slot has already ended. Pick a later slot.');
 
-    const price = slot.price.mul(dto.visitorCount);
+    // The one pricing decision (peak rules), shared with availability().
+    const eff = effectivePrice(decimalToPaise(slot.price), slot.id, dto.date, await loadPricingRules(this.prisma, event.id));
+    const unitPrice = new Prisma.Decimal(eff.pricePaise).div(100);
+    const price = unitPrice.mul(dto.visitorCount);
     const rateBps = event.gstEnabled
-      ? slabRateBps(Math.round(Number(slot.price) * 100), {
+      ? slabRateBps(eff.pricePaise, {
           mode: event.gstMode as 'FLAT' | 'SLAB', rateBps: event.gstRateBps, lowRateBps: event.gstLowRateBps,
           thresholdPaise: event.gstSlabThresholdPaise, bearer: event.gstBearer as 'CUSTOMER' | 'MANDAL',
         })
@@ -190,7 +205,7 @@ export class PassesService {
       const order = await tx.passOrder.create({
         data: {
           eventId: event.id, timeSlotId: slot.id, validFrom: w.validFrom, validUntil: w.validUntil, visitorCount: dto.visitorCount,
-          ...buyer, unitPrice: slot.price, amount, paymentProvider: free ? 'free' : gateway!.key,
+          ...buyer, unitPrice, priceRuleLabel: eff.rule?.label ?? null, amount, paymentProvider: free ? 'free' : gateway!.key,
           baseAmount: new Prisma.Decimal(g.basePaise).div(100), gstAmount: new Prisma.Decimal(g.gstPaise).div(100),
           gstRateBps: g.gstPaise > 0 ? rateBps : 0, gstBearer: g.gstPaise > 0 ? event.gstBearer : null,
           perPersonPasses: dto.perPersonPasses ?? true,
@@ -370,7 +385,7 @@ export class PassesService {
       passes,
       /** First pass — kept for clients that show a single QR. */
       pass: passes[0] ?? null,
-      id: o.id, status: o.status, amount: o.amount.toFixed(2), unitPrice: o.unitPrice.toFixed(2), currency: o.currency,
+      id: o.id, status: o.status, amount: o.amount.toFixed(2), unitPrice: o.unitPrice.toFixed(2), priceRuleLabel: o.priceRuleLabel, currency: o.currency,
       invoiceNo: o.invoiceNo,
       gst: o.gstAmount.gt(0)
         ? { taxable: o.baseAmount.toFixed(2), amount: o.gstAmount.toFixed(2), ratePercent: o.gstRateBps / 100, bearer: o.gstBearer, cgst: o.gstAmount.div(2).toFixed(2), sgst: o.gstAmount.minus(o.gstAmount.div(2).toDecimalPlaces(2)).toFixed(2), sac: o.event.gstSac }
@@ -378,7 +393,7 @@ export class PassesService {
       visitorCount: o.visitorCount, buyerName: o.buyerName, buyerMobile: o.buyerMobile,
       validFrom: o.validFrom, validUntil: o.validUntil, expiresAt: o.expiresAt, paidAt: o.paidAt, createdAt: o.createdAt,
       payment: { provider: o.paymentProvider, demo: o.paymentProvider === 'demo' },
-      event: { id: o.event.id, name: o.event.name, festivalType: o.event.festivalType, timezone: o.event.timezone, location: o.event.location, venue: presentVenue(o.event), organization: o.event.organization },
+      event: { id: o.event.id, name: o.event.name, festivalType: o.event.festivalType, timezone: o.event.timezone, location: o.event.location, venue: presentVenue(o.event), organization: presentOrgBrand(o.event.organization) },
       timeSlot: { label: o.timeSlot.label },
     };
   }
@@ -412,4 +427,18 @@ export class PassesService {
       totals: { paidOrders: sum._count._all, revenue: (sum._sum.amount ?? new Prisma.Decimal(0)).toFixed(2), visitors: sum._sum.visitorCount ?? 0 },
     };
   }
+}
+
+/** Event days (max 400) where some slot's effective price exceeds its base price. */
+function peakDates(start: string, end: string, slots: { id: string; price: Prisma.Decimal }[], rules: PricingRule[]) {
+  if (!rules.length) return [];
+  const out: { date: string; label: string }[] = [];
+  let d = DateTime.fromISO(start, { zone: 'utc' });
+  const last = DateTime.fromISO(end, { zone: 'utc' });
+  for (let i = 0; d <= last && i < 400; i++, d = d.plus({ days: 1 })) {
+    const date = d.toISODate()!;
+    const hit = slots.map((s) => effectivePrice(decimalToPaise(s.price), s.id, date, rules)).find((p) => p.rule && p.pricePaise > p.basePaise);
+    if (hit) out.push({ date, label: hit.rule!.label });
+  }
+  return out;
 }

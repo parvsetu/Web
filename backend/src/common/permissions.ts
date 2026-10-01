@@ -47,6 +47,9 @@ export const PERMISSIONS = {
   SETTINGS_UPDATE: 'Change settings, time slots (token validity)',
 
   AUDIT_VIEW: 'View the administrative audit log',
+
+  GALLERY_VIEW: 'View festival photos (including private ones)',
+  GALLERY_MANAGE: 'Upload, caption, publish and delete festival photos',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -96,7 +99,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     description: 'Donations and expenses',
     permissions: [
       'EVENT_VIEW', 'DONATION_VIEW', 'DONATION_CREATE', 'DONATION_UPDATE',
-      'EXPENSE_VIEW', 'EXPENSE_CREATE', 'EXPENSE_UPDATE', 'REPORT_VIEW', 'REPORT_EXPORT',
+      'EXPENSE_VIEW', 'EXPENSE_CREATE', 'EXPENSE_UPDATE', 'REPORT_VIEW', 'REPORT_EXPORT', 'GALLERY_VIEW',
     ],
   },
   {
@@ -105,7 +108,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     description: 'Read-only access to reports and statistics',
     permissions: [
       'EVENT_VIEW', 'TOKEN_VIEW', 'VOLUNTEER_VIEW', 'REPORT_VIEW', 'REPORT_EXPORT',
-      'DONATION_VIEW', 'EXPENSE_VIEW',
+      'DONATION_VIEW', 'EXPENSE_VIEW', 'GALLERY_VIEW',
     ],
   },
 ];

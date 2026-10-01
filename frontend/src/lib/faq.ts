@@ -235,6 +235,52 @@ export const FAQ: FaqSection[] = [
         q: 'How do we promote our festival?',
         a: ['Festival admin → Promote gives a public page with a WhatsApp/Facebook preview, share buttons and a ready Instagram poster to download.'],
       },
+      {
+        id: 'peak-pricing',
+        q: 'Can we charge more on busy days (weekends, Ashtami)?',
+        a: [
+          'Yes. Festival admin → Time slots → Peak pricing. Add a rule for every Saturday & Sunday, or pick specific festival dates, for all slots or only some, as a fixed price or a percentage increase (e.g. +20%).',
+          'If a specific-date rule and a weekend rule both match a day, the specific-date rule wins; if several rules of the same kind match, the higher price applies. The preview table shows the exact price for every day and slot.',
+          'Visitors see a “Peak” badge on those days and the normal price struck through. GST is worked out on the peak price, so a ₹90 ticket raised to ₹108 moves to the 18% slab if your threshold is ₹100. Passes already paid keep the price they were bought at.',
+        ],
+      },
+      {
+        id: 'landing-page',
+        q: 'Can our mandal have its own page on Parvsetu?',
+        a: [
+          'Yes — a landing page at /m/your-mandal (your mandal’s short name), paid yearly. Mandal admin → Landing page shows the price, lets you buy or renew for a year (renewing early adds a year to the current end date) and edit the headline, about text, up to 6 highlights, contact phone/email, Instagram/Facebook/YouTube links, WhatsApp number, theme colour, which festivals to feature and which public photos to show.',
+          'The page shows your banner and logo, upcoming festivals with booking links, past festivals by year, your public photos, your mandal-wide sponsors, contact and share buttons. It is visible only while paid and switched on; use Preview to see it before that. The platform admin can also grant or switch off a page.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'photos',
+    title: 'Logo, banner & photos',
+    emoji: '📸',
+    items: [
+      {
+        id: 'logo-banner',
+        q: 'How do we add our mandal logo and banner?',
+        a: [
+          'Mandal admin → Settings → Logo & banner. Use a PNG, JPG or WebP photo; it is resized on your phone before upload (logo up to 512 px / 512 KB, banner up to 1920 px wide / 2 MB).',
+          'The logo appears next to your mandal name on festival and booking pages, passes, donation receipts and the explore page; the banner becomes the background of your festival and explore cards.',
+        ],
+      },
+      {
+        id: 'gallery',
+        q: 'Where do we keep festival photos?',
+        a: [
+          'Festival admin → Photos: choose several photos or take one with the camera — they are resized on the phone and uploaded with a progress bar. Add captions, open them full screen, or delete them.',
+          'New photos are private (only your team sees them). Tap the globe to make a photo public: it then shows on the public festival page and can be picked for your landing page.',
+          'Mandal admin → Gallery collects every festival’s photos by year so you can look back next season. Each mandal has 300 MB of photo space; the bar shows how much is used.',
+        ],
+      },
+      {
+        id: 'gallery-who',
+        q: 'Who can see and upload photos?',
+        a: ['Mandal Admins can upload, caption, publish and delete. Treasurers and Report Viewers can view the gallery. Gate volunteers can’t see it. Custom roles can be given “View festival photos” or “Manage festival photos”.'],
+      },
     ],
   },
   {
