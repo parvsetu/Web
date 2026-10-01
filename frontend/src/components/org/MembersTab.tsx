@@ -1,21 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { api, asArray, errorMessage } from '@/lib/api';
+import { api, errorMessage } from '@/lib/api';
+import { usePagedList } from '@/lib/paged';
+import { SearchBar } from '../SearchBar';
 import { useAuth } from '@/lib/auth';
-import { useAsync } from '@/lib/hooks';
 import { useOrg } from '@/lib/org-context';
 import { can } from '@/lib/permissions';
-import type { Member, Paged } from '@/lib/types';
+import type { Member } from '@/lib/types';
 import { RoleSelect } from '../admin/VolunteersTab';
-import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, SkeletonList } from '../ui';
+import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SkeletonList } from '../ui';
 import { TempPassword, useRoles } from './shared';
 import { Pencil, Save, Trash2, UserPlus } from 'lucide-react';
 
 export function MembersTab() {
   const org = useOrg();
   const { me } = useAuth();
-  const list = useAsync(() => api.get<Member[] | Paged<Member>>(`/organizations/${org.orgId}/members`).then((r) => asArray(r)), [org.orgId]);
+  const list = usePagedList<Member>(`/organizations/${org.orgId}/members`);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,13 +41,14 @@ export function MembersTab() {
         </div>
       )}
       {error && <Alert>{error}</Alert>}
+      <SearchBar value={list.search} onChange={list.setSearch} placeholder="Search name, mobile or email" total={list.total} />
       {list.error && <Alert>{list.error}</Alert>}
       {list.loading && !list.data ? (
         <SkeletonList />
-      ) : (list.data ?? []).length === 0 ? (
-        <Empty title="No members" />
+      ) : list.items.length === 0 ? (
+        <Empty title={list.searching ? 'No members match your search' : 'No members'} />
       ) : (
-        (list.data ?? []).map((m) => {
+        list.items.map((m) => {
           const self = m.userId === me?.id;
           return (
             <Card key={m.userId} className="flex flex-wrap items-center justify-between gap-3">
@@ -78,6 +80,7 @@ export function MembersTab() {
           );
         })
       )}
+      <Pager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} />
       {adding && <AddMember onClose={() => setAdding(false)} onCreated={() => list.reload()} />}
       {editing && (
         <EditMember

@@ -1,4 +1,4 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 const STATUSES = ['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'] as const;
@@ -17,6 +17,7 @@ export class CreateEventDto {
   @IsOptional() @Matches(/^[A-Z0-9]{2,6}$/, { message: 'tokenPrefix must be 2-6 uppercase letters/digits' }) tokenPrefix?: string;
   @IsOptional() @IsBoolean() volunteerRegistrationOpen?: boolean;
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
+  @IsOptional() @IsArray() @ArrayMaxSize(12) @IsInt({ each: true }) @Min(1, { each: true }) @Max(744, { each: true }) tokenDurationOptions?: number[];
   @IsOptional() @IsInt() @Min(1) @Max(100) maxVisitorsPerToken?: number;
 }
 
@@ -34,6 +35,7 @@ export class UpdateEventDto {
   @IsOptional() @Matches(/^[A-Z0-9]{2,6}$/) tokenPrefix?: string;
   @IsOptional() @IsBoolean() volunteerRegistrationOpen?: boolean;
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
+  @IsOptional() @IsArray() @ArrayMaxSize(12) @IsInt({ each: true }) @Min(1, { each: true }) @Max(744, { each: true }) tokenDurationOptions?: number[];
   @IsOptional() @IsInt() @Min(1) @Max(100) maxVisitorsPerToken?: number;
 }
 

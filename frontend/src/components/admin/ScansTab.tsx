@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, asArray } from '@/lib/api';
 import { useEvent } from '@/lib/event-context';
-import { useAsync } from '@/lib/hooks';
+import { useAsync, useDebounced } from '@/lib/hooks';
 import type { Assignment, Paged, ScanLogRow } from '@/lib/types';
 import { ScanRowCard } from '../ScanRow';
+import { SearchBar } from '../SearchBar';
 import { Alert, Card, Empty, LabeledInput, LabeledSelect, Pager, SkeletonList } from '../ui';
 import { can } from '@/lib/permissions';
 
@@ -15,9 +16,12 @@ export function ScansTab() {
   const ev = useEvent();
   const [f, setF] = useState({ result: '', userId: '', date: '' });
   const [page, setPage] = useState(1);
-  const q = useAsync(() => api.get<Paged<ScanLogRow>>(`/events/${ev.eventId}/scans`, { ...f, page }), [ev.eventId, f, page]);
+  const [search, setSearch] = useState('');
+  const dq = useDebounced(search.trim());
+  useEffect(() => setPage(1), [dq]);
+  const q = useAsync(() => api.get<Paged<ScanLogRow>>(`/events/${ev.eventId}/scans`, { ...f, q: dq || undefined, page }), [ev.eventId, f, page, dq]);
   const people = useAsync(
-    () => api.get<Assignment[] | Paged<Assignment>>(`/events/${ev.eventId}/assignments`).then((r) => asArray(r)),
+    () => api.get<Assignment[] | Paged<Assignment>>(`/events/${ev.eventId}/assignments`, { pageSize: 200 }).then((r) => asArray(r)),
     [ev.eventId],
     can(ev.perms, 'VOLUNTEER_VIEW'),
   );
@@ -28,6 +32,7 @@ export function ScansTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      <SearchBar value={search} onChange={setSearch} placeholder="Search token code or volunteer" total={q.data?.total} />
       <Card className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <LabeledSelect label="Result" value={f.result} onChange={(e) => set('result')(e.target.value)}>
           <option value="">All</option>

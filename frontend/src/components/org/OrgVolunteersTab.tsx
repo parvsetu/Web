@@ -1,25 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { api, asArray, errorMessage } from '@/lib/api';
-import { useAsync, useDebounced } from '@/lib/hooks';
+import { api, errorMessage } from '@/lib/api';
+import { usePagedList } from '@/lib/paged';
 import { useOrg } from '@/lib/org-context';
 import { can } from '@/lib/permissions';
-import type { Paged, Volunteer } from '@/lib/types';
+import type { Volunteer } from '@/lib/types';
 import { RoleSelect } from '../admin/VolunteersTab';
-import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, SkeletonList } from '../ui';
+import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SkeletonList } from '../ui';
 import { TempPassword, useOrgEvents, useRoles } from './shared';
 import { Pencil, Save, UserCheck, UserPlus, UserX } from 'lucide-react';
 
 export function OrgVolunteersTab() {
   const org = useOrg();
   const [f, setF] = useState({ eventId: '', status: '' });
-  const [qText, setQText] = useState('');
-  const q = useDebounced(qText);
-  const list = useAsync(
-    () => api.get<Volunteer[] | Paged<Volunteer>>(`/organizations/${org.orgId}/volunteers`, { ...f, q }).then((r) => asArray(r)),
-    [org.orgId, f, q],
-  );
+  const list = usePagedList<Volunteer>(`/organizations/${org.orgId}/volunteers`, { eventId: f.eventId || undefined, status: f.status || undefined });
   const events = useOrgEvents(org.orgId);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Volunteer | null>(null);
@@ -42,7 +37,7 @@ export function OrgVolunteersTab() {
     <div className="flex flex-col gap-3">
       <Card className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="col-span-2">
-          <LabeledInput label="Search" value={qText} onChange={(e) => setQText(e.target.value)} placeholder="Name, mobile or email" />
+          <LabeledInput label="Search" type="search" value={list.search} onChange={(e) => list.setSearch(e.target.value)} placeholder="Name, mobile or email" />
         </div>
         <LabeledSelect label="Festival" value={f.eventId} onChange={(e) => setF((x) => ({ ...x, eventId: e.target.value }))}>
           <option value="">All</option>
@@ -67,10 +62,10 @@ export function OrgVolunteersTab() {
       {list.error && <Alert>{list.error}</Alert>}
       {list.loading && !list.data ? (
         <SkeletonList />
-      ) : (list.data ?? []).length === 0 ? (
+      ) : list.items.length === 0 ? (
         <Empty title="No volunteers found" />
       ) : (
-        (list.data ?? []).map((v) => {
+        list.items.map((v) => {
           const anyActive = v.assignments.some((a) => a.status === 'ACTIVE');
           return (
             <Card key={v.userId}>
@@ -112,6 +107,7 @@ export function OrgVolunteersTab() {
           );
         })
       )}
+      <Pager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} />
       {creating && (
         <CreateVolunteer
           onClose={() => setCreating(false)}

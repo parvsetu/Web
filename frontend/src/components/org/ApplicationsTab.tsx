@@ -1,47 +1,44 @@
 'use client';
 
 import { useState } from 'react';
-import { api, asArray, errorMessage } from '@/lib/api';
+import { api, errorMessage } from '@/lib/api';
+import { usePagedList } from '@/lib/paged';
+import { SearchBar } from '../SearchBar';
 import { fmtDateTime } from '@/lib/format';
-import { useAsync } from '@/lib/hooks';
 import { useOrg } from '@/lib/org-context';
 import { can } from '@/lib/permissions';
-import type { Application, Paged } from '@/lib/types';
+import type { Application } from '@/lib/types';
 import { RoleSelect } from '../admin/VolunteersTab';
-import { Alert, Badge, Button, Card, Empty, Field, LabeledSelect, Modal, SkeletonList, Textarea } from '../ui';
+import { Alert, Badge, Button, Card, Empty, Field, LabeledSelect, Modal, Pager, SkeletonList, Textarea } from '../ui';
 import { useOrgEvents, useRoles } from './shared';
 import { Check, X } from 'lucide-react';
 
 export function ApplicationsTab() {
   const org = useOrg();
   const [status, setStatus] = useState('PENDING');
-  const list = useAsync(
-    () =>
-      api
-        .get<Application[] | Paged<Application>>(`/organizations/${org.orgId}/volunteer-applications`, { status })
-        .then((r) => asArray(r)),
-    [org.orgId, status],
-  );
+  const list = usePagedList<Application>(`/organizations/${org.orgId}/volunteer-applications`, { status });
   const [approving, setApproving] = useState<Application | null>(null);
   const [rejecting, setRejecting] = useState<Application | null>(null);
   const canAssign = can(org.perms, 'VOLUNTEER_ASSIGN');
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="sm:max-w-xs">
-        <LabeledSelect label="Show" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="PENDING">Pending</option>
-          <option value="APPROVED">Approved</option>
-          <option value="REJECTED">Rejected</option>
-        </LabeledSelect>
-      </div>
+      <SearchBar value={list.search} onChange={list.setSearch} placeholder="Search applicant name, mobile or email" total={list.total}>
+        <div className="sm:w-48">
+          <LabeledSelect label="Show" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="PENDING">Pending</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+          </LabeledSelect>
+        </div>
+      </SearchBar>
       {list.error && <Alert>{list.error}</Alert>}
       {list.loading && !list.data ? (
         <SkeletonList />
-      ) : (list.data ?? []).length === 0 ? (
+      ) : list.items.length === 0 ? (
         <Empty title={status === 'PENDING' ? 'No pending applications' : 'Nothing here'} />
       ) : (
-        (list.data ?? []).map((a) => (
+        list.items.map((a) => (
           <Card key={a.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
@@ -71,6 +68,7 @@ export function ApplicationsTab() {
           </Card>
         ))
       )}
+      <Pager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} />
       {approving && (
         <ApproveModal
           app={approving}

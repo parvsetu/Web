@@ -45,12 +45,27 @@ export class TokensService {
   ): Promise<ResolvedValidity> {
     const slotForm = dto.timeSlotId !== undefined || dto.date !== undefined;
     const customForm = dto.validFrom !== undefined || dto.validUntil !== undefined;
-    if (slotForm === customForm) {
-      throw new BadRequestException('Provide either timeSlotId + date, or validFrom + validUntil');
+    const durationForm = dto.durationHours !== undefined || dto.startAt !== undefined;
+    if ([slotForm, customForm, durationForm].filter(Boolean).length !== 1) {
+      throw new BadRequestException('Provide exactly one of: timeSlotId + date, validFrom + validUntil, or durationHours');
     }
 
     let result: ResolvedValidity;
-    if (slotForm) {
+    if (durationForm) {
+      if (!dto.durationHours) throw new BadRequestException('durationHours is required');
+      const options = await db.event.findUniqueOrThrow({ where: { id: event.id }, select: { tokenDurationOptions: true } });
+      if (!perms.has('TOKEN_GENERATE') && !options.tokenDurationOptions.includes(dto.durationHours)) {
+        throw new ForbiddenException({
+          statusCode: 403, code: 'FORBIDDEN',
+          message: options.tokenDurationOptions.length
+            ? `Allowed durations: ${options.tokenDurationOptions.join(', ')} hours.`
+            : 'Duration passes are not enabled for this festival.',
+        });
+      }
+      const validFrom = dto.startAt ? new Date(dto.startAt) : new Date();
+      if (validFrom.getTime() < Date.now() - 10 * 60_000) throw new BadRequestException('Start time cannot be in the past');
+      result = { validFrom, validUntil: new Date(validFrom.getTime() + dto.durationHours * 3600_000), timeSlotId: null, capacity: null };
+    } else if (slotForm) {
       if (!dto.timeSlotId || !dto.date) throw new BadRequestException('timeSlotId and date are both required');
       if (dto.date < ymd(event.startDate) || dto.date > ymd(event.endDate)) {
         throw new BadRequestException(`Date must be between ${ymd(event.startDate)} and ${ymd(event.endDate)}`);
@@ -132,7 +147,7 @@ export class TokensService {
   async mintToken(
     tx: Prisma.TransactionClient,
     event: { id: string; tokenPrefix: string; startDate: Date },
-    data: { timeSlotId: string; validFrom: Date; validUntil: Date; visitorCount: number; visitorName: string; visitorMobile: string },
+    data: { timeSlotId: string; validFrom: Date; validUntil: Date; visitorCount: number; visitorName: string; visitorMobile: string; passOrderId?: string },
   ) {
     const seq = await this.reserveSeq(tx, event.id, 1);
     const visitor = await tx.visitor.create({ data: { eventId: event.id, name: data.visitorName, mobile: data.visitorMobile } });
@@ -140,6 +155,7 @@ export class TokensService {
       data: {
         eventId: event.id, tokenCode: this.code(event, seq), secureToken: this.qr.newSecureToken(), visitorId: visitor.id,
         timeSlotId: data.timeSlotId, visitorCount: data.visitorCount, validFrom: data.validFrom, validUntil: data.validUntil,
+        passOrderId: data.passOrderId ?? null,
       },
     });
   }
@@ -170,23 +186,31 @@ export class TokensService {
     const visitorCount = this.visitorCount(event, dto.visitorCount);
     const mobile = dto.visitorMobile ? normalizeMobile(dto.visitorMobile) : null;
 
-    const id = await this.prisma.$transaction(async (tx) => {
+    const perPerson = !!dto.perPerson && visitorCount > 1;
+    const ids = await this.prisma.$transaction(async (tx) => {
       const v = await this.resolveValidity(tx, event, dto, perms);
       await this.checkCapacity(tx, v, visitorCount);
-      const seq = await this.reserveSeq(tx, event.id, 1);
+      const n = perPerson ? visitorCount : 1;
+      const first = await this.reserveSeq(tx, event.id, n);
       const visitor = dto.visitorName || mobile
         ? await tx.visitor.create({ data: { eventId: event.id, name: dto.visitorName?.trim() ?? null, mobile } })
         : null;
-      const token = await tx.token.create({
-        data: {
-          eventId: event.id, tokenCode: this.code(event, seq), secureToken: this.qr.newSecureToken(),
-          visitorId: visitor?.id ?? null, timeSlotId: v.timeSlotId, visitorCount,
-          validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id,
-        },
-      });
-      return token.id;
+      const out: string[] = [];
+      for (let i = 0; i < n; i++) {
+        const token = await tx.token.create({
+          data: {
+            eventId: event.id, tokenCode: this.code(event, first + i), secureToken: this.qr.newSecureToken(),
+            visitorId: visitor?.id ?? null, timeSlotId: v.timeSlotId, visitorCount: perPerson ? 1 : visitorCount,
+            validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id,
+          },
+        });
+        out.push(token.id);
+      }
+      return out;
     });
-    return this.getWithQr(event.id, id);
+    if (!perPerson) return this.getWithQr(event.id, ids[0]);
+    const tokens = await Promise.all(ids.map((id) => this.getWithQr(event.id, id)));
+    return { count: tokens.length, tokens };
   }
 
   async bulkGenerate(actor: RequestUser, event: EventRef, perms: Set<string>, dto: BulkGenerateDto) {

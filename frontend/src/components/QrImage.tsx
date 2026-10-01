@@ -4,12 +4,23 @@ import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { cx } from './ui';
 
+/**
+ * What the QR actually encodes: a Parvsetu link (`<site>/v/<payload>`), so a
+ * phone's own camera opens an explanation page instead of raw text. The
+ * scanner and the API accept both this and the bare payload.
+ */
+export function qrContent(payload: string): string {
+  if (!payload.startsWith('PSQR1.')) return payload;
+  const site = (process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/+$/, '');
+  return site ? `${site}/v/${payload}` : payload;
+}
+
 /** Render a token's `qrPayload` string as a QR image (data URL). */
 export function QrImage({ payload, size = 320, className, alt }: { payload: string; size?: number; className?: string; alt?: string }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    QRCode.toDataURL(payload, { errorCorrectionLevel: 'M', margin: 2, width: size, color: { dark: '#000000', light: '#ffffff' } })
+    QRCode.toDataURL(qrContent(payload), { errorCorrectionLevel: 'M', margin: 2, width: size, color: { dark: '#000000', light: '#ffffff' } })
       .then((url) => alive && setSrc(url))
       .catch(() => alive && setSrc(null));
     return () => {
@@ -34,7 +45,7 @@ export async function qrCardPng(payload: string, lines: string[]): Promise<Blob>
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const qrCanvas = document.createElement('canvas');
-  await QRCode.toCanvas(qrCanvas, payload, { errorCorrectionLevel: 'M', margin: 1, width: qrSize });
+  await QRCode.toCanvas(qrCanvas, qrContent(payload), { errorCorrectionLevel: 'M', margin: 1, width: qrSize });
   ctx.drawImage(qrCanvas, pad, pad, qrSize, qrSize);
   ctx.fillStyle = '#0f172a';
   ctx.textAlign = 'center';

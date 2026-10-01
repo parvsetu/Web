@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import { errorMessage } from '@/lib/api';
+import { ApiError, errorMessage } from '@/lib/api';
 import { isAwaitingApproval, useAuth } from '@/lib/auth';
-import { LogIn } from 'lucide-react';
+import { LogIn, Ticket } from 'lucide-react';
 import { Alert, Button, LabeledInput } from '@/components/ui';
 import { AuthCard } from '@/components/AuthCard';
 
@@ -34,6 +34,11 @@ function LoginForm() {
       const user = await login(identifier.trim(), password);
       router.replace(isAwaitingApproval(user) ? '/awaiting' : safeNext);
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
+        const email = (err.body as { email?: string } | null)?.email ?? '';
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+        return;
+      }
       setError(errorMessage(err));
     } finally {
       setBusy(false);
@@ -51,7 +56,12 @@ function LoginForm() {
         onChange={(e) => setIdentifier(e.target.value)}
         placeholder="9876543210"
       />
-      <LabeledInput label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <div className="flex flex-col gap-1">
+        <LabeledInput label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Link href="/forgot-password" className="self-end py-1 text-sm font-semibold text-orange-700 hover:underline">
+          Forgot password?
+        </Link>
+      </div>
       {error && <Alert>{error}</Alert>}
       <Button type="submit" size="lg" loading={busy}>
         {!busy && <LogIn aria-hidden className="h-6 w-6" />}
@@ -63,6 +73,12 @@ function LoginForm() {
           Create an account
         </Link>
       </p>
+      <Link
+        href="/book"
+        className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 font-semibold text-orange-800 hover:bg-orange-100"
+      >
+        <Ticket aria-hidden className="h-5 w-5" /> Visiting a pandal? Book festival passes
+      </Link>
     </form>
   );
 }

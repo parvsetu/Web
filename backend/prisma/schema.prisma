@@ -222,6 +222,9 @@ model Event {
   volunteerRegistrationOpen Boolean     @default(false)
   // Visitors can buy/book passes on the public site (prices live on time slots).
   publicBookingEnabled      Boolean     @default(false)
+  // Duration presets (hours) the token desk may issue, e.g. {3,4,6,24}.
+  // Admins (TOKEN_GENERATE) may use any duration.
+  tokenDurationOptions      Int[]       @default([])
   maxVisitorsPerToken       Int         @default(10)
   createdAt                 DateTime    @default(now())
   updatedAt                 DateTime    @updatedAt
@@ -356,9 +359,12 @@ model Token {
   usedBy     User?     @relation("TokenUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
   cancelledBy User?    @relation("TokenCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   scanLogs   ScanLog[]
-  passOrder  PassOrder?
+  // Set when the token was minted by an online pass order.
+  passOrderId String?
+  passOrder   PassOrder? @relation(fields: [passOrderId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, tokenCode])
+  @@index([passOrderId])
   @@index([eventId, status])
   @@index([eventId, validFrom, validUntil])
   @@index([eventId, timeSlotId])
@@ -479,7 +485,8 @@ model AuditLog {
 
 // A visitor's public booking. PENDING orders hold slot capacity until
 // expiresAt so a slot can't be oversold while people are paying; a paid order
-// mints exactly one Token (tokenId @unique) admitting visitorCount people.
+// mints its passes exactly once: one QR per person (perPersonPasses) or one
+// group QR admitting visitorCount people.
 // The buyer reads the order with its random accessKey — no account needed.
 model PassOrder {
   id               String          @id @default(uuid())
@@ -499,7 +506,7 @@ model PassOrder {
   providerOrderId  String?
   paymentReference String?
   accessKey        String          @unique
-  tokenId          String?         @unique
+  perPersonPasses  Boolean         @default(true)
   expiresAt        DateTime
   paidAt           DateTime?
   createdAt        DateTime        @default(now())
@@ -507,7 +514,7 @@ model PassOrder {
 
   event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   timeSlot TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
-  token    Token?   @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+  tokens   Token[]
 
   @@unique([paymentProvider, providerOrderId])
   @@index([eventId, status])

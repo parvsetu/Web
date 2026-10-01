@@ -23,7 +23,10 @@ const BOOKABLE = { publicBookingEnabled: true, status: 'ACTIVE' as const };
 const orderInclude = {
   event: { select: { id: true, name: true, festivalType: true, timezone: true, location: true, organizationId: true, organization: { select: { name: true } } } },
   timeSlot: { select: { label: true } },
-  token: { select: { tokenCode: true, secureToken: true, status: true, validFrom: true, validUntil: true, usedAt: true } },
+  tokens: {
+    select: { tokenCode: true, secureToken: true, status: true, validFrom: true, validUntil: true, usedAt: true, visitorCount: true },
+    orderBy: { tokenCode: 'asc' as const },
+  },
 } as const;
 
 type OrderRow = Prisma.PassOrderGetPayload<{ include: typeof orderInclude }>;
@@ -33,7 +36,8 @@ type OrderRow = Prisma.PassOrderGetPayload<{ include: typeof orderInclude }>;
  * its random accessKey. Money and capacity rules live here, never in the
  * frontend: the price comes from the slot, capacity is checked under the same
  * slot row lock every other issuer uses, and a paid order mints exactly one
- * token (tokenId @unique + the PAID→token CHECK constraint).
+ * set of passes (minted under the order's row lock, only on PENDING → PAID):
+ * one single-entry QR per person, or one group QR admitting visitorCount.
  */
 @Injectable()
 export class PassesService {
@@ -154,6 +158,7 @@ export class PassesService {
         data: {
           eventId: event.id, timeSlotId: slot.id, validFrom: w.validFrom, validUntil: w.validUntil, visitorCount: dto.visitorCount,
           ...buyer, unitPrice: slot.price, amount, paymentProvider: free ? 'free' : gateway!.key,
+          perPersonPasses: dto.perPersonPasses ?? true,
           accessKey: randomBytes(24).toString('base64url'),
           expiresAt: new Date(Date.now() + ORDER_HOLD_MINUTES * 60_000),
         },
@@ -220,17 +225,23 @@ export class PassesService {
     // The order's own hold is excluded; everything else (tokens + other holds) still counts.
     await this.tokens.checkSlotCapacity(tx, order.timeSlotId, order.validFrom, slot.capacity, order.visitorCount, order.id);
     const event = await tx.event.findUniqueOrThrow({ where: { id: order.eventId }, select: { id: true, tokenPrefix: true, startDate: true, organizationId: true } });
-    const token = await this.tokens.mintToken(tx, event, {
-      timeSlotId: order.timeSlotId, validFrom: order.validFrom, validUntil: order.validUntil,
-      visitorCount: order.visitorCount, visitorName: order.buyerName, visitorMobile: order.buyerMobile,
-    });
+    const perPerson = order.perPersonPasses && order.visitorCount > 1;
+    const codes: string[] = [];
+    for (let i = 0; i < (perPerson ? order.visitorCount : 1); i++) {
+      const token = await this.tokens.mintToken(tx, event, {
+        timeSlotId: order.timeSlotId, validFrom: order.validFrom, validUntil: order.validUntil,
+        visitorCount: perPerson ? 1 : order.visitorCount, visitorName: order.buyerName, visitorMobile: order.buyerMobile,
+        passOrderId: order.id,
+      });
+      codes.push(token.tokenCode);
+    }
     await tx.passOrder.update({
       where: { id: order.id },
-      data: { status: 'PAID', paidAt: new Date(), tokenId: token.id, paymentReference },
+      data: { status: 'PAID', paidAt: new Date(), paymentReference },
     });
     await this.audit.log({
       organizationId: event.organizationId, eventId: event.id, action: 'pass.paid', entityType: 'PassOrder', entityId: order.id,
-      after: { tokenCode: token.tokenCode, amount: order.amount.toFixed(2), visitorCount: order.visitorCount, provider: order.paymentProvider },
+      after: { tokenCodes: codes, amount: order.amount.toFixed(2), visitorCount: order.visitorCount, provider: order.paymentProvider },
     }, tx);
   }
 
@@ -243,21 +254,24 @@ export class PassesService {
   }
 
   private present(o: OrderRow) {
+    const passes = o.tokens.map((t) => ({
+      tokenCode: t.tokenCode,
+      qrPayload: this.qr.payloadFor(t.secureToken),
+      status: effectiveStatus(t),
+      usedAt: t.usedAt,
+      admits: t.visitorCount,
+    }));
     return {
+      perPersonPasses: o.perPersonPasses,
+      passes,
+      /** First pass — kept for clients that show a single QR. */
+      pass: passes[0] ?? null,
       id: o.id, status: o.status, amount: o.amount.toFixed(2), unitPrice: o.unitPrice.toFixed(2), currency: o.currency,
       visitorCount: o.visitorCount, buyerName: o.buyerName, buyerMobile: o.buyerMobile,
       validFrom: o.validFrom, validUntil: o.validUntil, expiresAt: o.expiresAt, paidAt: o.paidAt, createdAt: o.createdAt,
       payment: { provider: o.paymentProvider, demo: o.paymentProvider === 'demo' },
       event: { id: o.event.id, name: o.event.name, festivalType: o.event.festivalType, timezone: o.event.timezone, location: o.event.location, organization: o.event.organization },
       timeSlot: { label: o.timeSlot.label },
-      pass: o.token
-        ? {
-            tokenCode: o.token.tokenCode,
-            qrPayload: this.qr.payloadFor(o.token.secureToken),
-            status: effectiveStatus(o.token),
-            usedAt: o.token.usedAt,
-          }
-        : null,
     };
   }
 
@@ -267,12 +281,12 @@ export class PassesService {
     const { page, pageSize, skip, take } = paging(q);
     const where: Prisma.PassOrderWhereInput = {
       eventId, status: q.status,
-      ...(q.q ? { OR: [{ buyerName: { contains: q.q, mode: 'insensitive' } }, { buyerMobile: { contains: q.q } }, { token: { tokenCode: { contains: q.q, mode: 'insensitive' } } }] } : {}),
+      ...(q.q ? { OR: [{ buyerName: { contains: q.q, mode: 'insensitive' } }, { buyerMobile: { contains: q.q } }, { tokens: { some: { tokenCode: { contains: q.q, mode: 'insensitive' } } } }] } : {}),
     };
     const [rows, total, sum] = await Promise.all([
       this.prisma.passOrder.findMany({
         where, orderBy: { createdAt: 'desc' }, skip, take,
-        include: { timeSlot: { select: { label: true } }, token: { select: { id: true, tokenCode: true, status: true } } },
+        include: { timeSlot: { select: { label: true } }, tokens: { select: { id: true, tokenCode: true, status: true }, orderBy: { tokenCode: 'asc' } } },
       }),
       this.prisma.passOrder.count({ where }),
       this.prisma.passOrder.aggregate({ where: { eventId, status: 'PAID' }, _sum: { amount: true, visitorCount: true }, _count: { _all: true } }),
@@ -283,7 +297,7 @@ export class PassesService {
           id: o.id, status: o.status, buyerName: o.buyerName, buyerMobile: o.buyerMobile, visitorCount: o.visitorCount,
           amount: o.amount.toFixed(2), paymentProvider: o.paymentProvider, paymentReference: o.paymentReference,
           validFrom: o.validFrom, validUntil: o.validUntil, createdAt: o.createdAt, paidAt: o.paidAt,
-          timeSlot: o.timeSlot, token: o.token,
+          timeSlot: o.timeSlot, tokens: o.tokens, perPersonPasses: o.perPersonPasses,
         })),
         total, page, pageSize,
       ),

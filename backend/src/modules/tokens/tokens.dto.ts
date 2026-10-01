@@ -1,9 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
 import { PageQuery } from '../../common/http';
 
-/** Either { timeSlotId, date } or { validFrom, validUntil }. */
+/** One of { timeSlotId, date } | { validFrom, validUntil } | { durationHours, startAt? }. */
 export class ValidityDto {
+  /** Valid for N hours from startAt (default: now). */
+  @IsOptional() @IsInt() @Min(1) @Max(744) durationHours?: number;
+  @IsOptional() @IsISO8601({ strict: true }) startAt?: string;
   @IsOptional() @IsUUID() timeSlotId?: string;
   @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) date?: string;
   @IsOptional() @IsISO8601({ strict: true }) validFrom?: string;
@@ -14,6 +17,8 @@ export class IssueTokenDto extends ValidityDto {
   @IsOptional() @IsString() @Length(1, 100) visitorName?: string;
   @IsOptional() @IsString() @Length(10, 20) visitorMobile?: string;
   @IsOptional() @IsInt() @Min(1) @Max(100) visitorCount?: number;
+  /** For a group: one single-entry QR per person instead of one group QR. */
+  @IsOptional() @IsBoolean() perPerson?: boolean;
 }
 
 export class BulkGenerateDto extends ValidityDto {
@@ -43,7 +48,7 @@ export class ReactivateTokenDto {
 
 export class ScanDto {
   @IsUUID() eventId: string;
-  @IsOptional() @IsString() @MaxLength(200) qrPayload?: string;
+  @IsOptional() @IsString() @MaxLength(300) qrPayload?: string;
   @IsOptional() @IsString() @MaxLength(40) tokenCode?: string;
   @IsOptional() @IsString() @Matches(/^[A-Za-z0-9_-]{8,64}$/, { message: 'idempotencyKey must be 8-64 URL-safe characters' })
   idempotencyKey?: string;

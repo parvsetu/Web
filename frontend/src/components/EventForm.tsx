@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { api, errorMessage } from '@/lib/api';
-import { DEFAULT_TZ, humanize } from '@/lib/format';
-import { useAsync } from '@/lib/hooks';
-import type { EventBody, EventDetail, EventStatus, FestivalType } from '@/lib/types';
+import { errorMessage } from '@/lib/api';
+import { DEFAULT_TZ, DURATION_PRESETS, durationLabel, humanize } from '@/lib/format';
+import type { EventBody, EventDetail, EventStatus } from '@/lib/types';
 import { FestivalBadge } from './FestivalBanner';
-import { Alert, Button, Checkbox, Field, LabeledInput, LabeledSelect, Textarea } from './ui';
+import { Alert, Button, Checkbox, Field, LabeledInput, LabeledSelect, Textarea, cx } from './ui';
+import { FestivalTypeSelect, StateCityPicker } from './PlacePicker';
+import { useFestivalTypes } from '@/lib/catalog';
 
 const STATUSES: EventStatus[] = ['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
 const TIMEZONES = ['Asia/Kolkata', 'Asia/Kathmandu', 'Asia/Dubai', 'Europe/London', 'America/New_York', 'America/Los_Angeles', 'Asia/Singapore', 'Australia/Sydney'];
@@ -21,7 +22,7 @@ export function EventForm({
   onSubmit: (body: EventBody) => Promise<void>;
   submitLabel: string;
 }) {
-  const types = useAsync(() => api.get<FestivalType[]>('/public/festival-types'), []);
+  const types = useFestivalTypes();
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     festivalType: initial?.festivalType ?? '',
@@ -33,7 +34,11 @@ export function EventForm({
     status: (initial?.status ?? 'DRAFT') as EventStatus,
     tokenPrefix: initial?.tokenPrefix ?? '',
     volunteerRegistrationOpen: initial?.volunteerRegistrationOpen ?? false,
+    publicBookingEnabled: initial?.publicBookingEnabled ?? false,
+    tokenDurationOptions: initial?.tokenDurationOptions ?? [],
     maxVisitorsPerToken: String(initial?.maxVisitorsPerToken ?? 10),
+    state: initial?.state ?? '',
+    city: initial?.city ?? '',
   });
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -64,7 +69,11 @@ export function EventForm({
       status: form.status,
       tokenPrefix: form.tokenPrefix || undefined,
       volunteerRegistrationOpen: form.volunteerRegistrationOpen,
+      publicBookingEnabled: form.publicBookingEnabled,
+      tokenDurationOptions: form.tokenDurationOptions,
       maxVisitorsPerToken: max,
+      ...(form.state || initial ? { state: form.state } : {}),
+      ...(form.city || initial ? { city: form.city.trim() } : {}),
     };
     setBusy(true);
     try {
@@ -82,15 +91,7 @@ export function EventForm({
       <LabeledInput label="Festival name" value={form.name} onChange={set('name')} placeholder="e.g. Sarvajanik Utsav 2026" />
       <div className="flex items-end gap-3">
         <div className="min-w-0 flex-1">
-        <LabeledSelect label="Festival type" value={form.festivalType} onChange={set('festivalType')}>
-          <option value="">— Choose —</option>
-          {(types.data ?? []).map((t) => (
-            <option key={t.key} value={t.key}>
-              {t.label}
-            </option>
-          ))}
-          {form.festivalType && !types.data?.some((t) => t.key === form.festivalType) && <option value={form.festivalType}>{humanize(form.festivalType)}</option>}
-        </LabeledSelect>
+          <FestivalTypeSelect value={form.festivalType} onChange={(v) => setForm((x) => ({ ...x, festivalType: v }))} />
         </div>
         <FestivalBadge type={form.festivalType || null} className="h-14 w-14" />
       </div>
@@ -99,7 +100,8 @@ export function EventForm({
         <LabeledInput label="Start date" type="date" value={form.startDate} onChange={set('startDate')} />
         <LabeledInput label="End date" type="date" value={form.endDate} onChange={set('endDate')} />
       </div>
-      <LabeledInput label="Location" value={form.location} onChange={set('location')} />
+      <StateCityPicker state={form.state} city={form.city} onChange={(p) => setForm((x) => ({ ...x, ...p }))} />
+      <LabeledInput label="Venue / pandal address" value={form.location} onChange={set('location')} placeholder="e.g. Salt Lake Sector 1, near FD Park" />
       <Field label="Description">
         <Textarea value={form.description} onChange={set('description')} />
       </Field>
@@ -134,6 +136,37 @@ export function EventForm({
         checked={form.volunteerRegistrationOpen}
         onChange={(v) => setForm((x) => ({ ...x, volunteerRegistrationOpen: v }))}
       />
+      <Checkbox
+        label={<span>Public pass booking <span className="text-sm text-slate-500">— visitors can book/buy passes on the website (set prices on Time slots)</span></span>}
+        checked={form.publicBookingEnabled}
+        onChange={(v) => setForm((x) => ({ ...x, publicBookingEnabled: v }))}
+      />
+      <Field label="Pass durations the token desk can issue" hint="Admins can always issue any duration. Leave all off to allow only time-slot passes at the desk.">
+        <div className="flex flex-wrap gap-2">
+          {DURATION_PRESETS.map((h) => {
+            const on = form.tokenDurationOptions.includes(h);
+            return (
+              <button
+                key={h}
+                type="button"
+                aria-pressed={on}
+                onClick={() =>
+                  setForm((x) => ({
+                    ...x,
+                    tokenDurationOptions: on ? x.tokenDurationOptions.filter((d) => d !== h) : [...x.tokenDurationOptions, h].sort((a, b) => a - b),
+                  }))
+                }
+                className={cx(
+                  'min-h-[44px] rounded-full px-4 text-sm font-semibold transition-colors',
+                  on ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow' : 'bg-white text-slate-700 ring-1 ring-orange-200 hover:bg-orange-50',
+                )}
+              >
+                {durationLabel(h)}
+              </button>
+            );
+          })}
+        </div>
+      </Field>
       {error && <Alert>{error}</Alert>}
       {ok && <Alert kind="success">Saved.</Alert>}
       <Button type="submit" loading={busy}>

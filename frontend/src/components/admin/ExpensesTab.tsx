@@ -1,23 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import { useEvent } from '@/lib/event-context';
 import { fmtDate, fmtMoney, humanize, todayIn } from '@/lib/format';
-import { useAsync } from '@/lib/hooks';
+import { useAsync, useDebounced } from '@/lib/hooks';
+import { useExpenseCategories } from '@/lib/catalog';
+import { SearchBar } from '../SearchBar';
 import { can } from '@/lib/permissions';
 import type { Expense, Paged } from '@/lib/types';
 import { Alert, Button, Card, Empty, LabeledInput, Modal, Pager, SkeletonList, Stat } from '../ui';
 import { Pencil, Plus } from 'lucide-react';
 
 // Suggestions only — the server accepts the category string.
-const CATEGORY_SUGGESTIONS = ['DECORATION', 'PANDAL', 'IDOL', 'PRASAD', 'SOUND_LIGHT', 'SECURITY', 'CLEANING', 'PRINTING', 'TRANSPORT', 'MISC'];
+/** Shared <datalist id="expense-cats"> of common mandal expense heads. */
+export function ExpenseCategoryList() {
+  const cats = useExpenseCategories();
+  return (
+    <datalist id="expense-cats">
+      {(cats.data ?? []).map((c) => (
+        <option key={c} value={c} />
+      ))}
+    </datalist>
+  );
+}
 
 export function ExpensesTab() {
   const ev = useEvent();
   const [f, setF] = useState({ category: '', from: '', to: '' });
   const [page, setPage] = useState(1);
-  const list = useAsync(() => api.get<Paged<Expense>>(`/events/${ev.eventId}/expenses`, { ...f, page }), [ev.eventId, f, page]);
+  const [search, setSearch] = useState('');
+  const dq = useDebounced(search.trim());
+  useEffect(() => setPage(1), [dq]);
+  const list = useAsync(() => api.get<Paged<Expense>>(`/events/${ev.eventId}/expenses`, { ...f, q: dq || undefined, page }), [ev.eventId, f, page, dq]);
   const [editing, setEditing] = useState<Expense | 'new' | null>(null);
   const set = (k: keyof typeof f) => (v: string) => {
     setF((x) => ({ ...x, [k]: v }));
@@ -32,18 +47,15 @@ export function ExpensesTab() {
           <Button onClick={() => setEditing('new')}><Plus aria-hidden className="h-4 w-4" /> Add expense</Button>
         </div>
       )}
+      <SearchBar value={search} onChange={setSearch} placeholder="Search description, vendor or category" />
       <Card className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="col-span-2 sm:col-span-1">
-          <LabeledInput label="Category" list="expense-cats" value={f.category} onChange={(e) => set('category')(e.target.value.toUpperCase())} />
+          <LabeledInput label="Category" list="expense-cats" value={f.category} onChange={(e) => set('category')(e.target.value)} />
         </div>
         <LabeledInput label="From" type="date" value={f.from} onChange={(e) => set('from')(e.target.value)} />
         <LabeledInput label="To" type="date" value={f.to} onChange={(e) => set('to')(e.target.value)} />
       </Card>
-      <datalist id="expense-cats">
-        {CATEGORY_SUGGESTIONS.map((c) => (
-          <option key={c} value={c} />
-        ))}
-      </datalist>
+      <ExpenseCategoryList />
       {list.data && list.data.items.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
           <Stat label={`Shown (${list.data.items.length})`} value={fmtMoney(pageTotal)} tone="red" />
@@ -117,7 +129,7 @@ function ExpenseForm({ expense, onClose, onDone }: { expense: Expense | null; on
     if (!/^\d+(\.\d{1,2})?$/.test(String(form.amount)) || Number(form.amount) <= 0) return setError('Enter a valid amount.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(form.expenseDate)) return setError('Choose a date.');
     const body: Record<string, unknown> = {
-      category: form.category.trim().toUpperCase(),
+      category: form.category.trim(),
       description: form.description.trim(),
       amount: Number(form.amount).toFixed(2),
       expenseDate: form.expenseDate,
@@ -139,7 +151,7 @@ function ExpenseForm({ expense, onClose, onDone }: { expense: Expense | null; on
   return (
     <Modal open onClose={onClose} title={expense ? 'Edit expense' : 'Add expense'}>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Category" list="expense-cats" value={form.category} onChange={set('category')} placeholder="DECORATION" />
+        <LabeledInput label="Category" list="expense-cats" value={form.category} onChange={set('category')} placeholder="e.g. Lighting" />
         <LabeledInput label="Description" value={form.description} onChange={set('description')} />
         <div className="grid grid-cols-2 gap-3">
           <LabeledInput label="Amount (₹)" inputMode="decimal" value={form.amount} onChange={set('amount')} />

@@ -281,6 +281,28 @@ function Scanner() {
     }
   }
 
+  // A pass opened from a link (/v/<payload> → "Verify in scanner") arrives in
+  // the URL hash; it is only sent when the volunteer taps Verify.
+  const [linkPayload, setLinkPayload] = useState<string | null>(null);
+  useEffect(() => {
+    const m = window.location.hash.match(/^#p=(.+)$/);
+    if (m) setLinkPayload(decodeURIComponent(m[1]));
+  }, []);
+  function verifyLinkPayload() {
+    if (!linkPayload) return;
+    unlockAudio();
+    const p = linkPayload;
+    setLinkPayload(null);
+    try {
+      window.history.replaceState(null, '', window.location.pathname);
+    } catch {
+      /* ignore */
+    }
+    pauseCamera();
+    lastPayloadRef.current = { value: p, at: Date.now() };
+    void send({ eventId: ev.eventId, qrPayload: p, idempotencyKey: newIdempotencyKey() });
+  }
+
   function submitManual(e: React.FormEvent) {
     e.preventDefault();
     const code = manualCode.trim().toUpperCase();
@@ -309,6 +331,19 @@ function Scanner() {
 
   return (
     <div className="flex flex-col gap-4">
+      {linkPayload && phase.kind === 'scanning' && (
+        <div className="flex flex-col gap-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4">
+          <p className="font-semibold text-emerald-900">A pass was opened from a link. Verify it for this festival?</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="success" onClick={verifyLinkPayload}>
+              <ScanLine aria-hidden className="h-5 w-5" /> Verify pass
+            </Button>
+            <Button variant="secondary" onClick={() => setLinkPayload(null)}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
       {ev.status && ev.status !== 'ACTIVE' && (
         <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <ShieldAlert aria-hidden className="h-4 w-4 shrink-0" /> This festival is not Active, so the server will refuse scans.

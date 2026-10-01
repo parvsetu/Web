@@ -10,8 +10,9 @@ import { useOrg } from '@/lib/org-context';
 import { can } from '@/lib/permissions';
 import type { EventDetail } from '@/lib/types';
 import { EventForm } from '../EventForm';
-import { Alert, Badge, Button, Card, Empty, Modal, SkeletonList } from '../ui';
-import { useOrgEvents } from './shared';
+import { Alert, Badge, Button, Card, Empty, Modal, Pager, SkeletonList } from '../ui';
+import { usePagedList } from '@/lib/paged';
+import { SearchBar } from '../SearchBar';
 import { BarChart3, CalendarDays, CalendarPlus, DoorOpen, MapPin, PartyPopper } from 'lucide-react';
 import { festivalTheme } from '@/lib/festival-theme';
 import { FestivalBadge } from '../FestivalBanner';
@@ -20,7 +21,7 @@ export function OrgEventsTab() {
   const org = useOrg();
   const router = useRouter();
   const { refresh } = useAuth();
-  const q = useOrgEvents(org.orgId);
+  const q = usePagedList<EventDetail>(`/organizations/${org.orgId}/events`, {}, { pageSize: 10 });
   const [creating, setCreating] = useState(false);
 
   return (
@@ -30,13 +31,14 @@ export function OrgEventsTab() {
           <Button onClick={() => setCreating(true)}><CalendarPlus aria-hidden className="h-4 w-4" /> New festival</Button>
         </div>
       )}
+      <SearchBar value={q.search} onChange={q.setSearch} placeholder="Search festival, type or city" total={q.total} />
       {q.error && <Alert>{q.error}</Alert>}
       {q.loading && !q.data ? (
         <SkeletonList />
-      ) : (q.data ?? []).length === 0 ? (
-        <Empty icon={PartyPopper} title="No festivals yet">Create one to start issuing tokens.</Empty>
+      ) : q.items.length === 0 ? (
+        q.searching ? <Empty title="No festivals match your search" /> : <Empty icon={PartyPopper} title="No festivals yet">Create one to start issuing tokens.</Empty>
       ) : (
-        (q.data ?? []).map((e) => (
+        q.items.map((e) => (
           <Card key={e.id} className="flex flex-col gap-3">
             <div className="flex items-start gap-3">
               <FestivalBadge type={e.festivalType} className="h-14 w-14" />
@@ -72,6 +74,7 @@ export function OrgEventsTab() {
           </Card>
         ))
       )}
+      <Pager page={q.page} pageSize={q.pageSize} total={q.total} onPage={q.setPage} />
       <Modal open={creating} onClose={() => setCreating(false)} title="New festival" wide>
         <EventForm
           submitLabel="Create festival"

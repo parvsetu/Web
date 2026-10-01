@@ -139,3 +139,11 @@ export function nowHHmmIn(tz?: string | null): string {
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
   return `${get('hour')}:${get('minute')}`;
 }
+
+/** Pass-duration presets offered in settings and at the token desk. */
+export const DURATION_PRESETS = [1, 2, 3, 4, 6, 8, 12, 24, 48, 72];
+
+export function durationLabel(hours: number): string {
+  if (hours % 24 === 0) return hours === 24 ? '1 day' : `${hours / 24} days`;
+  return hours === 1 ? '1 hour' : `${hours} hours`;
+}

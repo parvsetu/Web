@@ -81,6 +81,7 @@ export interface MeUser {
   email: string | null;
   isSuperAdmin: boolean;
   status: string;
+  emailVerified?: boolean;
   organizations: MeOrganization[];
   events: MeEvent[];
   applications: Application[];
@@ -111,6 +112,7 @@ export interface Organization {
   id: string;
   name: string;
   slug?: string;
+  state?: string | null;
   city?: string | null;
   address?: string | null;
   createdAt?: string;
@@ -194,12 +196,16 @@ export interface EventDetail {
   festivalType: string;
   description: string | null;
   location: string | null;
+  state?: string | null;
+  city?: string | null;
   startDate: string;
   endDate: string;
   timezone: string;
   status: EventStatus;
   tokenPrefix: string;
   volunteerRegistrationOpen: boolean;
+  publicBookingEnabled?: boolean;
+  tokenDurationOptions?: number[];
   maxVisitorsPerToken: number;
   createdAt: string;
   myPermissions: string[];
@@ -216,7 +222,11 @@ export interface EventBody {
   status?: EventStatus;
   tokenPrefix?: string;
   volunteerRegistrationOpen?: boolean;
+  publicBookingEnabled?: boolean;
+  tokenDurationOptions?: number[];
   maxVisitorsPerToken?: number;
+  state?: string;
+  city?: string;
 }
 
 export interface TimeSlot {
@@ -228,6 +238,8 @@ export interface TimeSlot {
   isActive: boolean;
   sortOrder: number;
   crossesMidnight: boolean;
+  /** Per-person price for public booking ("0.00" = free). */
+  price?: string;
 }
 
 export type TokenStatus = 'ACTIVE' | 'USED' | 'EXPIRED' | 'CANCELLED';

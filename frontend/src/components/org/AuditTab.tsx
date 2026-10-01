@@ -24,10 +24,10 @@ export function AuditTab() {
   const events = useOrgEvents(org.orgId);
   const [eventId, setEventId] = useState('');
   const [actionText, setActionText] = useState('');
-  const action = useDebounced(actionText.trim().toUpperCase());
+  const action = useDebounced(actionText.trim());
   const [page, setPage] = useState(1);
   const q = useAsync(
-    () => api.get<Paged<AuditLog>>(`/organizations/${org.orgId}/audit-logs`, { eventId, action, page }),
+    () => api.get<Paged<AuditLog>>(`/organizations/${org.orgId}/audit-logs`, { eventId, q: action || undefined, page }),
     [org.orgId, eventId, action, page],
   );
   const evName = (id: string | null) => (id ? events.data?.find((e) => e.id === id)?.name : null);
@@ -51,13 +51,13 @@ export function AuditTab() {
           ))}
         </LabeledSelect>
         <LabeledInput
-          label="Action"
+          label="Search"
           value={actionText}
           onChange={(e) => {
             setActionText(e.target.value);
             setPage(1);
           }}
-          placeholder="e.g. TOKEN_REACTIVATE"
+          placeholder="e.g. cancelled, role, Rahul"
         />
       </Card>
       {q.error && <Alert>{q.error}</Alert>}

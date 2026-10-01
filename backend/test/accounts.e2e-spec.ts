@@ -82,4 +82,28 @@ describe('Accounts & locations (e2e)', () => {
     expect(evs.body.total).toBe(1);
     expect((await ctx.http().get(api(`/organizations/${org.id}/volunteers?pageSize=500`)).set('Authorization', auth)).status).toBe(400);
   });
+
+  it('duration validity: admin any length; desk only the presets the admin enabled', async () => {
+    const { event, admin } = await makeOrgWithEvent(ctx.prisma);
+    const auth = bearer(ctx, admin);
+    const desk = bearer(ctx, await makeVolunteer(ctx.prisma, event.id, 'TOKEN_ISSUER'));
+    const issue = (a: string, body: object) => ctx.http().post(api(`/events/${event.id}/tokens`)).set('Authorization', a).send(body);
+
+    const t = await issue(auth, { durationHours: 5 });
+    expect(t.status).toBe(201);
+    expect(new Date(t.body.validUntil).getTime() - new Date(t.body.validFrom).getTime()).toBe(5 * 3600_000);
+    expect(t.body.effectiveStatus).toBe('ACTIVE');
+
+    expect((await issue(desk, { durationHours: 3 })).status).toBe(403);
+    const upd = await ctx.http().patch(api(`/events/${event.id}`)).set('Authorization', auth).send({ tokenDurationOptions: [24, 3, 6, 3] });
+    expect(upd.body.tokenDurationOptions).toEqual([3, 6, 24]);
+    expect((await issue(desk, { durationHours: 3 })).status).toBe(201);
+    expect((await issue(desk, { durationHours: 4 })).status).toBe(403);
+
+    const later = new Date(Date.now() + 2 * 3600_000).toISOString();
+    const future = await issue(desk, { durationHours: 6, startAt: later });
+    expect(future.body.effectiveStatus).toBe('NOT_YET_VALID');
+    expect((await issue(auth, { durationHours: 3, startAt: new Date(Date.now() - 3600_000).toISOString() })).status).toBe(400);
+    expect((await issue(auth, { durationHours: 3, validFrom: later, validUntil: later })).status).toBe(400);
+  });
 });

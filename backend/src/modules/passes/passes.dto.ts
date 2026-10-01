@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
 import { PageQuery } from '../../common/http';
 
 export class BookableEventsQuery {
@@ -19,6 +19,8 @@ export class CreatePassOrderDto {
   @IsString() @Length(2, 100) buyerName: string;
   @IsString() @Length(10, 20) buyerMobile: string;
   @IsOptional() @IsEmail() @MaxLength(200) buyerEmail?: string;
+  /** true (default): one QR per person; false: one group QR. */
+  @IsOptional() @IsBoolean() perPersonPasses?: boolean;
 }
 
 export class OrderKeyQuery {

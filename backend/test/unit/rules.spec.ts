@@ -61,6 +61,14 @@ describe('QR signing', () => {
     expect(qr.verify('PSQR2' + payload.slice(5))).toBeNull();
     expect(qr.verify('x'.repeat(500))).toBeNull();
   });
+  it('accepts the payload inside a Parvsetu link', () => {
+    const tok = qr.newSecureToken();
+    const p = qr.payloadFor(tok);
+    expect(qr.verify(`https://parvsetu-web.vercel.app/v/${p}`)).toBe(tok);
+    expect(qr.verify(`https://x.example/v/${p}?utm=1`)).toBe(tok);
+    expect(qr.verify(`https://x.example/v/${p.slice(0, -2)}`)).toBeNull();
+  });
+
   it('payload contains no personal data and is unguessable', () => {
     const a = qr.payloadFor(qr.newSecureToken());
     const b = qr.payloadFor(qr.newSecureToken());

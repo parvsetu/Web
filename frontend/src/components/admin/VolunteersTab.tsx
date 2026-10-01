@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import { api, asArray, errorMessage } from '@/lib/api';
+import { usePagedList } from '@/lib/paged';
+import { SearchBar } from '../SearchBar';
 import { useEvent } from '@/lib/event-context';
 import { fmtDateTime, fmtNum } from '@/lib/format';
 import { useAsync, useDebounced } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
 import type { Assignment, Paged, Role, Volunteer, VolunteerActivity } from '@/lib/types';
 import { ScanRowCard } from '../ScanRow';
-import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, SectionTitle, SkeletonList, Stat } from '../ui';
+import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SectionTitle, SkeletonList, Stat } from '../ui';
 import { Pencil, Save, Trash2, UserPlus } from 'lucide-react';
 
 function assignmentUser(a: Assignment): { id: string; name: string; mobile?: string | null } {
@@ -32,15 +34,11 @@ export function VolunteersTab() {
   const orgId = ev.organization?.id ?? ev.detail?.organizationId;
   const canAssign = can(ev.perms, 'VOLUNTEER_ASSIGN');
   const canDelete = can(ev.perms, 'VOLUNTEER_DELETE');
-  const q = useAsync(
-    () => api.get<Assignment[] | Paged<Assignment>>(`/events/${ev.eventId}/assignments`).then((r) => asArray(r)),
-    [ev.eventId],
-  );
+  const q = usePagedList<Assignment>(`/events/${ev.eventId}/assignments`);
   const roles = useOrgRoles(orgId, canAssign);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Assignment | null>(null);
   const [activityFor, setActivityFor] = useState<{ id: string; name: string } | null>(null);
-  const [filter, setFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   async function remove(a: Assignment) {
@@ -55,26 +53,19 @@ export function VolunteersTab() {
     }
   }
 
-  const rows = (q.data ?? []).filter((a) => {
-    if (!filter) return true;
-    const u = assignmentUser(a);
-    return `${u.name} ${u.mobile ?? ''} ${a.role?.name ?? ''}`.toLowerCase().includes(filter.toLowerCase());
-  });
+  const rows = q.items;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[200px] flex-1">
-          <LabeledInput label="Filter" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Name, mobile or role" />
-        </div>
+      <SearchBar value={q.search} onChange={q.setSearch} placeholder="Search volunteer name, mobile or email" total={q.total}>
         {canAssign && <Button onClick={() => setAdding(true)}><UserPlus aria-hidden className="h-4 w-4" /> Assign volunteer</Button>}
-      </div>
+      </SearchBar>
       {error && <Alert>{error}</Alert>}
       {q.error && <Alert>{q.error}</Alert>}
       {q.loading && !q.data ? (
         <SkeletonList />
       ) : rows.length === 0 ? (
-        <Empty title="No volunteers assigned" />
+        <Empty title={q.searching ? 'No volunteers match your search' : 'No volunteers assigned'} />
       ) : (
         rows.map((a) => {
           const u = assignmentUser(a);
@@ -109,6 +100,7 @@ export function VolunteersTab() {
           );
         })
       )}
+      <Pager page={q.page} pageSize={q.pageSize} total={q.total} onPage={q.setPage} />
 
       {adding && orgId && (
         <AssignModal

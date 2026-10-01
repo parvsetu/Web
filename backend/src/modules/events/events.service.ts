@@ -20,6 +20,7 @@ export function presentEvent(e: Event & { organization?: { id: string; name: str
     name: e.name, festivalType: e.festivalType, description: e.description, location: e.location, state: e.state, city: e.city,
     startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, status: e.status,
     tokenPrefix: e.tokenPrefix, volunteerRegistrationOpen: e.volunteerRegistrationOpen, publicBookingEnabled: e.publicBookingEnabled,
+    tokenDurationOptions: e.tokenDurationOptions,
     maxVisitorsPerToken: e.maxVisitorsPerToken, createdAt: e.createdAt,
     myPermissions: myPermissions ? [...myPermissions].sort() : undefined,
   };
@@ -77,6 +78,7 @@ export class EventsService {
           status: dto.status ?? 'DRAFT', tokenPrefix: dto.tokenPrefix ?? defaultPrefixFor(dto.festivalType),
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen ?? false,
           publicBookingEnabled: dto.publicBookingEnabled ?? false,
+          tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
           maxVisitorsPerToken: dto.maxVisitorsPerToken ?? 10,
         },
         include: { organization: { select: { id: true, name: true } } },
@@ -104,6 +106,7 @@ export class EventsService {
           state: stateOrThrow(dto.state), city: dto.city?.trim(),
           startDate: s, endDate: e, timezone, status: dto.status, tokenPrefix: dto.tokenPrefix,
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen, publicBookingEnabled: dto.publicBookingEnabled,
+          tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
           maxVisitorsPerToken: dto.maxVisitorsPerToken,
         },
         include: { organization: { select: { id: true, name: true } } },

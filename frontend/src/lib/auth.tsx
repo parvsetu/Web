@@ -5,13 +5,20 @@ import { useRouter } from 'next/navigation';
 import { api, getToken, setToken } from './api';
 import type { AuthResponse, MeUser } from './types';
 
+export interface RegisterResult {
+  verificationRequired: boolean;
+  email: string;
+  maskedEmail: string;
+}
+
 interface AuthState {
   me: MeUser | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<MeUser | null>;
   login: (identifier: string, password: string) => Promise<MeUser>;
-  register: (body: Record<string, unknown>) => Promise<MeUser>;
+  register: (body: Record<string, unknown>) => Promise<RegisterResult>;
+  verifyEmail: (email: string, code: string) => Promise<MeUser>;
   logout: () => void;
 }
 
@@ -53,8 +60,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res.user;
   }, []);
 
+  /** Creates the account; it stays inactive until the emailed code is verified. */
   const register = useCallback(async (body: Record<string, unknown>) => {
-    const res = await api.post<AuthResponse>('/auth/register', body, { noAuthRedirect: true });
+    return api.post<RegisterResult>('/auth/register', body, { noAuthRedirect: true });
+  }, []);
+
+  const verifyEmail = useCallback(async (email: string, code: string) => {
+    const res = await api.post<AuthResponse>('/auth/verify-email', { email, code }, { noAuthRedirect: true });
     setToken(res.accessToken);
     setMe(res.user);
     setError(null);
@@ -68,8 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ me, loading, error, refresh, login, register, logout }),
-    [me, loading, error, refresh, login, register, logout],
+    () => ({ me, loading, error, refresh, login, register, verifyEmail, logout }),
+    [me, loading, error, refresh, login, register, verifyEmail, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

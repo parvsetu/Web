@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, errorMessage } from '@/lib/api';
-import { isAwaitingApproval, useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { fmtDate, humanize } from '@/lib/format';
 import type { PublicEvent } from '@/lib/types';
 import { UserPlus } from 'lucide-react';
@@ -35,7 +35,7 @@ export default function RegisterPage() {
     if (!form.name.trim()) errs.name = 'Please enter your name.';
     if (!/^[6-9]\d{9}$/.test(form.mobile.replace(/\D/g, '').slice(-10)) || form.mobile.replace(/\D/g, '').length < 10)
       errs.mobile = 'Enter a valid 10-digit mobile number.';
-    if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) errs.email = 'Enter a valid email or leave it empty.';
+    if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) errs.email = 'Enter a valid email — we will send a code to activate your account.';
     if (form.password.length < 8) errs.password = 'Password must be at least 8 characters.';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -51,7 +51,7 @@ export default function RegisterPage() {
       mobile: form.mobile.trim(),
       password: form.password,
     };
-    if (form.email.trim()) body.email = form.email.trim();
+    body.email = form.email.trim();
     if (ev) {
       body.organizationId = ev.organization.id;
       body.eventId = ev.id;
@@ -59,8 +59,8 @@ export default function RegisterPage() {
     }
     setBusy(true);
     try {
-      const user = await register(body);
-      router.replace(isAwaitingApproval(user) ? '/awaiting' : '/');
+      const res = await register(body);
+      router.replace(`/verify-email?email=${encodeURIComponent(res.email)}`);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -73,7 +73,7 @@ export default function RegisterPage() {
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         <LabeledInput label="Your name" autoComplete="name" value={form.name} onChange={set('name')} error={errors.name} />
         <LabeledInput label="Mobile number" type="tel" inputMode="numeric" autoComplete="tel" value={form.mobile} onChange={set('mobile')} error={errors.mobile} placeholder="9876543210" />
-        <LabeledInput label="Email (optional)" type="email" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} error={errors.email} />
+        <LabeledInput label="Email" hint="We will send a 6-digit code to activate your account." type="email" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} error={errors.email} />
         <LabeledInput label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} hint="At least 8 characters" />
         <Field label="Which festival do you want to volunteer for? (optional)" htmlFor="reg-event">
           <Select id="reg-event" value={form.eventId} onChange={set('eventId')}>

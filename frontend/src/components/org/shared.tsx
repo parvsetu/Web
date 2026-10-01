@@ -11,7 +11,8 @@ export type OrgEvent = Pick<EventDetail, 'id' | 'name' | 'festivalType' | 'statu
 
 export function useOrgEvents(orgId: string, enabled = true) {
   return useAsync(
-    () => api.get<OrgEvent[] | Paged<OrgEvent> | MeEvent[]>(`/organizations/${orgId}/events`).then((r) => asArray(r as OrgEvent[])),
+    // For pickers: every festival (up to the API max of 200), newest first.
+    () => api.get<OrgEvent[] | Paged<OrgEvent> | MeEvent[]>(`/organizations/${orgId}/events`, { pageSize: 200 }).then((r) => asArray(r as OrgEvent[])),
     [orgId],
     enabled,
   );

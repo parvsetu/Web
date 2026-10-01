@@ -42,7 +42,7 @@ describe('Public pass booking (e2e)', () => {
   it('prices on the server, holds capacity while pending, and a demo payment mints exactly one pass', async () => {
     const res = await order({ eventId: event.id, timeSlotId: slotId, date: today(), visitorCount: 3, buyerName: 'Meena', buyerMobile: '9811111111', amount: 1 });
     expect(res.status).toBe(400); // client-sent amount is rejected outright (whitelist)
-    const ok = await order({ eventId: event.id, timeSlotId: slotId, date: today(), visitorCount: 3, buyerName: 'Meena', buyerMobile: '9811111111' });
+    const ok = await order({ eventId: event.id, timeSlotId: slotId, date: today(), visitorCount: 3, buyerName: 'Meena', buyerMobile: '9811111111', perPersonPasses: false });
     expect(ok.status).toBe(201);
     expect(ok.body).toMatchObject({ status: 'PENDING', amount: '150.00', pass: null, payment: { provider: 'demo', demo: true } });
     const { id, accessKey } = ok.body;
@@ -62,7 +62,7 @@ describe('Public pass booking (e2e)', () => {
     ]);
     expect([a.status, b.status]).toEqual([200, 200]);
     expect(a.body.pass.tokenCode).toBe(b.body.pass.tokenCode);
-    expect(await ctx.prisma.token.count({ where: { passOrder: { id } } })).toBe(1);
+    expect(await ctx.prisma.token.count({ where: { passOrderId: id } })).toBe(1);
     const paid = await ctx.http().get(api(`/public/booking/orders/${id}?k=${accessKey}`));
     expect(paid.body).toMatchObject({ status: 'PAID', pass: { status: 'ACTIVE' } });
 
@@ -125,5 +125,33 @@ describe('Public pass booking (e2e)', () => {
     expect(list.body.items.length).toBeGreaterThanOrEqual(2);
     const gate = await makeVolunteer(ctx.prisma, event.id);
     expect((await ctx.http().get(api(`/events/${event.id}/pass-orders`)).set('Authorization', bearer(ctx, gate))).status).toBe(403);
+  });
+
+  it('one QR per person: a 3-person order mints 3 single-entry passes; group mode mints 1', async () => {
+    const s = nowSlot();
+    const slot = await ctx.http().post(api(`/events/${event.id}/time-slots`)).set('Authorization', adminAuth)
+      .send({ label: 'Per person', startTime: s.startTime, endTime: s.endTime, capacity: 20, price: 20 });
+    const o = await order({ eventId: event.id, timeSlotId: slot.body.id, date: today(), visitorCount: 3, buyerName: 'Family', buyerMobile: '9866666666' });
+    expect(o.body.perPersonPasses).toBe(true);
+    const paid = await ctx.http().post(api(`/public/booking/orders/${o.body.id}/demo-pay`)).send({ k: o.body.accessKey, outcome: 'success' });
+    expect(paid.body.passes).toHaveLength(3);
+    expect(paid.body.passes.every((p: { admits: number }) => p.admits === 1)).toBe(true);
+    expect(new Set(paid.body.passes.map((p: { qrPayload: string }) => p.qrPayload)).size).toBe(3);
+    const gate = bearer(ctx, await makeVolunteer(ctx.prisma, event.id));
+    for (const p of paid.body.passes) {
+      expect((await scan(ctx, gate, { eventId: event.id, qrPayload: p.qrPayload, idempotencyKey: idem() })).body.result).toBe('SUCCESS');
+    }
+    expect((await scan(ctx, gate, { eventId: event.id, qrPayload: paid.body.passes[0].qrPayload, idempotencyKey: idem() })).body.result).toBe('ALREADY_USED');
+
+    const g = await order({ eventId: event.id, timeSlotId: slot.body.id, date: today(), visitorCount: 3, buyerName: 'Group', buyerMobile: '9877777777', perPersonPasses: false });
+    const gp = await ctx.http().post(api(`/public/booking/orders/${g.body.id}/demo-pay`)).send({ k: g.body.accessKey, outcome: 'success' });
+    expect(gp.body.passes).toHaveLength(1);
+    expect(gp.body.passes[0].admits).toBe(3);
+
+    // Desk: per-person issuance
+    const desk = await ctx.http().post(api(`/events/${event.id}/tokens`)).set('Authorization', adminAuth)
+      .send({ timeSlotId: slot.body.id, date: today(), visitorCount: 4, perPerson: true });
+    expect(desk.body.count).toBe(4);
+    expect(desk.body.tokens.every((t: { visitorCount: number }) => t.visitorCount === 1)).toBe(true);
   });
 });

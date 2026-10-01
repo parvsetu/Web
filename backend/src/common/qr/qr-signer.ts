@@ -35,8 +35,13 @@ export class QrSigner {
 
   /** Returns the secureToken if the payload is well-formed and authentic. */
   verify(payload: string): string | null {
-    if (typeof payload !== 'string' || payload.length > 200) return null;
-    const parts = payload.trim().split('.');
+    if (typeof payload !== 'string' || payload.length > 300) return null;
+    // QRs may carry the bare payload or a Parvsetu link ending in /v/<payload>
+    // (so a phone's own camera opens an explanation page, not raw text).
+    const at = payload.lastIndexOf(`${PREFIX}.`);
+    if (at < 0) return null;
+    const bare = payload.slice(at).split(/[?#\s]/)[0];
+    const parts = bare.trim().split('.');
     if (parts.length !== 3 || parts[0] !== PREFIX) return null;
     const [, token, sig] = parts;
     if (!/^[A-Za-z0-9_-]{16,64}$/.test(token) || !/^[A-Za-z0-9_-]{16,64}$/.test(sig)) return null;
