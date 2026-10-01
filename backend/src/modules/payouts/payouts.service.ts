@@ -139,7 +139,7 @@ export class PayoutsService {
     if (!a || a.status !== 'VERIFIED') return null;
     return {
       legalName: a.legalName, entityType: a.entityType, registrationNumber: a.registrationNumber,
-      pan: a.orgPanEnc ? decryptField(a.orgPanEnc) : null, reg80G: a.reg80G, reg12A: a.reg12A,
+      pan: a.orgPanEnc ? decryptField(a.orgPanEnc) : null, reg80G: a.reg80G, reg12A: a.reg12A, gstin: a.gstin,
       address: `${a.addressLine}, ${a.city}, ${a.state} ${a.pincode}`,
     };
   }
@@ -151,7 +151,7 @@ export class PayoutsService {
    * into gateway fee, platform commission and the mandal's net (never
    * negative), once per source (sourceId @unique).
    */
-  async recordSettlement(tx: Prisma.TransactionClient, s: { organizationId: string; eventId: string; sourceType: string; sourceId: string; grossPaise: number; commissionPaise: number }) {
+  async recordSettlement(tx: Prisma.TransactionClient, s: { organizationId: string; eventId: string; sourceType: string; sourceId: string; grossPaise: number; commissionPaise: number; gstPaise?: number }) {
     const settings = await tx.platformSettings.upsert({ where: { id: 'default' }, create: { id: 'default' }, update: {} });
     const gatewayFee = Math.min(s.grossPaise, Math.round((s.grossPaise * settings.gatewayFeeBps) / 10000));
     const commission = Math.min(s.commissionPaise, s.grossPaise - gatewayFee);
@@ -159,6 +159,7 @@ export class PayoutsService {
       data: {
         organizationId: s.organizationId, eventId: s.eventId, sourceType: s.sourceType, sourceId: s.sourceId,
         grossPaise: s.grossPaise, gatewayFeePaise: gatewayFee, commissionPaise: commission, netPaise: s.grossPaise - gatewayFee - commission,
+        gstPaise: s.gstPaise ?? 0,
       },
     });
   }
@@ -179,7 +180,7 @@ export class PayoutsService {
       ...paged(rows.map((r) => ({
         id: r.id, createdAt: r.createdAt, organization: { id: r.organizationId, name: r.organization.name },
         event: r.eventId ? events.find((e) => e.id === r.eventId) ?? null : null, sourceType: r.sourceType, sourceId: r.sourceId,
-        gross: rupees(r.grossPaise), gatewayFee: rupees(r.gatewayFeePaise), commission: rupees(r.commissionPaise), net: rupees(r.netPaise),
+        gross: rupees(r.grossPaise), gatewayFee: rupees(r.gatewayFeePaise), commission: rupees(r.commissionPaise), net: rupees(r.netPaise), gst: rupees(r.gstPaise),
         status: r.status, payoutId: r.payoutId,
       })), total, page, pageSize),
       totals: {

@@ -17,6 +17,11 @@ export class CreateEventDto {
   @IsOptional() @Matches(/^[A-Z0-9]{2,6}$/, { message: 'tokenPrefix must be 2-6 uppercase letters/digits' }) tokenPrefix?: string;
   @IsOptional() @IsBoolean() volunteerRegistrationOpen?: boolean;
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
+  @IsOptional() @IsBoolean() gstEnabled?: boolean;
+  @IsOptional() @IsIn([0, 5, 12, 18, 28]) gstRatePercent?: number;
+  @IsOptional() @IsIn(['CUSTOMER', 'MANDAL']) gstBearer?: 'CUSTOMER' | 'MANDAL';
+  @IsOptional() @Matches(/^\d{4,8}$/, { message: 'SAC/HSN code must be 4–8 digits' }) gstSac?: string;
+  @IsOptional() @IsIn(['A4', 'THERMAL_80', 'THERMAL_58']) passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   @IsOptional() @IsArray() @ArrayMaxSize(12) @IsInt({ each: true }) @Min(1, { each: true }) @Max(744, { each: true }) tokenDurationOptions?: number[];
   @IsOptional() @IsInt() @Min(1) @Max(100) maxVisitorsPerToken?: number;
 }
@@ -35,6 +40,11 @@ export class UpdateEventDto {
   @IsOptional() @Matches(/^[A-Z0-9]{2,6}$/) tokenPrefix?: string;
   @IsOptional() @IsBoolean() volunteerRegistrationOpen?: boolean;
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
+  @IsOptional() @IsBoolean() gstEnabled?: boolean;
+  @IsOptional() @IsIn([0, 5, 12, 18, 28]) gstRatePercent?: number;
+  @IsOptional() @IsIn(['CUSTOMER', 'MANDAL']) gstBearer?: 'CUSTOMER' | 'MANDAL';
+  @IsOptional() @Matches(/^\d{4,8}$/, { message: 'SAC/HSN code must be 4–8 digits' }) gstSac?: string;
+  @IsOptional() @IsIn(['A4', 'THERMAL_80', 'THERMAL_58']) passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   @IsOptional() @IsArray() @ArrayMaxSize(12) @IsInt({ each: true }) @Min(1, { each: true }) @Max(744, { each: true }) tokenDurationOptions?: number[];
   @IsOptional() @IsInt() @Min(1) @Max(100) maxVisitorsPerToken?: number;
 }

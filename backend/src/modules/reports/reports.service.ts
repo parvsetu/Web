@@ -233,6 +233,42 @@ export class ReportsService {
     };
   }
 
+  // ─── GST on pass sales ────────────────────────────────────────────────
+
+  /** Paid online orders with their GST split — the mandal files this. */
+  async gst(event: EventRef, q: RangeQuery) {
+    const r = this.range(event, q);
+    const orders = await this.prisma.passOrder.findMany({
+      where: { eventId: event.id, status: 'PAID', paidAt: r ?? undefined, amount: { gt: 0 } },
+      orderBy: { paidAt: 'asc' },
+      select: { invoiceNo: true, paidAt: true, buyerName: true, visitorCount: true, baseAmount: true, gstAmount: true, gstRateBps: true, gstBearer: true, amount: true },
+    });
+    const z = () => new Prisma.Decimal(0);
+    let taxable = z(), gst = z(), total = z();
+    const byMonth = new Map<string, { taxable: Prisma.Decimal; gst: Prisma.Decimal; total: Prisma.Decimal; orders: number }>();
+    const byRate = new Map<number, { taxable: Prisma.Decimal; gst: Prisma.Decimal; orders: number }>();
+    for (const o of orders) {
+      taxable = taxable.plus(o.baseAmount); gst = gst.plus(o.gstAmount); total = total.plus(o.amount);
+      const k = o.paidAt!.toISOString().slice(0, 7);
+      const m = byMonth.get(k) ?? { taxable: z(), gst: z(), total: z(), orders: 0 };
+      m.taxable = m.taxable.plus(o.baseAmount); m.gst = m.gst.plus(o.gstAmount); m.total = m.total.plus(o.amount); m.orders++;
+      byMonth.set(k, m);
+      const rr = byRate.get(o.gstRateBps) ?? { taxable: z(), gst: z(), orders: 0 };
+      rr.taxable = rr.taxable.plus(o.baseAmount); rr.gst = rr.gst.plus(o.gstAmount); rr.orders++;
+      byRate.set(o.gstRateBps, rr);
+    }
+    const half = (d: Prisma.Decimal) => d.div(2).toDecimalPlaces(2);
+    return {
+      totals: { orders: orders.length, taxable: money(taxable), gst: money(gst), cgst: money(half(gst)), sgst: money(gst.minus(half(gst))), total: money(total) },
+      byMonth: [...byMonth.entries()].map(([month, v]) => ({ month, orders: v.orders, taxable: money(v.taxable), gst: money(v.gst), total: money(v.total) })),
+      byRate: [...byRate.entries()].map(([bps, v]) => ({ ratePercent: bps / 100, orders: v.orders, taxable: money(v.taxable), gst: money(v.gst) })),
+      invoices: orders.map((o) => ({
+        invoiceNo: o.invoiceNo, date: o.paidAt, buyer: o.buyerName, people: o.visitorCount, ratePercent: o.gstRateBps / 100, bearer: o.gstBearer,
+        taxable: money(o.baseAmount), gst: money(o.gstAmount), total: money(o.amount),
+      })),
+    };
+  }
+
   // ─── Summary / dashboard ─────────────────────────────────────────────
 
   /** Financial blocks are null (and listed in `restricted`) without DONATION_VIEW / EXPENSE_VIEW. */

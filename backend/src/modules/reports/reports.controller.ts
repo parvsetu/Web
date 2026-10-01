@@ -61,6 +61,13 @@ export class ReportsController {
     ]);
   }
 
+  @RequireEventPermission('REPORT_VIEW', 'DONATION_VIEW')
+  @Get('events/:eventId/reports/gst')
+  async gst(@Access() a: AccessContext, @Query() q: ReportQuery, @Res() res: Response) {
+    const data = await this.reports.gst(a.event!, q);
+    return this.send(res, a, q.format, 'gst-invoices', data, () => data.invoices);
+  }
+
   @RequireEventPermission('REPORT_VIEW')
   @Get('events/:eventId/reports/summary')
   async summary(@Access() a: AccessContext, @Query() q: ReportQuery, @Res() res: Response) {

@@ -14,6 +14,7 @@ import { effectiveStatus } from '../tokens/token-presenter';
 import { PaymentProvider } from '../donations/payment-provider';
 import { PASS_GATEWAYS, demoPaymentsEnabled } from './pass-gateways';
 import { SponsorsService } from '../sponsors/sponsors.service';
+import { computeGst } from '../../common/gst';
 import { BillingService } from '../billing/billing.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { CreatePassOrderDto, PassOrderListQuery } from './passes.dto';
@@ -24,7 +25,7 @@ export const ORDER_HOLD_MINUTES = 15;
 const BOOKABLE = { publicBookingEnabled: true, status: 'ACTIVE' as const };
 
 const orderInclude = {
-  event: { select: { id: true, name: true, festivalType: true, timezone: true, location: true, organizationId: true, organization: { select: { name: true } } } },
+  event: { select: { id: true, name: true, festivalType: true, timezone: true, location: true, organizationId: true, gstSac: true, passPrintFormat: true, organization: { select: { name: true } } } },
   timeSlot: { select: { label: true } },
   tokens: {
     select: { tokenCode: true, secureToken: true, status: true, validFrom: true, validUntil: true, usedAt: true, visitorCount: true, sponsorIds: true },
@@ -106,6 +107,7 @@ export class PassesService {
       startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, maxVisitorsPerToken: e.maxVisitorsPerToken,
       organization: e.organization, onlinePayments: this.gateways.length > 0 && (await this.payouts.isVerified(e.organizationId)), holdMinutes: ORDER_HOLD_MINUTES,
       slots: slots.map((s) => ({ ...s, price: s.price.toFixed(2) })),
+      gst: e.gstEnabled && e.gstRateBps > 0 ? { ratePercent: e.gstRateBps / 100, bearer: e.gstBearer } : null,
       sponsors: await this.sponsors.forEvent(e.id),
     };
   }
@@ -152,7 +154,9 @@ export class PassesService {
     const w = slotWindow(dto.date, slot.startTime, slot.endTime, event.timezone);
     if (w.validUntil <= new Date()) throw new BadRequestException('This time slot has already ended. Pick a later slot.');
 
-    const amount = slot.price.mul(dto.visitorCount);
+    const price = slot.price.mul(dto.visitorCount);
+    const g = computeGst(Math.round(Number(price) * 100), event.gstEnabled ? event.gstRateBps : 0, event.gstBearer as 'CUSTOMER' | 'MANDAL');
+    const amount = new Prisma.Decimal(g.totalPaise).div(100);
     const free = amount.isZero();
     const gateway = free ? null : this.gateways[0];
     if (!free && !gateway) throw new ServiceUnavailableException('Online payment is not set up for this festival yet.');
@@ -172,6 +176,8 @@ export class PassesService {
         data: {
           eventId: event.id, timeSlotId: slot.id, validFrom: w.validFrom, validUntil: w.validUntil, visitorCount: dto.visitorCount,
           ...buyer, unitPrice: slot.price, amount, paymentProvider: free ? 'free' : gateway!.key,
+          baseAmount: new Prisma.Decimal(g.basePaise).div(100), gstAmount: new Prisma.Decimal(g.gstPaise).div(100),
+          gstRateBps: g.gstPaise > 0 ? event.gstRateBps : 0, gstBearer: g.gstPaise > 0 ? event.gstBearer : null,
           perPersonPasses: dto.perPersonPasses ?? true,
           accessKey: randomBytes(24).toString('base64url'),
           expiresAt: new Date(Date.now() + ORDER_HOLD_MINUTES * 60_000),
@@ -213,7 +219,11 @@ export class PassesService {
   /** Adds the partners printed on this order's passes (paid promotion). */
   private async presentWithSponsors(o: OrderRow) {
     const ids = [...new Set(o.tokens.flatMap((t) => t.sponsorIds))];
-    return { ...this.present(o), printedSponsors: await this.sponsors.byIds(ids) };
+    const issuer = await this.payouts.receiptIdentity(o.event.organizationId);
+    return {
+      ...this.present(o), printedSponsors: await this.sponsors.byIds(ids), printFormat: o.event.passPrintFormat,
+      issuer: issuer ? { legalName: issuer.legalName, gstin: issuer.gstin, address: issuer.address } : null,
+    };
   }
 
   async demoPay(orderId: string, key: string, outcome: 'success' | 'fail') {
@@ -295,15 +305,24 @@ export class PassesService {
       });
       codes.push(token.tokenCode);
     }
+    // Every paid order gets a sequential invoice number (a tax invoice when GST applies).
+    let invoiceNo: string | null = null;
+    if (order.amount.gt(0)) {
+      const seq = await tx.$queryRaw<{ passInvoiceSeq: number; tokenPrefix: string; startDate: Date }[]>`
+        UPDATE events SET "passInvoiceSeq" = "passInvoiceSeq" + 1 WHERE id = ${order.eventId}
+        RETURNING "passInvoiceSeq", "tokenPrefix", "startDate"`;
+      invoiceNo = `${seq[0].tokenPrefix}-INV-${seq[0].startDate.getUTCFullYear()}-${String(seq[0].passInvoiceSeq).padStart(5, '0')}`;
+    }
     await tx.passOrder.update({
       where: { id: order.id },
-      data: { status: 'PAID', paidAt: new Date(), paymentReference },
+      data: { status: 'PAID', paidAt: new Date(), paymentReference, invoiceNo },
     });
     if (order.amount.gt(0)) {
       const r = await this.billing.rates(tx, event.organizationId);
       await this.payouts.recordSettlement(tx, {
         organizationId: event.organizationId, eventId: event.id, sourceType: 'PASS_ORDER', sourceId: order.id,
         grossPaise: Math.round(Number(order.amount) * 100), commissionPaise: r.unitFeePaise * order.visitorCount,
+        gstPaise: Math.round(Number(order.gstAmount) * 100),
       });
     }
     await this.audit.log({
@@ -334,6 +353,10 @@ export class PassesService {
       /** First pass — kept for clients that show a single QR. */
       pass: passes[0] ?? null,
       id: o.id, status: o.status, amount: o.amount.toFixed(2), unitPrice: o.unitPrice.toFixed(2), currency: o.currency,
+      invoiceNo: o.invoiceNo,
+      gst: o.gstAmount.gt(0)
+        ? { taxable: o.baseAmount.toFixed(2), amount: o.gstAmount.toFixed(2), ratePercent: o.gstRateBps / 100, bearer: o.gstBearer, cgst: o.gstAmount.div(2).toFixed(2), sgst: o.gstAmount.minus(o.gstAmount.div(2).toDecimalPlaces(2)).toFixed(2), sac: o.event.gstSac }
+        : null,
       visitorCount: o.visitorCount, buyerName: o.buyerName, buyerMobile: o.buyerMobile,
       validFrom: o.validFrom, validUntil: o.validUntil, expiresAt: o.expiresAt, paidAt: o.paidAt, createdAt: o.createdAt,
       payment: { provider: o.paymentProvider, demo: o.paymentProvider === 'demo' },

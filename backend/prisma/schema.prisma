@@ -265,6 +265,15 @@ model Event {
   // Duration presets (hours) the token desk may issue, e.g. {3,4,6,24}.
   // Admins (TOKEN_GENERATE) may use any duration.
   tokenDurationOptions      Int[]       @default([])
+  // GST on online pass sales. Bearer CUSTOMER = added on top of the price;
+  // MANDAL = price is GST-inclusive (tax carved out of it).
+  gstEnabled                Boolean     @default(false)
+  gstRateBps                Int         @default(1800)
+  gstBearer                 String      @default("CUSTOMER")
+  gstSac                    String      @default("9996")
+  passInvoiceSeq            Int         @default(0)
+  /// Default print layout for passes: A4 | THERMAL_80 | THERMAL_58
+  passPrintFormat           String      @default("A4")
   maxVisitorsPerToken       Int         @default(10)
   createdAt                 DateTime    @default(now())
   updatedAt                 DateTime    @updatedAt
@@ -547,6 +556,13 @@ model PassOrder {
   buyerMobile      String
   buyerEmail       String?
   unitPrice        Decimal         @db.Decimal(10, 2)
+  /// Taxable value (price × people, ex-GST).
+  baseAmount       Decimal         @default(0) @db.Decimal(12, 2)
+  gstRateBps       Int             @default(0)
+  gstAmount        Decimal         @default(0) @db.Decimal(12, 2)
+  gstBearer        String?
+  invoiceNo        String?
+  /// Total charged to the visitor (base + GST).
   amount           Decimal         @db.Decimal(12, 2)
   currency         String          @default("INR")
   status           PassOrderStatus @default(PENDING)
@@ -565,6 +581,7 @@ model PassOrder {
   tokens   Token[]
 
   @@unique([paymentProvider, providerOrderId])
+  @@unique([eventId, invoiceNo], map: "pass_orders_event_invoice_key")
   @@index([eventId, status])
   @@index([timeSlotId, validFrom, status])
   @@map("pass_orders")
@@ -772,6 +789,8 @@ model PaymentSettlement {
   gatewayFeePaise   Int
   commissionPaise   Int
   netPaise          Int
+  /// GST inside the gross (part of the mandal's net — the mandal remits it).
+  gstPaise          Int              @default(0)
   status            SettlementStatus @default(PENDING_PAYOUT)
   payoutId          String?
   gatewayTransferId String?

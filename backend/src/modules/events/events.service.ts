@@ -14,6 +14,14 @@ import {
   CreateAssignmentDto, CreateEventDto, CreateTimeSlotDto, UpdateAssignmentDto, UpdateEventDto, UpdateTimeSlotDto,
 } from './events.dto';
 
+/** Maps GST/print settings from the DTO (percent → basis points). */
+function gstData(dto: { gstEnabled?: boolean; gstRatePercent?: number; gstBearer?: string; gstSac?: string; passPrintFormat?: string }) {
+  return {
+    gstEnabled: dto.gstEnabled, gstRateBps: dto.gstRatePercent === undefined ? undefined : Math.round(dto.gstRatePercent * 100),
+    gstBearer: dto.gstBearer, gstSac: dto.gstSac, passPrintFormat: dto.passPrintFormat,
+  };
+}
+
 export function presentEvent(e: Event & { organization?: { id: string; name: string } }, myPermissions?: Set<string>) {
   return {
     id: e.id, organizationId: e.organizationId, organization: e.organization,
@@ -21,6 +29,8 @@ export function presentEvent(e: Event & { organization?: { id: string; name: str
     startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, status: e.status,
     tokenPrefix: e.tokenPrefix, volunteerRegistrationOpen: e.volunteerRegistrationOpen, publicBookingEnabled: e.publicBookingEnabled,
     tokenDurationOptions: e.tokenDurationOptions,
+    gstEnabled: e.gstEnabled, gstRatePercent: e.gstRateBps / 100, gstBearer: e.gstBearer, gstSac: e.gstSac,
+    passPrintFormat: e.passPrintFormat,
     maxVisitorsPerToken: e.maxVisitorsPerToken, createdAt: e.createdAt,
     myPermissions: myPermissions ? [...myPermissions].sort() : undefined,
   };
@@ -67,6 +77,7 @@ export class EventsService {
   }
 
   async create(actor: RequestUser, orgId: string, dto: CreateEventDto) {
+    if (dto.gstEnabled) await this.assertGstin(orgId);
     const timezone = dto.timezone ?? 'Asia/Kolkata';
     const { s, e } = this.validateDates(dto.startDate, dto.endDate, timezone);
     return this.prisma.$transaction(async (tx) => {
@@ -79,6 +90,7 @@ export class EventsService {
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen ?? false,
           publicBookingEnabled: dto.publicBookingEnabled ?? false,
           tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
+          ...gstData(dto),
           maxVisitorsPerToken: dto.maxVisitorsPerToken ?? 10,
         },
         include: { organization: { select: { id: true, name: true } } },
@@ -86,6 +98,12 @@ export class EventsService {
       await this.audit.log({ organizationId: orgId, eventId: ev.id, actorId: actor.id, action: 'event.created', entityType: 'Event', entityId: ev.id, after: presentEvent(ev) }, tx);
       return presentEvent(ev);
     });
+  }
+
+  /** Charging GST needs the mandal's GSTIN (entered in Payouts & bank). */
+  private async assertGstin(orgId: string) {
+    const p = await this.prisma.payoutAccount.findUnique({ where: { organizationId: orgId }, select: { gstin: true } });
+    if (!p?.gstin) throw new BadRequestException({ message: 'Add the mandal’s GSTIN in “Payouts & bank” before charging GST.', code: 'GSTIN_REQUIRED' });
   }
 
   /** A new festival takes the mandal's state/city unless given its own. */
@@ -96,6 +114,7 @@ export class EventsService {
 
   async update(actor: RequestUser, eventId: string, dto: UpdateEventDto) {
     const before = await this.prisma.event.findUniqueOrThrow({ where: { id: eventId } });
+    if (dto.gstEnabled && !before.gstEnabled) await this.assertGstin(before.organizationId);
     const timezone = dto.timezone ?? before.timezone;
     const { s, e } = this.validateDates(dto.startDate ?? ymd(before.startDate), dto.endDate ?? ymd(before.endDate), timezone);
     return this.prisma.$transaction(async (tx) => {
@@ -107,6 +126,7 @@ export class EventsService {
           startDate: s, endDate: e, timezone, status: dto.status, tokenPrefix: dto.tokenPrefix,
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen, publicBookingEnabled: dto.publicBookingEnabled,
           tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
+          ...gstData(dto),
           maxVisitorsPerToken: dto.maxVisitorsPerToken,
         },
         include: { organization: { select: { id: true, name: true } } },
