@@ -1,8 +1,8 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, Public } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
-import { ApplyDto, ChangePasswordDto, CodeOnlyDto, EmailOnlyDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto, VerifyEmailDto } from './auth.dto';
+import { ApplyDto, ChangePasswordDto, CodeOnlyDto, EmailOnlyDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto, UpdateProfileDto, VerifyEmailDto } from './auth.dto';
 import { AuthService } from './auth.service';
 
 @Controller()
@@ -75,10 +75,22 @@ export class AuthController {
     return this.auth.me(user);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Patch('auth/me')
+  updateProfile(@CurrentUser() user: RequestUser, @Body() dto: UpdateProfileDto) {
+    return this.auth.updateProfile(user, dto);
+  }
+
+  @Post('auth/logout-other-devices')
+  @HttpCode(200)
+  logoutOthers(@CurrentUser() user: RequestUser) {
+    return this.auth.logoutOtherDevices(user);
+  }
+
   @Post('auth/change-password')
-  @HttpCode(204)
-  async changePassword(@CurrentUser() user: RequestUser, @Body() dto: ChangePasswordDto) {
-    await this.auth.changePassword(user, dto);
+  @HttpCode(200)
+  changePassword(@CurrentUser() user: RequestUser, @Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(user, dto);
   }
 
   @Post('volunteer-applications')

@@ -7,7 +7,7 @@ import { ALL_PERMISSIONS } from '../../common/permissions';
 import { normalizeEmail, normalizeMobile } from '../../common/identity';
 import { RequestUser } from '../../common/auth/request-user';
 import { ymd } from '../../common/time/validity';
-import { ApplyDto, ChangePasswordDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto, VerifyEmailDto } from './auth.dto';
+import { ApplyDto, ChangePasswordDto, ForgotPasswordDto, LoginDto, RegisterDto, ResetPasswordDto, VerifyEmailDto, UpdateProfileDto } from './auth.dto';
 import { OtpService, maskEmail } from './otp.service';
 
 export const BCRYPT_ROUNDS = 10;
@@ -146,10 +146,52 @@ export class AuthService {
     if (!(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
       throw new BadRequestException('Current password is incorrect');
     }
-    await this.prisma.user.update({
+    // Bumping tokenVersion signs out every device; hand this one a fresh token so it stays signed in.
+    const u = await this.prisma.user.update({
       where: { id: actor.id },
       data: { passwordHash: await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS), tokenVersion: { increment: 1 } },
     });
+    return { accessToken: this.sign(u.id, u.tokenVersion) };
+  }
+
+  /**
+   * Edits the caller's own name / mobile / email. Mobile and email are login
+   * ids, so changing either needs the current password; a new email starts
+   * unverified and gets a code straight away.
+   */
+  async updateProfile(actor: RequestUser, dto: UpdateProfileDto) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: actor.id } });
+    const mobile = dto.mobile === undefined ? undefined : normalizeMobile(dto.mobile);
+    const email = dto.email === undefined ? undefined : normalizeEmail(dto.email);
+    const mobileChanged = mobile !== undefined && mobile !== user.mobile;
+    const emailChanged = email !== undefined && email !== user.email;
+    if (mobileChanged || emailChanged) {
+      if (!dto.currentPassword || !(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
+        throw new BadRequestException({ message: 'Enter your current password to change your mobile number or email.', code: 'PASSWORD_REQUIRED' });
+      }
+    }
+    if (mobileChanged && (await this.prisma.user.findUnique({ where: { mobile } }))) {
+      throw new ConflictException({ message: 'An account with this mobile number already exists.', code: 'MOBILE_TAKEN' });
+    }
+    if (emailChanged && email && (await this.prisma.user.findUnique({ where: { email } }))) {
+      throw new ConflictException({ message: 'An account with this email already exists.', code: 'EMAIL_TAKEN' });
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: actor.id },
+      data: {
+        name: dto.name?.trim(),
+        ...(mobileChanged ? { mobile } : {}),
+        ...(emailChanged ? { email, emailVerifiedAt: null } : {}),
+      },
+    });
+    if (emailChanged && updated.email) await this.quietIssue(updated, 'VERIFY_EMAIL');
+    return { ...(await this.me(actor)), verificationSent: emailChanged && !!updated.email };
+  }
+
+  /** Signs out every other device (bumps tokenVersion) and returns a fresh token for this one. */
+  async logoutOtherDevices(actor: RequestUser) {
+    const u = await this.prisma.user.update({ where: { id: actor.id }, data: { tokenVersion: { increment: 1 } } });
+    return { accessToken: this.sign(u.id, u.tokenVersion) };
   }
 
   async apply(actor: RequestUser, dto: ApplyDto) {

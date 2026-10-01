@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { api, errorMessage } from '@/lib/api';
+import { api, errorMessage, setToken } from '@/lib/api';
 import { useAuth, useRequireAuth } from '@/lib/auth';
-import { ArrowLeft, CalendarHeart, Handshake, HelpCircle, KeyRound, LogOut, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CalendarHeart, Handshake, HelpCircle, KeyRound, LogOut, ShieldCheck, UserRound } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { LogoMark } from './FestivalArt';
 import { Alert, Button, LabeledInput, Modal, SkeletonList, cx } from './ui';
@@ -112,6 +112,9 @@ function UserMenu() {
                 <CalendarHeart aria-hidden className="h-5 w-5 text-orange-500" /> My festivals
               </Link>
             )}
+            <Link href="/profile" className={menuItem} onClick={() => setOpen(false)}>
+              <UserRound aria-hidden className="h-5 w-5 text-fuchsia-500" /> My profile
+            </Link>
             <Link href="/faq" className={menuItem} onClick={() => setOpen(false)}>
               <HelpCircle aria-hidden className="h-5 w-5 text-sky-500" /> Help &amp; FAQ
             </Link>
@@ -156,7 +159,8 @@ function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => 
     if (next !== confirm) return setError('New passwords do not match.');
     setBusy(true);
     try {
-      await api.post('/auth/change-password', { currentPassword: current, newPassword: next }, { noAuthRedirect: true });
+      const r = await api.post<{ accessToken: string }>('/auth/change-password', { currentPassword: current, newPassword: next }, { noAuthRedirect: true });
+      setToken(r.accessToken);
       setDone(true);
       setCurrent('');
       setNext('');

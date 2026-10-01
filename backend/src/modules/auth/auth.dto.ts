@@ -16,6 +16,14 @@ export class LoginDto {
   @IsString() @Length(1, 128) password: string;
 }
 
+/** Own profile. Changing the login id (mobile/email) needs the current password. */
+export class UpdateProfileDto {
+  @IsOptional() @IsString() @Length(2, 100) name?: string;
+  @IsOptional() @IsString() @Length(10, 20) mobile?: string;
+  @IsOptional() @IsEmail() @MaxLength(200) email?: string;
+  @IsOptional() @IsString() @Length(1, 128) currentPassword?: string;
+}
+
 export class ChangePasswordDto {
   @IsString() @Length(1, 128) currentPassword: string;
   @IsString() @Length(8, 128) newPassword: string;
