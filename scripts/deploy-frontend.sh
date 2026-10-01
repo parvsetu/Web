@@ -11,7 +11,17 @@ PROJECT="${VERCEL_PROJECT:-parvsetu-web}"
 cd "$(dirname "$0")/../frontend"
 v() { vercel --global-config "$PROFILE" --scope "$SCOPE" "$@"; }
 
-v deploy --prod --yes
+# Label the deployment with the commit it ships. Vercel reads this from the
+# folder's git data, which it can't find in a temporary `git worktree` copy —
+# without this the dashboard shows a random id instead of the message.
+SHA=$(git rev-parse HEAD)
+MSG=$(git log -1 --format=%s | cut -c1-200)
+REF=$(git rev-parse --abbrev-ref HEAD)
+[ "$REF" = "HEAD" ] && REF=main
+DIRTY=$([ -n "$(git status --porcelain -- . 2>/dev/null)" ] && echo " (+ local changes)" || true)
+v deploy --prod --yes \
+  --meta githubCommitSha="$SHA" --meta githubCommitMessage="$MSG$DIRTY" --meta githubCommitRef="$REF" \
+  --meta githubDeployment=1 --meta githubOrg=parvsetu --meta githubRepo=Web
 
 # Newest first; unique deployment URLs only.
 # Newest first; unique URLs. (Portable to macOS bash 3.2 — no mapfile.)
