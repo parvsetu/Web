@@ -320,6 +320,65 @@ async function upgradeDemo() {
   }
 }
 
+/**
+ * More sample events beyond Durga/Ganesh/Navratri, in a third demo mandal:
+ * a fair, a craft exhibition, a religious gathering, a carnival, a food
+ * festival, plus upcoming Christmas & Holi drafts. Idempotent (by slug).
+ */
+async function seedMoreEvents() {
+  if (await prisma.organization.findUnique({ where: { slug: 'jan-utsav-samiti' } })) return;
+  const admin = await prisma.user.findUnique({ where: { mobile: '9000000002' } });
+  if (!admin) return;
+  const tz = 'Asia/Kolkata';
+  const today = DateTime.now().setZone(tz).startOf('day');
+  const d = (dt: DateTime) => new Date(`${dt.toISODate()}T00:00:00.000Z`);
+  const org = await prisma.organization.create({ data: { name: 'Jan Utsav Samiti', slug: 'jan-utsav-samiti', state: 'Maharashtra', city: 'Pune', address: 'Shivajinagar' } });
+  const adminRole = await prisma.role.findFirstOrThrow({ where: { organizationId: null, key: 'MANDAL_ADMIN' } });
+  await prisma.organizationMember.create({ data: { organizationId: org.id, userId: admin.id, roleId: adminRole.id } });
+  await prisma.orgBilling.create({ data: { organizationId: org.id, creditBalancePaise: 100000 } });
+  await prisma.creditTransaction.create({ data: { organizationId: org.id, type: 'ADJUSTMENT', amountPaise: 100000, balanceAfterPaise: 100000, note: 'Demo credit' } });
+  await prisma.payoutAccount.create({ data: {
+    organizationId: org.id, entityType: 'REGISTERED', registeredType: 'SOCIETY', legalName: 'Jan Utsav Samiti', registrationNumber: 'MH/PUNE/SOC/889/2015',
+    orgPanEnc: encryptField('AABTJ5678K'), orgPanLast4: '678K', reg80G: 'AABTJ5678KF20221',
+    addressLine: 'Shivajinagar', city: 'Pune', state: 'Maharashtra', pincode: '411005',
+    contactName: 'Ananya Sen', contactRole: 'Secretary', contactPhone: '9000000002', contactEmail: 'admin@parvsetu.dev',
+    signatoryPanEnc: encryptField('ABCPS1234K'), signatoryPanLast4: '234K', bankHolderName: 'Jan Utsav Samiti',
+    bankAccountEnc: encryptField('556677889900'), bankAccountLast4: '9900', ifsc: 'MAHB0000456', accountType: 'CURRENT',
+    status: 'VERIFIED', reviewedAt: new Date(), reviewNote: 'Demo account', consentAt: new Date(), submittedById: admin.id,
+  } });
+
+  type Def = { name: string; type: string; prefix: string; loc: string; desc: string; start: number; days: number; status: 'ACTIVE' | 'DRAFT'; slots: [string, string, string, string][] };
+  const defs: Def[] = [
+    { name: `Diwali Mela ${today.year}`, type: 'MELA', prefix: 'DML', loc: 'S.P. College Ground', desc: 'Lights, food stalls, rides and a grand rangoli competition.', start: 0, days: 15, status: 'ACTIVE',
+      slots: [['Afternoon 12-16', '12:00', '16:00', '30'], ['Evening 16-20', '16:00', '20:00', '50'], ['Night 20-23', '20:00', '23:00', '50']] },
+    { name: 'Shilpgram Handicraft & Handloom Exhibition', type: 'CRAFT_EXHIBITION', prefix: 'SHP', loc: 'Balgandharva Rangmandir lawns', desc: 'Artisans from 18 states — handloom, pottery, Warli and Madhubani art.', start: -2, days: 12, status: 'ACTIVE',
+      slots: [['Day pass 10-20', '10:00', '20:00', '20']] },
+    { name: 'Shrimad Bhagwat Katha Saptah', type: 'BHAGWAT_KATHA', prefix: 'KTH', loc: 'Ganesh Kala Krida Manch', desc: 'Seven-day katha with bhajan sandhya; bhandara daily after the evening aarti.', start: 1, days: 7, status: 'ACTIVE',
+      slots: [['Morning katha 08-12', '08:00', '12:00', '0'], ['Evening katha 17-21', '17:00', '21:00', '0']] },
+    { name: 'Pune City Carnival', type: 'CARNIVAL', prefix: 'CAR', loc: 'Koregaon Park', desc: 'Parade, live bands, games and fireworks.', start: 5, days: 3, status: 'ACTIVE',
+      slots: [['Evening 17-22', '17:00', '22:00', '150']] },
+    { name: 'Swad Pune Food Festival', type: 'FOOD_FESTIVAL', prefix: 'FOD', loc: 'Model Colony', desc: 'Street food from across India and live cooking shows.', start: 0, days: 5, status: 'ACTIVE',
+      slots: [['Lunch 12-16', '12:00', '16:00', '0'], ['Dinner 18-23', '18:00', '23:00', '40']] },
+    { name: `Christmas Carnival ${today.year}`, type: 'CHRISTMAS', prefix: 'XMS', loc: 'Camp, MG Road', desc: 'Carols, Santa parade and plum-cake stalls.', start: 0, days: 0, status: 'DRAFT', slots: [['Evening 17-22', '17:00', '22:00', '60']] },
+    { name: `Holi Milan ${today.year + 1}`, type: 'HOLI', prefix: 'HOL', loc: 'Sinhagad Road ground', desc: 'Organic colours, dhol and thandai.', start: 0, days: 0, status: 'DRAFT', slots: [['Morning 09-13', '09:00', '13:00', '100']] },
+  ];
+  for (const def of defs) {
+    let start = today.plus({ days: def.start });
+    let end = start.plus({ days: Math.max(0, def.days - 1) });
+    if (def.type === 'CHRISTMAS') { start = DateTime.fromObject({ year: today.year, month: 12, day: 20 }, { zone: tz }); end = start.plus({ days: 6 }); }
+    if (def.type === 'HOLI') { start = DateTime.fromObject({ year: today.year + 1, month: 3, day: 3 }, { zone: tz }); end = start; }
+    const ev = await prisma.event.create({ data: {
+      organizationId: org.id, name: def.name, festivalType: def.type, tokenPrefix: def.prefix, description: def.desc, location: def.loc,
+      state: 'Maharashtra', city: 'Pune', startDate: d(start), endDate: d(end), timezone: tz, status: def.status,
+      publicBookingEnabled: def.status === 'ACTIVE', volunteerRegistrationOpen: true, maxVisitorsPerToken: 6, tokenDurationOptions: [3, 6, 24],
+    } });
+    for (const [i, [label, st, en, price]] of def.slots.entries()) {
+      await prisma.timeSlot.create({ data: { eventId: ev.id, label, startTime: st, endTime: en, price, capacity: 800, sortOrder: i } });
+    }
+  }
+  console.log('More sample events created under Jan Utsav Samiti (Pune).');
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -328,6 +387,7 @@ async function main() {
   const demo = process.env.SEED_DEMO ?? (process.env.NODE_ENV === 'production' ? 'false' : 'true');
   if (demo === 'true') await seedDemo();
   await upgradeDemo();
+  if (demo === 'true' || (await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } }))) await seedMoreEvents();
 }
 
 if (require.main === module) {
