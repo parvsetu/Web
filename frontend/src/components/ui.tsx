@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, Info, Inbox, X, XCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -303,8 +304,10 @@ export function Modal({
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
-  if (!open) return null;
-  return (
+  if (!open || typeof document === 'undefined') return null;
+  // Portal to <body>: an ancestor with backdrop-filter/transform (e.g. the blurred sticky
+  // header) would otherwise become the containing block and clip this fixed overlay.
+  return createPortal(
     <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={onClose}>
       <div
         role="dialog"
@@ -329,7 +332,8 @@ export function Modal({
         </div>
         <div className="p-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
