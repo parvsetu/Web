@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Building2, ChevronDown, Globe2, HelpCircle, Landmark, LogIn, MapPin, Search, Ticket, X } from 'lucide-react';
+import { Building2, ChevronDown, ChevronRight, Globe2, HelpCircle, Landmark, LogIn, MapPin, Search, Ticket, X } from 'lucide-react';
 import { LogoMark } from '../FestivalArt';
 import { Modal } from '../ui';
 import { CATEGORIES, POPULAR_CITIES } from '@/lib/explore';
@@ -96,8 +96,9 @@ export function ExploreShell({
             </label>
           </div>
         )}
-        <nav aria-label="Categories" className="border-t border-slate-100 bg-slate-50/80">
-          <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav aria-label="Categories" className="relative border-t border-slate-100 bg-slate-50/80">
+          {/* Phones: one swipeable row with an edge fade. lg+: everything fits, wrapping if the window is narrow. */}
+          <div className="mx-auto flex max-w-6xl gap-0.5 overflow-x-auto px-3 pr-10 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible lg:pr-3 [&::-webkit-scrollbar]:hidden">
             {[{ key: '', label: 'All events', emoji: '🎉' }, ...CATEGORIES].map((c) => (
               <button
                 key={c.key}
@@ -105,14 +106,17 @@ export function ExploreShell({
                 aria-pressed={cat === c.key}
                 onClick={() => onCat(c.key)}
                 className={cx(
-                  'inline-flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm font-medium',
+                  'inline-flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 text-sm font-medium',
                   cat === c.key ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-600 hover:text-slate-900',
                 )}
               >
-                <span aria-hidden>{c.emoji}</span> {c.label}
+                <span aria-hidden>{c.emoji}</span> {'short' in c && c.short ? c.short : c.label}
               </button>
             ))}
           </div>
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 flex w-12 items-center justify-end bg-gradient-to-l from-slate-50 via-slate-50/90 to-transparent pr-2 text-slate-400 lg:hidden">
+            <ChevronRight className="h-4 w-4" />
+          </span>
         </nav>
       </header>
 

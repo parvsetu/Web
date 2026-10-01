@@ -5,18 +5,20 @@ export interface Category {
   key: string;
   label: string;
   emoji: string;
+  /** Compact label for the header strip. */
+  short?: string;
   /** Festival-type groups (backend FESTIVAL_TYPES.group) in this category. */
   groups: string[];
 }
 
 export const CATEGORIES: Category[] = [
   { key: 'festivals', label: 'Festivals', emoji: '🪔', groups: ['Hindu', 'Muslim', 'Christian', 'Sikh', 'Buddhist', 'Jain', 'Parsi', 'Regional & Harvest', 'National & Cultural'] },
-  { key: 'religious', label: 'Religious gatherings', emoji: '🙏', groups: ['Religious Gatherings'] },
+  { key: 'religious', label: 'Religious gatherings', short: 'Religious', emoji: '🙏', groups: ['Religious Gatherings'] },
   { key: 'fairs', label: 'Fairs & carnivals', emoji: '🎡', groups: ['Fairs & Carnivals'] },
   { key: 'exhibitions', label: 'Exhibitions', emoji: '🧵', groups: ['Exhibitions & Trade'] },
   { key: 'shows', label: 'Shows & culture', emoji: '🎭', groups: ['Cultural & Entertainment'] },
   { key: 'sports', label: 'Sports & community', emoji: '🏏', groups: ['Community & Sports'] },
-  { key: 'other', label: 'Other events', emoji: '✨', groups: ['Other'] },
+  { key: 'other', label: 'Other events', short: 'Other', emoji: '✨', groups: ['Other'] },
 ];
 
 export function categoryOf(festivalType: string, groupOf: Map<string, string>): string {
