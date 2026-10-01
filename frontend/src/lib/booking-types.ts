@@ -38,7 +38,7 @@ export interface BookingSlot {
 }
 
 export interface BookableEventDetail extends BookableEvent {
-  gst?: { ratePercent: number; bearer: 'CUSTOMER' | 'MANDAL' } | null;
+  gst?: { ratePercent: number; bearer: 'CUSTOMER' | 'MANDAL'; mode?: 'FLAT' | 'SLAB'; lowRatePercent?: number; threshold?: string } | null;
   holdMinutes: number;
   slots: BookingSlot[];
   sponsors?: import('@/components/SponsorStrip').SponsorPublic[];

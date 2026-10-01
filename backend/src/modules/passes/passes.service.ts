@@ -14,7 +14,7 @@ import { effectiveStatus } from '../tokens/token-presenter';
 import { PaymentProvider } from '../donations/payment-provider';
 import { PASS_GATEWAYS, demoPaymentsEnabled } from './pass-gateways';
 import { SponsorsService } from '../sponsors/sponsors.service';
-import { computeGst } from '../../common/gst';
+import { computeGst, slabRateBps } from '../../common/gst';
 import { BillingService } from '../billing/billing.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { CreatePassOrderDto, PassOrderListQuery } from './passes.dto';
@@ -107,7 +107,12 @@ export class PassesService {
       startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, maxVisitorsPerToken: e.maxVisitorsPerToken,
       organization: e.organization, onlinePayments: this.gateways.length > 0 && (await this.payouts.isVerified(e.organizationId)), holdMinutes: ORDER_HOLD_MINUTES,
       slots: slots.map((s) => ({ ...s, price: s.price.toFixed(2) })),
-      gst: e.gstEnabled && e.gstRateBps > 0 ? { ratePercent: e.gstRateBps / 100, bearer: e.gstBearer } : null,
+      gst: e.gstEnabled
+        ? {
+            ratePercent: e.gstRateBps / 100, bearer: e.gstBearer, mode: e.gstMode,
+            lowRatePercent: e.gstLowRateBps / 100, threshold: (e.gstSlabThresholdPaise / 100).toFixed(2),
+          }
+        : null,
       sponsors: await this.sponsors.forEvent(e.id),
     };
   }
@@ -155,7 +160,13 @@ export class PassesService {
     if (w.validUntil <= new Date()) throw new BadRequestException('This time slot has already ended. Pick a later slot.');
 
     const price = slot.price.mul(dto.visitorCount);
-    const g = computeGst(Math.round(Number(price) * 100), event.gstEnabled ? event.gstRateBps : 0, event.gstBearer as 'CUSTOMER' | 'MANDAL');
+    const rateBps = event.gstEnabled
+      ? slabRateBps(Math.round(Number(slot.price) * 100), {
+          mode: event.gstMode as 'FLAT' | 'SLAB', rateBps: event.gstRateBps, lowRateBps: event.gstLowRateBps,
+          thresholdPaise: event.gstSlabThresholdPaise, bearer: event.gstBearer as 'CUSTOMER' | 'MANDAL',
+        })
+      : 0;
+    const g = computeGst(Math.round(Number(price) * 100), rateBps, event.gstBearer as 'CUSTOMER' | 'MANDAL');
     const amount = new Prisma.Decimal(g.totalPaise).div(100);
     const free = amount.isZero();
     const gateway = free ? null : this.gateways[0];
@@ -177,7 +188,7 @@ export class PassesService {
           eventId: event.id, timeSlotId: slot.id, validFrom: w.validFrom, validUntil: w.validUntil, visitorCount: dto.visitorCount,
           ...buyer, unitPrice: slot.price, amount, paymentProvider: free ? 'free' : gateway!.key,
           baseAmount: new Prisma.Decimal(g.basePaise).div(100), gstAmount: new Prisma.Decimal(g.gstPaise).div(100),
-          gstRateBps: g.gstPaise > 0 ? event.gstRateBps : 0, gstBearer: g.gstPaise > 0 ? event.gstBearer : null,
+          gstRateBps: g.gstPaise > 0 ? rateBps : 0, gstBearer: g.gstPaise > 0 ? event.gstBearer : null,
           perPersonPasses: dto.perPersonPasses ?? true,
           accessKey: randomBytes(24).toString('base64url'),
           expiresAt: new Date(Date.now() + ORDER_HOLD_MINUTES * 60_000),

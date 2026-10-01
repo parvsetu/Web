@@ -19,6 +19,9 @@ export class CreateEventDto {
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
   @IsOptional() @IsBoolean() gstEnabled?: boolean;
   @IsOptional() @IsIn([0, 5, 12, 18, 28]) gstRatePercent?: number;
+  @IsOptional() @IsIn(['FLAT', 'SLAB']) gstMode?: 'FLAT' | 'SLAB';
+  @IsOptional() @IsIn([0, 5, 12, 18, 28]) gstLowRatePercent?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(1_000_000) gstSlabThreshold?: number;
   @IsOptional() @IsIn(['CUSTOMER', 'MANDAL']) gstBearer?: 'CUSTOMER' | 'MANDAL';
   @IsOptional() @Matches(/^\d{4,8}$/, { message: 'SAC/HSN code must be 4–8 digits' }) gstSac?: string;
   @IsOptional() @IsIn(['A4', 'THERMAL_80', 'THERMAL_58']) passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
@@ -42,6 +45,9 @@ export class UpdateEventDto {
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
   @IsOptional() @IsBoolean() gstEnabled?: boolean;
   @IsOptional() @IsIn([0, 5, 12, 18, 28]) gstRatePercent?: number;
+  @IsOptional() @IsIn(['FLAT', 'SLAB']) gstMode?: 'FLAT' | 'SLAB';
+  @IsOptional() @IsIn([0, 5, 12, 18, 28]) gstLowRatePercent?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(1_000_000) gstSlabThreshold?: number;
   @IsOptional() @IsIn(['CUSTOMER', 'MANDAL']) gstBearer?: 'CUSTOMER' | 'MANDAL';
   @IsOptional() @Matches(/^\d{4,8}$/, { message: 'SAC/HSN code must be 4–8 digits' }) gstSac?: string;
   @IsOptional() @IsIn(['A4', 'THERMAL_80', 'THERMAL_58']) passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';

@@ -114,7 +114,16 @@ export default function BookEventPage() {
 
   // Display-only preview; the server computes the real amount.
   const base = slot ? Number(slot.price) * people : null;
-  const gstRate = event?.gst?.ratePercent ?? 0;
+  // Mirrors the server's slabRateBps: slab is decided on one ticket's pre-GST value.
+  const gstRate = (() => {
+    const g = event?.gst;
+    if (!g) return 0;
+    if (g.mode !== 'SLAB' || !slot) return g.ratePercent;
+    const low = g.lowRatePercent ?? g.ratePercent;
+    const unit = Number(slot.price);
+    const taxable = g.bearer === 'CUSTOMER' ? unit : unit / (1 + low / 100);
+    return Math.round(taxable * 100) <= Math.round(Number(g.threshold) * 100) ? low : g.ratePercent;
+  })();
   const gstOnTop = event?.gst?.bearer === 'CUSTOMER' && gstRate > 0;
   const preview = base === null ? null : gstOnTop ? Math.round(base * (100 + gstRate)) / 100 : base;
   const free = slot ? isFree(slot.price) : false;

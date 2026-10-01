@@ -42,6 +42,9 @@ export function EventForm({
     city: initial?.city ?? '',
     gstEnabled: initial?.gstEnabled ?? false,
     gstRatePercent: String(initial?.gstRatePercent ?? 18),
+    gstMode: (initial?.gstMode ?? 'SLAB') as 'FLAT' | 'SLAB',
+    gstLowRatePercent: String(initial?.gstLowRatePercent ?? 5),
+    gstSlabThreshold: String(initial?.gstSlabThreshold ?? 100),
     gstBearer: (initial?.gstBearer ?? 'CUSTOMER') as 'CUSTOMER' | 'MANDAL',
     gstSac: initial?.gstSac ?? '9996',
     passPrintFormat: (initial?.passPrintFormat ?? 'A4') as PrintFormat,
@@ -79,6 +82,9 @@ export function EventForm({
       tokenDurationOptions: form.tokenDurationOptions,
       gstEnabled: form.gstEnabled,
       gstRatePercent: Number(form.gstRatePercent),
+      gstMode: form.gstMode,
+      gstLowRatePercent: Number(form.gstLowRatePercent),
+      gstSlabThreshold: Math.max(1, Math.round(Number(form.gstSlabThreshold) || 100)),
       gstBearer: form.gstBearer,
       gstSac: form.gstSac.trim() || '9996',
       passPrintFormat: form.passPrintFormat,
@@ -160,17 +166,40 @@ export function EventForm({
         />
         {form.gstEnabled && (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <LabeledSelect label="GST rate type" value={form.gstMode} onChange={(e) => setForm((x) => ({ ...x, gstMode: e.target.value as 'FLAT' | 'SLAB' }))}>
+              <option value="SLAB">By ticket price (slab)</option>
+              <option value="FLAT">One rate for every ticket</option>
+            </LabeledSelect>
+            {form.gstMode === 'SLAB' ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <LabeledInput label="Ticket price up to (₹)" value={form.gstSlabThreshold} onChange={set('gstSlabThreshold')} inputMode="numeric" />
+                <LabeledSelect label="Rate up to that price" value={form.gstLowRatePercent} onChange={set('gstLowRatePercent')}>
+                  {[0, 5, 12, 18, 28].map((r) => (
+                    <option key={r} value={r}>{r}%</option>
+                  ))}
+                </LabeledSelect>
+                <LabeledSelect label="Rate above it" value={form.gstRatePercent} onChange={set('gstRatePercent')}>
+                  {[0, 5, 12, 18, 28].map((r) => (
+                    <option key={r} value={r}>{r}%</option>
+                  ))}
+                </LabeledSelect>
+              </div>
+            ) : (
               <LabeledSelect label="GST rate" value={form.gstRatePercent} onChange={set('gstRatePercent')}>
                 {[0, 5, 12, 18, 28].map((r) => (
                   <option key={r} value={r}>{r}%</option>
                 ))}
               </LabeledSelect>
-              <LabeledInput label="SAC / HSN code" value={form.gstSac} onChange={set('gstSac')} inputMode="numeric" />
-            </div>
+            )}
+            {form.gstMode === 'SLAB' && (
+              <p className="text-xs text-slate-500">
+                Decided per ticket (per person), before GST: a ₹{form.gstSlabThreshold || 100} ticket pays {form.gstLowRatePercent}%, anything costlier pays {form.gstRatePercent}% — even if a group order totals more.
+              </p>
+            )}
+            <LabeledInput label="SAC / HSN code" value={form.gstSac} onChange={set('gstSac')} inputMode="numeric" />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Who pays GST">
               {(['CUSTOMER', 'MANDAL'] as const).map((b) => {
-                const r = Number(form.gstRatePercent) || 0;
+                const r = Number(form.gstMode === 'SLAB' && 100 <= Number(form.gstSlabThreshold) ? form.gstLowRatePercent : form.gstRatePercent) || 0;
                 const example = b === 'CUSTOMER' ? `₹100 pass → visitor pays ₹${(100 + r).toFixed(2)}` : `₹100 pass → ₹${(100 / (1 + r / 100)).toFixed(2)} + ₹${(100 - 100 / (1 + r / 100)).toFixed(2)} GST`;
                 return (
                   <button

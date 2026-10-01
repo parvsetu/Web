@@ -208,6 +208,9 @@ export interface EventDetail {
   tokenDurationOptions?: number[];
   gstEnabled?: boolean;
   gstRatePercent?: number;
+  gstMode?: 'FLAT' | 'SLAB';
+  gstLowRatePercent?: number;
+  gstSlabThreshold?: number;
   gstBearer?: 'CUSTOMER' | 'MANDAL';
   gstSac?: string;
   passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
@@ -231,6 +234,9 @@ export interface EventBody {
   tokenDurationOptions?: number[];
   gstEnabled?: boolean;
   gstRatePercent?: number;
+  gstMode?: 'FLAT' | 'SLAB';
+  gstLowRatePercent?: number;
+  gstSlabThreshold?: number;
   gstBearer?: 'CUSTOMER' | 'MANDAL';
   gstSac?: string;
   passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';

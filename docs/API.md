@@ -473,3 +473,15 @@ booking API is now false until the mandal is verified.
 - `GET /public/receipts/:id?k=<key>` (public) → `Receipt` (404 on wrong key)
 - `Receipt` now also has `issuer: { legalName, entityType, registrationNumber, pan, reg80G, reg12A, address } | null`
   (only when the mandal's payout account is VERIFIED), `donorMobile`, `donorEmail`, `event.festivalType`, `organization.state`.
+
+## GST on online passes
+
+Event fields (`POST/PATCH /events…`): `gstEnabled`, `gstMode: 'SLAB'|'FLAT'` (default `SLAB`),
+`gstLowRatePercent` (default 5), `gstSlabThreshold` in ₹ (default 100), `gstRatePercent` (default 18; the
+rate above the threshold in SLAB mode, the only rate in FLAT mode), `gstBearer: 'CUSTOMER'|'MANDAL'`, `gstSac`.
+
+SLAB is decided **per ticket (per person), on its pre-GST value**: a ticket of ₹100 or less is taxed at the low
+rate, a dearer one at the high rate, regardless of how many people are on the order. For a mandal-borne
+(GST-inclusive) price the taxable value is the price minus the low-rate GST. The applied rate is stored on each
+order (`gstRateBps`) and shown on its tax invoice and in `GET /events/:id/reports/gst` (`byRate`).
+The default slabs (≤ ₹100 → 5%, above → 18%) are an assumption the mandal should confirm with its CA.

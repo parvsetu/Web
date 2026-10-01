@@ -271,6 +271,11 @@ model Event {
   gstRateBps                Int         @default(1800)
   gstBearer                 String      @default("CUSTOMER")
   gstSac                    String      @default("9996")
+  /// SLAB: per-ticket taxable value ≤ threshold → gstLowRateBps, above → gstRateBps.
+  /// FLAT: gstRateBps for every ticket.
+  gstMode                   String      @default("SLAB")
+  gstSlabThresholdPaise     Int         @default(10000)
+  gstLowRateBps             Int         @default(500)
   passInvoiceSeq            Int         @default(0)
   /// Default print layout for passes: A4 | THERMAL_80 | THERMAL_58
   passPrintFormat           String      @default("A4")

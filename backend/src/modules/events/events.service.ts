@@ -15,8 +15,10 @@ import {
 } from './events.dto';
 
 /** Maps GST/print settings from the DTO (percent → basis points). */
-function gstData(dto: { gstEnabled?: boolean; gstRatePercent?: number; gstBearer?: string; gstSac?: string; passPrintFormat?: string }) {
+function gstData(dto: { gstEnabled?: boolean; gstRatePercent?: number; gstBearer?: string; gstSac?: string; passPrintFormat?: string; gstMode?: string; gstLowRatePercent?: number; gstSlabThreshold?: number }) {
   return {
+    gstMode: dto.gstMode, gstLowRateBps: dto.gstLowRatePercent === undefined ? undefined : Math.round(dto.gstLowRatePercent * 100),
+    gstSlabThresholdPaise: dto.gstSlabThreshold === undefined ? undefined : Math.round(dto.gstSlabThreshold * 100),
     gstEnabled: dto.gstEnabled, gstRateBps: dto.gstRatePercent === undefined ? undefined : Math.round(dto.gstRatePercent * 100),
     gstBearer: dto.gstBearer, gstSac: dto.gstSac, passPrintFormat: dto.passPrintFormat,
   };
@@ -30,6 +32,7 @@ export function presentEvent(e: Event & { organization?: { id: string; name: str
     tokenPrefix: e.tokenPrefix, volunteerRegistrationOpen: e.volunteerRegistrationOpen, publicBookingEnabled: e.publicBookingEnabled,
     tokenDurationOptions: e.tokenDurationOptions,
     gstEnabled: e.gstEnabled, gstRatePercent: e.gstRateBps / 100, gstBearer: e.gstBearer, gstSac: e.gstSac,
+    gstMode: e.gstMode, gstLowRatePercent: e.gstLowRateBps / 100, gstSlabThreshold: e.gstSlabThresholdPaise / 100,
     passPrintFormat: e.passPrintFormat,
     maxVisitorsPerToken: e.maxVisitorsPerToken, createdAt: e.createdAt,
     myPermissions: myPermissions ? [...myPermissions].sort() : undefined,
