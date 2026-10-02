@@ -3,6 +3,8 @@
 import { ExternalLink, Handshake } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 import { cx } from './ui';
+import type { MessageKey } from '@/lib/i18n/core';
+import { useT } from '@/lib/i18n/provider';
 
 export interface SponsorPublic {
   id: string;
@@ -26,9 +28,10 @@ export const sponsorLogoSrc = (s: SponsorPublic) => (s.logoUrl ? `${API_URL}${s.
 
 function Logo({ s, className }: { s: SponsorPublic; className?: string }) {
   const src = sponsorLogoSrc(s);
+  const { t } = useT();
   return src ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={`${s.name} logo`} className={cx('object-contain', className)} loading="lazy" />
+    <img src={src} alt={t('common.logo', { name: s.name })} className={cx('object-contain', className)} loading="lazy" />
   ) : (
     <span className={cx('flex items-center justify-center rounded-xl bg-white/70 text-lg font-black text-orange-700', className)}>{s.name.slice(0, 2).toUpperCase()}</span>
   );
@@ -65,16 +68,17 @@ export function PassSponsors({ sponsors, partners }: { sponsors?: SponsorPublic[
     ...(sponsors ?? []).map((s) => ({ key: s.id, name: s.name, line: s.tagline ?? s.bannerText, logo: sponsorLogoSrc(s) })),
     ...(partners ?? []).map((p) => ({ key: `p-${p.id}`, name: p.name, line: p.message || p.tagline, logo: p.logoUrl ? `${API_URL}${p.logoUrl}` : null })),
   ];
+  const { t } = useT();
   if (items.length === 0) return null;
   return (
     <div className="w-full border-t border-dashed border-slate-300 pt-2">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">In association with</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">{t('sponsor.inAssociation')}</p>
       <div className="mt-1 flex flex-wrap items-center justify-center gap-3">
         {items.map((s) => (
           <div key={s.key} className="flex max-w-[220px] items-center gap-2 text-left">
             {s.logo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={s.logo} alt={`${s.name} logo`} className="h-9 w-9 shrink-0 rounded-lg object-contain" loading="lazy" />
+              <img src={s.logo} alt={t('common.logo', { name: s.name })} className="h-9 w-9 shrink-0 rounded-lg object-contain" loading="lazy" />
             ) : (
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/70 text-sm font-black text-orange-700">{s.name.slice(0, 2).toUpperCase()}</span>
             )}
@@ -93,7 +97,9 @@ export function PassSponsors({ sponsors, partners }: { sponsors?: SponsorPublic[
  * Partners' banners: the top-tier sponsors as full ad cards, the rest as a
  * logo row. Renders nothing when there are no sponsors.
  */
-export function SponsorStrip({ sponsors, title = 'Our partners', compact }: { sponsors: SponsorPublic[] | null | undefined; title?: string; compact?: boolean }) {
+export function SponsorStrip({ sponsors, title: titleProp, compact }: { sponsors: SponsorPublic[] | null | undefined; title?: string; compact?: boolean }) {
+  const { t } = useT();
+  const title = titleProp ?? t('sponsor.ourPartners');
   if (!sponsors || sponsors.length === 0) return null;
   const featured = sponsors.filter((s) => s.tier === 'TITLE' || s.tier === 'PLATINUM' || (s.tier === 'GOLD' && !!s.bannerText));
   const rest = sponsors.filter((s) => !featured.includes(s));
@@ -107,7 +113,7 @@ export function SponsorStrip({ sponsors, title = 'Our partners', compact }: { sp
         <Wrap key={s.id} s={s} className={cx('group flex items-center gap-3 rounded-2xl bg-gradient-to-r p-3 shadow-sm ring-1 ring-black/5', TIER_STYLE[s.tier].cls)}>
           <Logo s={s} className="h-14 w-14 shrink-0 rounded-xl bg-white p-1" />
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">{TIER_STYLE[s.tier].label}</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">{t(`sponsor.${s.tier}` as MessageKey)}</div>
             <div className="truncate text-base font-extrabold">{s.name}</div>
             {(s.bannerText || s.tagline) && <div className="line-clamp-2 text-sm opacity-90">{s.bannerText ?? s.tagline}</div>}
           </div>

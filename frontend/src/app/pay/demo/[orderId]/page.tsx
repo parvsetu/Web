@@ -11,14 +11,18 @@ import { FestivalBadge } from '@/components/FestivalBanner';
 import { Alert, Button, Empty, Skeleton, cx } from '@/components/ui';
 import { festivalTheme } from '@/lib/festival-theme';
 import { fmtMoney } from '@/lib/format';
-import { BookingError, booking, bookingErrorMessage, fmtPassWindow, passHref } from '@/lib/booking';
+import { BookingError, booking, passHref } from '@/lib/booking';
+import { fmtPassWindowL } from '@/lib/i18n/format';
+import type { MessageKey } from '@/lib/i18n/core';
+import { useT } from '@/lib/i18n/provider';
+import { useBookingErrorText } from '@/lib/i18n/errors';
 import type { PassOrder } from '@/lib/booking-types';
 
 type Method = 'upi' | 'card' | 'netbanking';
-const METHODS: { key: Method; label: string; sub: string; icon: LucideIcon }[] = [
-  { key: 'upi', label: 'UPI', sub: 'GPay, PhonePe, Paytm', icon: Smartphone },
-  { key: 'card', label: 'Card', sub: 'Debit or credit', icon: CreditCard },
-  { key: 'netbanking', label: 'Net banking', sub: 'All major banks', icon: Building2 },
+const METHODS: { key: Method; icon: LucideIcon }[] = [
+  { key: 'upi', icon: Smartphone },
+  { key: 'card', icon: CreditCard },
+  { key: 'netbanking', icon: Building2 },
 ];
 
 export default function DemoPayPage() {
@@ -52,6 +56,8 @@ function DemoCheckout() {
   const [busy, setBusy] = useState<'success' | 'fail' | null>(null);
   const [method, setMethod] = useState<Method>('upi');
   const redirected = useRef(false);
+  const { t, locale } = useT();
+  const errText = useBookingErrorText();
 
   const load = useCallback(async () => {
     try {
@@ -59,9 +65,9 @@ function DemoCheckout() {
       setOrder(o);
       setLoadError(null);
     } catch (e) {
-      setLoadError(e instanceof BookingError ? e : new BookingError(0, bookingErrorMessage(e)));
+      setLoadError(e instanceof BookingError ? e : new BookingError(0, errText(e)));
     }
-  }, [orderId, k]);
+  }, [orderId, k, errText]);
 
   useEffect(() => {
     if (k) void load();
@@ -100,18 +106,18 @@ function DemoCheckout() {
         // e.g. the slot filled up in the meantime
         setActionError(err.message);
         await load();
-      } else setActionError(bookingErrorMessage(e));
+      } else setActionError(errText(e));
     }
     setBusy(null);
   }
 
   if (!k) {
     return (
-      <Empty title="This payment link is incomplete" icon={LinkIcon}>
-        Please go back and book again.
+      <Empty title={t('pay.incomplete')} icon={LinkIcon}>
+        {t('pay.incompleteHint')}
         <div className="mt-4">
           <Link href="/" className="font-semibold text-orange-700 hover:underline">
-            Browse festivals
+            {t('common.browseFestivals')}
           </Link>
         </div>
       </Empty>
@@ -119,20 +125,20 @@ function DemoCheckout() {
   }
   if (loadError && !order) {
     return loadError.status === 404 ? (
-      <Empty title="Booking not found" icon={XCircle}>
-        This payment link doesn’t match a booking, or demo payments are switched off.
+      <Empty title={t('pay.notFound')} icon={XCircle}>
+        {t('pay.notFoundHint')}
         <div className="mt-4">
           <Link href="/" className="font-semibold text-orange-700 hover:underline">
-            Browse festivals
+            {t('common.browseFestivals')}
           </Link>
         </div>
       </Empty>
     ) : (
       <Alert>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span>{loadError.message}</span>
+          <span>{errText(loadError)}</span>
           <Button size="sm" variant="secondary" onClick={() => void load()}>
-            <RotateCcw aria-hidden className="h-4 w-4" /> Retry
+            <RotateCcw aria-hidden className="h-4 w-4" /> {t('common.retry')}
           </Button>
         </div>
       </Alert>
@@ -140,7 +146,7 @@ function DemoCheckout() {
   }
   if (!order || order.status === 'PAID') return <PaySkeleton />;
 
-  const t = festivalTheme(order.event.festivalType);
+  const th = festivalTheme(order.event.festivalType);
   const bookAgain = `/book/${order.event.id}`;
 
   if (order.status === 'FAILED' || order.status === 'EXPIRED') {
@@ -153,18 +159,16 @@ function DemoCheckout() {
             {failed ? <CircleX aria-hidden className="h-8 w-8" /> : <Clock3 aria-hidden className="h-8 w-8" />}
           </span>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900">{failed ? 'Payment failed' : 'Time’s up — booking expired'}</h1>
+            <h1 className="text-xl font-extrabold text-slate-900">{failed ? t('pay.failed') : t('pay.expired')}</h1>
             <p className="mt-1 text-slate-600">
-              {failed
-                ? 'The (demo) payment didn’t go through. No money was taken and no pass was issued.'
-                : 'Payment wasn’t completed within the hold time, so your places were released.'}
+              {failed ? t('pay.failedHint') : t('pay.expiredHint')}
             </p>
           </div>
           <Link
             href={bookAgain}
             className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 px-5 font-semibold text-white shadow-md"
           >
-            <TicketPlus aria-hidden className="h-5 w-5" /> Try again
+            <TicketPlus aria-hidden className="h-5 w-5" /> {t('pay.tryAgain')}
           </Link>
         </div>
       </div>
@@ -180,10 +184,10 @@ function DemoCheckout() {
       <DemoBanner />
 
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-extrabold text-slate-900">Checkout</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">{t('pay.checkout')}</h1>
         <div
           role="timer"
-          aria-label={`Places held for ${mins} minutes ${secs} seconds`}
+          aria-label={t('pay.timerAria', { m: mins, s: secs })}
           className={cx(
             'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-base font-bold tabular-nums',
             urgent ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800',
@@ -193,29 +197,29 @@ function DemoCheckout() {
           {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
         </div>
       </div>
-      <p className="-mt-2 text-sm text-slate-500">Your places are held until the timer runs out.</p>
+      <p className="-mt-2 text-sm text-slate-500">{t('pay.heldNote')}</p>
 
       {/* order summary */}
-      <section aria-label="Order summary" className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm">
-        <div className="flex items-center gap-3 p-4" style={{ background: t.soft }}>
+      <section aria-label={t('pay.summary')} className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm">
+        <div className="flex items-center gap-3 p-4" style={{ background: th.soft }}>
           <FestivalBadge type={order.event.festivalType} className="h-14 w-14 bg-white" />
           <div className="min-w-0">
             <p className="truncate font-bold text-slate-900">{order.event.name}</p>
-            <p className="truncate text-sm" style={{ color: t.ink }}>
+            <p className="truncate text-sm" style={{ color: th.ink }}>
               {order.event.organization.name}
             </p>
           </div>
         </div>
         <dl className="grid gap-2 p-4 text-sm">
-          <SummaryRow label="Slot">{order.timeSlot?.label ?? '—'}</SummaryRow>
-          <SummaryRow label="When">{fmtPassWindow(order.validFrom, order.validUntil, order.event.timezone)}</SummaryRow>
-          <SummaryRow label="Name">{order.buyerName}</SummaryRow>
-          <SummaryRow label="Tickets">
+          <SummaryRow label={t('pay.slot')}>{order.timeSlot?.label ?? '—'}</SummaryRow>
+          <SummaryRow label={t('pay.when')}>{fmtPassWindowL(order.validFrom, order.validUntil, order.event.timezone, locale)}</SummaryRow>
+          <SummaryRow label={t('pay.name')}>{order.buyerName}</SummaryRow>
+          <SummaryRow label={t('pay.tickets')}>
             {order.visitorCount} × {fmtMoney(order.unitPrice, order.currency)}
           </SummaryRow>
           <div className="mt-1 flex items-center justify-between border-t border-dashed border-slate-200 pt-3">
-            <dt className="text-base font-bold text-slate-900">Total</dt>
-            <dd className="text-2xl font-extrabold" style={{ color: t.ink }}>
+            <dt className="text-base font-bold text-slate-900">{t('pay.total')}</dt>
+            <dd className="text-2xl font-extrabold" style={{ color: th.ink }}>
               {fmtMoney(order.amount, order.currency)}
             </dd>
           </div>
@@ -223,9 +227,9 @@ function DemoCheckout() {
       </section>
 
       {/* fake methods */}
-      <section aria-label="Payment method (demo)">
-        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">Pay with</h2>
-        <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-3 gap-2">
+      <section aria-label={t('pay.methodSection')}>
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">{t('pay.payWith')}</h2>
+        <div role="radiogroup" aria-label={t('pay.method')} className="grid grid-cols-3 gap-2">
           {METHODS.map((m) => {
             const sel = method === m.key;
             return (
@@ -241,13 +245,13 @@ function DemoCheckout() {
                 )}
               >
                 <m.icon aria-hidden className={cx('h-6 w-6', sel ? 'text-orange-600' : 'text-slate-500')} />
-                <span className="text-sm font-bold text-slate-900">{m.label}</span>
-                <span className="text-[11px] leading-tight text-slate-500">{m.sub}</span>
+                <span className="text-sm font-bold leading-tight text-slate-900">{t(`pay.${m.key}` as MessageKey)}</span>
+                <span className="text-[11px] leading-tight text-slate-500">{t(`pay.${m.key}Sub` as MessageKey)}</span>
               </button>
             );
           })}
         </div>
-        <p className="mt-2 text-xs text-slate-500">Demo only — choosing a method changes nothing. No details are collected.</p>
+        <p className="mt-2 text-xs text-slate-500">{t('pay.demoOnly')}</p>
       </section>
 
       {actionError && <Alert>{actionError}</Alert>}
@@ -255,11 +259,11 @@ function DemoCheckout() {
       <div className="flex flex-col gap-2">
         <Button variant="success" size="lg" onClick={() => void pay('success')} loading={busy === 'success'} disabled={!!busy || left === 0} className="w-full">
           {busy !== 'success' && <Lock aria-hidden className="h-5 w-5" />}
-          Pay {fmtMoney(order.amount, order.currency)} (demo)
+          {t('pay.payDemo', { amount: fmtMoney(order.amount, order.currency) })}
         </Button>
         <Button variant="ghost" onClick={() => void pay('fail')} loading={busy === 'fail'} disabled={!!busy || left === 0} className="w-full text-red-700">
           {busy !== 'fail' && <XCircle aria-hidden className="h-5 w-5" />}
-          Simulate failed payment
+          {t('pay.simulateFail')}
         </Button>
       </div>
     </div>
@@ -267,12 +271,13 @@ function DemoCheckout() {
 }
 
 function DemoBanner() {
+  const { t } = useT();
   return (
     <div role="note" className="flex items-start gap-3 rounded-2xl border-2 border-amber-400 bg-amber-100 px-4 py-3 text-amber-950 shadow-sm">
       <AlertTriangle aria-hidden className="mt-0.5 h-6 w-6 shrink-0 text-amber-600" />
       <div>
-        <p className="font-extrabold">Demo payment — no real money is charged</p>
-        <p className="text-sm">This is a test checkout. Real online payments aren’t switched on yet.</p>
+        <p className="font-extrabold">{t('pay.demoBanner')}</p>
+        <p className="text-sm">{t('pay.demoBannerSub')}</p>
       </div>
     </div>
   );
@@ -288,8 +293,9 @@ function SummaryRow({ label, children }: { label: string; children: ReactNode })
 }
 
 function PaySkeleton() {
+  const { t } = useT();
   return (
-    <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading checkout">
+    <div className="flex flex-col gap-4" aria-busy="true" aria-label={t('pay.loading')}>
       <Skeleton className="h-16 w-full rounded-2xl" />
       <Skeleton className="h-8 w-40" />
       <Skeleton className="h-56 w-full rounded-3xl" />

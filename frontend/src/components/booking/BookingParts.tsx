@@ -3,7 +3,9 @@
 import type { ReactNode } from 'react';
 import { CheckCircle2, Clock, Minus, Plus } from 'lucide-react';
 import { fmtMoney } from '@/lib/format';
-import { dayParts, fmtHHmm, isFree } from '@/lib/booking';
+import { isFree } from '@/lib/booking';
+import { dayPartsL, fmtHHmmL } from '@/lib/i18n/format';
+import { useT } from '@/lib/i18n/provider';
 import type { AvailabilitySlot } from '@/lib/booking-types';
 import type { FestivalTheme } from '@/lib/festival-theme';
 import { cx } from '../ui';
@@ -47,10 +49,11 @@ export function DateChips({
   /** Days with a peak-pricing uplift → "Peak" badge (label in the tooltip). */
   peak?: Map<string, string>;
 }) {
+  const { t, locale } = useT();
   return (
-    <div role="radiogroup" aria-label="Festival day" className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 pt-2.5 [scrollbar-width:none]">
+    <div role="radiogroup" aria-label={t('slot.festivalDay')} className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 pt-2.5 [scrollbar-width:none]">
       {days.map((d) => {
-        const p = dayParts(d);
+        const p = dayPartsL(d, locale);
         const past = d < today;
         const selected = d === value;
         return (
@@ -59,32 +62,32 @@ export function DateChips({
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={`${p.weekday} ${p.day} ${p.month}${d === today ? ', today' : ''}${past ? ', past' : ''}${peak?.has(d) ? `, peak pricing (${peak.get(d)})` : ''}`}
+            aria-label={[`${p.weekday} ${p.day} ${p.month}`, d === today && t('slot.ariaToday'), past && t('slot.ariaPast'), peak?.has(d) && t('slot.ariaPeak', { label: peak.get(d) ?? '' })].filter(Boolean).join(', ')}
             title={peak?.get(d)}
             disabled={past}
             onClick={() => onChange(d)}
             className={cx(
-              'relative flex min-h-[76px] w-[68px] shrink-0 snap-start flex-col items-center justify-center rounded-2xl border-2 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-orange-500/30',
+              'relative flex min-h-[76px] min-w-[68px] shrink-0 px-1 snap-start flex-col items-center justify-center rounded-2xl border-2 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-orange-500/30',
               selected ? 'text-white shadow-md' : 'border-orange-100 bg-white text-slate-800 hover:border-orange-300',
               past && 'cursor-not-allowed border-dashed bg-slate-50 text-slate-300 hover:border-orange-100',
             )}
             style={selected ? { background: theme.via, borderColor: theme.via } : undefined}
           >
-            <span className={cx('text-[11px] font-bold uppercase tracking-wide', selected ? 'text-white/90' : past ? '' : 'text-slate-500')}>{p.weekday}</span>
+            <span className={cx('whitespace-nowrap text-[11px] font-bold uppercase tracking-wide', selected ? 'text-white/90' : past ? '' : 'text-slate-500')}>{p.weekday}</span>
             <span className="text-2xl font-extrabold leading-none">{p.day}</span>
-            <span className={cx('text-xs font-semibold', selected ? 'text-white/90' : past ? '' : 'text-slate-500')}>{p.month}</span>
+            <span className={cx('whitespace-nowrap text-xs font-semibold', selected ? 'text-white/90' : past ? '' : 'text-slate-500')}>{p.month}</span>
             {d === today && (
               <span
                 className={cx(
-                  'absolute -top-2 rounded-full px-1.5 py-px text-[10px] font-bold uppercase tracking-wide',
+                  'absolute -top-2 whitespace-nowrap rounded-full px-1.5 py-px text-[10px] font-bold uppercase tracking-wide',
                   selected ? 'bg-white text-orange-700 shadow' : 'bg-amber-400 text-amber-950',
                 )}
               >
-                Today
+                {t('slot.today')}
               </span>
             )}
             {peak?.has(d) && !past && (
-              <span className="absolute -bottom-2 rounded-full bg-rose-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white shadow">Peak</span>
+              <span className="absolute -bottom-2 whitespace-nowrap rounded-full bg-rose-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white shadow">{t('slot.peak')}</span>
             )}
           </button>
         );
@@ -118,18 +121,19 @@ export function SlotCard({
 }) {
   const disabled = state === 'ended' || state === 'soldout' || state === 'nopay';
   const free = isFree(slot.price);
+  const { t, tp, locale } = useT();
   const note =
     state === 'ended'
-      ? 'Ended'
+      ? t('slot.ended')
       : state === 'soldout'
-        ? 'Sold out'
+        ? t('slot.soldOut')
         : state === 'nopay'
-          ? 'Online payment unavailable'
+          ? t('slot.noPay')
           : state === 'low'
-            ? `Only ${slot.remaining} left`
+            ? t('slot.onlyLeft', { n: slot.remaining ?? 0 })
             : slot.remaining === null
-              ? 'Places available'
-              : `${slot.remaining} places left`;
+              ? t('slot.available')
+              : tp('slot.placesLeft', slot.remaining);
   return (
     <button
       type="button"
@@ -155,7 +159,7 @@ export function SlotCard({
         <span className={cx('block font-bold', disabled ? 'text-slate-500' : 'text-slate-900')}>{slot.label}</span>
         <span className="mt-0.5 flex items-center gap-1 text-sm text-slate-600">
           <Clock aria-hidden className="h-3.5 w-3.5 text-slate-400" />
-          {fmtHHmm(slot.startTime)} – {fmtHHmm(slot.endTime)}
+          {fmtHHmmL(slot.startTime, locale)} – {fmtHHmmL(slot.endTime, locale)}
         </span>
         <span
           className={cx(
@@ -170,13 +174,13 @@ export function SlotCard({
       </span>
       <span className="shrink-0 text-right">
         {slot.basePrice && slot.basePrice !== slot.price && (
-          <span className="block text-xs text-slate-400 line-through">{isFree(slot.basePrice) ? 'Free' : fmtMoney(slot.basePrice)}</span>
+          <span className="block text-xs text-slate-400 line-through">{isFree(slot.basePrice) ? t('common.free') : fmtMoney(slot.basePrice)}</span>
         )}
         <span className={cx('block text-lg font-extrabold', free ? 'text-emerald-700' : disabled ? 'text-slate-400' : 'text-slate-900')}>
-          {free ? 'Free' : fmtMoney(slot.price)}
+          {free ? t('common.free') : fmtMoney(slot.price)}
         </span>
         {slot.ruleLabel && <span className="block rounded-full bg-rose-100 px-2 py-px text-[11px] font-bold text-rose-700">{slot.ruleLabel}</span>}
-        {!free && <span className="block text-xs text-slate-500">per person</span>}
+        {!free && <span className="block text-xs text-slate-500">{t('slot.perPerson')}</span>}
       </span>
     </button>
   );
@@ -184,26 +188,27 @@ export function SlotCard({
 
 export function PeopleStepper({ value, max, onChange, theme }: { value: number; max: number; onChange: (n: number) => void; theme: FestivalTheme }) {
   const m = Math.max(1, max);
+  const { t, tp } = useT();
   return (
     <div className="flex items-center gap-4">
       <button
         type="button"
-        aria-label="Fewer people"
+        aria-label={t('slot.fewer')}
         onClick={() => onChange(Math.max(1, value - 1))}
         disabled={value <= 1}
         className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-orange-200 bg-white text-slate-800 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Minus aria-hidden className="h-6 w-6" />
       </button>
-      <output aria-live="polite" aria-label="Number of people" className="min-w-[64px] text-center">
+      <output aria-live="polite" aria-label={t('slot.numPeople')} className="min-w-[64px] text-center">
         <span className="block text-4xl font-extrabold leading-none" style={{ color: theme.ink }}>
           {value}
         </span>
-        <span className="text-xs font-semibold text-slate-500">{value === 1 ? 'person' : 'people'}</span>
+        <span className="text-xs font-semibold text-slate-500">{tp('slot.unit', value)}</span>
       </output>
       <button
         type="button"
-        aria-label="More people"
+        aria-label={t('slot.more')}
         onClick={() => onChange(Math.min(m, value + 1))}
         disabled={value >= m}
         className="flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-md transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"

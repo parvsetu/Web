@@ -215,11 +215,11 @@ export const CITY_CARDS: CityCard[] = [
 export const cityCard = (name: string) => CITY_CARDS.find((c) => c.name.toLowerCase() === name.toLowerCase());
 
 /** Postcard illustration: sky gradient, sun, landmark, ground. */
-export function CityPostcard({ city, className }: { city: CityCard | null; className?: string }) {
+export function CityPostcard({ city, className, label }: { city: CityCard | null; className?: string; /** Accessible name (translated); defaults to "landmark, city". */ label?: string }) {
   const sky = city?.sky ?? ['#f1f5f9', '#cbd5e1'];
   const id = `sky-${(city?.name ?? 'any').replace(/\W/g, '')}`;
   return (
-    <svg viewBox="0 0 120 80" className={className} role="img" aria-label={city ? `${city.landmark}, ${city.name}` : 'City skyline'}>
+    <svg viewBox="0 0 120 80" className={className} role="img" aria-label={label ?? (city ? `${city.landmark}, ${city.name}` : 'City skyline')}>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={sky[0]} />

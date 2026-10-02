@@ -13,11 +13,13 @@ import { DateChips, PeopleStepper, SlotCard, Step, slotState } from '@/component
 import { placeLine } from '@/components/booking/EventCard';
 import { Alert, Button, Empty, LabeledInput, Skeleton, cx } from '@/components/ui';
 import { festivalTheme } from '@/lib/festival-theme';
-import { fmtDate, fmtMoney, todayIn } from '@/lib/format';
+import { fmtMoney, todayIn } from '@/lib/format';
+import { fmtDateL } from '@/lib/i18n/format';
+import { useT } from '@/lib/i18n/provider';
+import { useBookingErrorText } from '@/lib/i18n/errors';
 import {
   BookingError,
   booking,
-  bookingErrorMessage,
   demoPayHref,
   festivalDays,
   isFree,
@@ -53,6 +55,9 @@ export default function BookEventPage() {
   const [submitError, setSubmitError] = useState<{ kind: 'error' | 'warning'; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
+  const { t, tp, tn, locale } = useT();
+  const errText = useBookingErrorText();
+  const fmtDate = (d: string) => fmtDateL(d, locale);
 
   useEffect(() => {
     let alive = true;
@@ -60,11 +65,11 @@ export default function BookEventPage() {
     booking
       .event(eventId)
       .then((e) => alive && setEvent(e))
-      .catch((e) => alive && setLoadError(e instanceof BookingError ? e : new BookingError(0, bookingErrorMessage(e))));
+      .catch((e) => alive && setLoadError(e instanceof BookingError ? e : new BookingError(0, errText(e))));
     return () => {
       alive = false;
     };
-  }, [eventId, reload]);
+  }, [eventId, reload, errText]);
 
   const tz = event?.timezone ?? 'Asia/Kolkata';
   const today = useMemo(() => todayIn(tz), [tz]);
@@ -85,12 +90,12 @@ export default function BookEventPage() {
       setAvail(a);
       return a;
     } catch (e) {
-      setAvailError(bookingErrorMessage(e));
+      setAvailError(errText(e));
       return null;
     } finally {
       setAvailLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, errText]);
 
   useEffect(() => {
     if (!date) return;
@@ -131,15 +136,15 @@ export default function BookEventPage() {
 
   function validate(): { ok: boolean; mobile: string | null } {
     const e: Errors = {};
-    if (!slot || !slotUsable) e.slot = 'Choose a time slot.';
+    if (!slot || !slotUsable) e.slot = t('book.v.slot');
     const n = name.trim();
-    if (n.length < 2) e.name = 'Enter your name (at least 2 letters).';
-    else if (n.length > 100) e.name = 'Name is too long.';
+    if (n.length < 2) e.name = t('book.v.nameShort');
+    else if (n.length > 100) e.name = t('book.v.nameLong');
     const m = normalizeIndianMobile(mobile);
-    if (!mobile.trim()) e.mobile = 'Enter your mobile number.';
-    else if (!m) e.mobile = 'Enter a valid 10-digit Indian mobile number.';
+    if (!mobile.trim()) e.mobile = t('book.v.mobileEmpty');
+    else if (!m) e.mobile = t('book.v.mobileInvalid');
     const em = email.trim();
-    if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) e.email = 'Enter a valid email, or leave it empty.';
+    if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) e.email = t('book.v.email');
     setErrors(e);
     if (Object.keys(e).length) {
       const first = e.slot ? 'step-slot' : 'step-details';
@@ -175,19 +180,19 @@ export default function BookEventPage() {
     } catch (e) {
       const err = e instanceof BookingError ? e : null;
       if (err?.code === 'SLOT_FULL' || err?.status === 409) {
-        setSubmitError({ kind: 'warning', text: 'Sorry — that slot just filled up. We refreshed the availability; please pick another slot or fewer people.' });
+        setSubmitError({ kind: 'warning', text: t('book.err.slotFull') });
         await loadAvailability(date);
         document.getElementById('step-slot')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else if (err?.status === 400) {
         setSubmitError({ kind: 'warning', text: err.message });
         await loadAvailability(date);
       } else if (err?.status === 503) {
-        setSubmitError({ kind: 'warning', text: 'Online payment isn’t available for this festival right now. Free slots can still be booked.' });
+        setSubmitError({ kind: 'warning', text: t('book.err.noPayment') });
       } else if (err?.status === 404) {
-        setSubmitError({ kind: 'error', text: 'This festival or slot is no longer taking bookings.' });
+        setSubmitError({ kind: 'error', text: t('book.err.closed') });
         await loadAvailability(date);
       } else {
-        setSubmitError({ kind: 'error', text: bookingErrorMessage(e) });
+        setSubmitError({ kind: 'error', text: errText(e) });
       }
     }
     submitLock.current = false;
@@ -199,20 +204,20 @@ export default function BookEventPage() {
       <PublicShell>
         <div className="flex flex-col gap-4 pt-4">
           {loadError.status === 404 ? (
-            <Empty title="This festival isn’t taking bookings" icon={CalendarX}>
-              It may have ended, or the organiser has closed online booking.
+            <Empty title={t('book.notTaking')} icon={CalendarX}>
+              {t('book.notTakingHint')}
               <div className="mt-4">
                 <Link href="/" className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-orange-600 px-4 font-semibold text-white">
-                  <ArrowLeft aria-hidden className="h-5 w-5" /> Browse festivals
+                  <ArrowLeft aria-hidden className="h-5 w-5" /> {t('common.browseFestivals')}
                 </Link>
               </div>
             </Empty>
           ) : (
             <Alert>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span>{loadError.message}</span>
+                <span>{errText(loadError)}</span>
                 <Button size="sm" variant="secondary" onClick={() => setReload((n) => n + 1)}>
-                  <RotateCcw aria-hidden className="h-4 w-4" /> Retry
+                  <RotateCcw aria-hidden className="h-4 w-4" /> {t('common.retry')}
                 </Button>
               </div>
             </Alert>
@@ -225,7 +230,7 @@ export default function BookEventPage() {
   if (!event) {
     return (
       <PublicShell>
-        <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading festival">
+        <div className="flex flex-col gap-4" aria-busy="true" aria-label={t('book.loading')}>
           <Skeleton className="h-40 w-full rounded-3xl" />
           <Skeleton className="h-28 w-full rounded-3xl" />
           <Skeleton className="h-64 w-full rounded-3xl" />
@@ -243,7 +248,7 @@ export default function BookEventPage() {
     <PublicShell bottomPad={!festivalOver}>
       <div className="flex flex-col gap-4">
         <Link href="/" className="inline-flex min-h-[40px] w-fit items-center gap-1.5 rounded-xl text-sm font-semibold text-slate-600 hover:text-orange-700">
-          <ArrowLeft aria-hidden className="h-4 w-4" /> All festivals
+          <ArrowLeft aria-hidden className="h-4 w-4" /> {t('book.allFestivals')}
         </Link>
 
         <FestivalBanner
@@ -276,38 +281,38 @@ export default function BookEventPage() {
         <VenueCard venue={event.venue} map={false} />
 
         {festivalOver ? (
-          <Empty title="This festival has ended" icon={CalendarX}>
-            Bookings are closed for every day of this festival.
+          <Empty title={t('book.ended')} icon={CalendarX}>
+            {t('book.endedHint')}
           </Empty>
         ) : (
           <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-            <Step n={1} title="Choose a day" hint={`${openDays.length} day${openDays.length === 1 ? '' : 's'} left to book`} theme={theme}>
+            <Step n={1} title={t('book.step1')} hint={tp('book.daysLeft', openDays.length)} theme={theme}>
               <DateChips days={days} today={today} value={date} onChange={(d) => setDate(d)} theme={theme} peak={peak} />
-              {peak.size > 0 && <p className="mt-3 text-xs text-slate-500">Days marked <span className="font-bold text-rose-700">Peak</span> have higher prices for some slots.</p>}
+              {peak.size > 0 && <p className="mt-3 text-xs text-slate-500">{tn('book.peakNote', { peak: <span className="font-bold text-rose-700">{t('slot.peak')}</span> })}</p>}
             </Step>
 
-            <Step n={2} id="step-slot" title="Pick a time slot" hint={date ? fmtDate(date) : undefined} theme={theme}>
+            <Step n={2} id="step-slot" title={t('book.step2')} hint={date ? fmtDate(date) : undefined} theme={theme}>
               {availError ? (
                 <Alert>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span>{availError}</span>
                     <Button size="sm" variant="secondary" onClick={() => setAvailReload((n) => n + 1)}>
-                      <RotateCcw aria-hidden className="h-4 w-4" /> Retry
+                      <RotateCcw aria-hidden className="h-4 w-4" /> {t('common.retry')}
                     </Button>
                   </div>
                 </Alert>
               ) : !avail || avail.date !== date ? (
-                <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading slots">
+                <div className="flex flex-col gap-2" aria-busy="true" aria-label={t('book.loadingSlots')}>
                   {[0, 1, 2].map((i) => (
                     <Skeleton key={i} className="h-[72px] w-full rounded-2xl" />
                   ))}
                 </div>
               ) : slots.length === 0 ? (
-                <Empty title="No time slots on this day" icon={Clock}>
-                  Try another day.
+                <Empty title={t('book.noSlots')} icon={Clock}>
+                  {t('book.tryAnotherDay')}
                 </Empty>
               ) : (
-                <div role="radiogroup" aria-label="Time slot" className={cx('flex flex-col gap-2', availLoading && 'opacity-60')}>
+                <div role="radiogroup" aria-label={t('book.timeSlot')} className={cx('flex flex-col gap-2', availLoading && 'opacity-60')}>
                   {slots.map((s) => (
                     <SlotCard
                       key={s.id}
@@ -322,7 +327,7 @@ export default function BookEventPage() {
                     />
                   ))}
                   {slots.every((s) => !['open', 'low'].includes(slotState(s, onlinePayments))) && (
-                    <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">No slots left on this day — please pick another day.</p>
+                    <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">{t('book.noSlotsLeft')}</p>
                   )}
                 </div>
               )}
@@ -331,22 +336,22 @@ export default function BookEventPage() {
 
             <Step
               n={3}
-              title="How many people?"
+              title={t('book.step3')}
               hint={
                 slot && slot.remaining !== null && slot.remaining < event.maxVisitorsPerToken
-                  ? `Only ${slot.remaining} place${slot.remaining === 1 ? '' : 's'} left in this slot`
-                  : `Up to ${event.maxVisitorsPerToken} people per booking`
+                  ? tp('book.onlyLeft', slot.remaining)
+                  : t('book.upTo', { n: event.maxVisitorsPerToken })
               }
               theme={theme}
             >
               <PeopleStepper value={people} max={maxPeople} onChange={setPeople} theme={theme} />
               {people > 1 && (
                 <fieldset className="mt-4">
-                  <legend className="mb-2 text-sm font-semibold text-slate-800">Passes</legend>
-                  <div role="radiogroup" aria-label="Passes" className="grid gap-2 sm:grid-cols-2">
+                  <legend className="mb-2 text-sm font-semibold text-slate-800">{t('book.passes')}</legend>
+                  <div role="radiogroup" aria-label={t('book.passes')} className="grid gap-2 sm:grid-cols-2">
                     {[
-                      { v: true, title: 'Separate QR for each person', sub: `Recommended · ${people} passes, enter separately`, icon: QrCode },
-                      { v: false, title: 'One QR for the whole group', sub: `1 pass admits all ${people} together`, icon: Users },
+                      { v: true, title: t('book.separate'), sub: t('book.separateSub', { n: people }), icon: QrCode },
+                      { v: false, title: t('book.group'), sub: t('book.groupSub', { n: people }), icon: Users },
                     ].map((o) => {
                       const sel = perPerson === o.v;
                       return (
@@ -375,10 +380,10 @@ export default function BookEventPage() {
               )}
             </Step>
 
-            <Step n={4} id="step-details" title="Your details" hint="We put your name on the pass" theme={theme}>
+            <Step n={4} id="step-details" title={t('book.step4')} hint={t('book.step4Hint')} theme={theme}>
               <div className="flex flex-col gap-3">
                 <LabeledInput
-                  label="Full name"
+                  label={t('book.fullName')}
                   autoComplete="name"
                   value={name}
                   maxLength={100}
@@ -388,10 +393,10 @@ export default function BookEventPage() {
                   }}
                   error={errors.name}
                   aria-invalid={!!errors.name}
-                  placeholder="e.g. Ananya Sharma"
+                  placeholder={t('book.namePlaceholder')}
                 />
                 <LabeledInput
-                  label="Mobile number"
+                  label={t('book.mobile')}
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel-national"
@@ -403,11 +408,11 @@ export default function BookEventPage() {
                   }}
                   error={errors.mobile}
                   aria-invalid={!!errors.mobile}
-                  placeholder="10-digit mobile"
-                  hint="Indian mobile number, used only for this booking"
+                  placeholder={t('book.mobilePlaceholder')}
+                  hint={t('book.mobileHint')}
                 />
                 <LabeledInput
-                  label="Email (optional)"
+                  label={t('book.email')}
                   type="email"
                   inputMode="email"
                   autoComplete="email"
@@ -429,8 +434,8 @@ export default function BookEventPage() {
             <p className="flex items-start gap-2 px-1 text-sm text-slate-500">
               <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
               {free || !slot
-                ? 'Your pass is a one-time QR — show it at the gate.'
-                : `We hold your places for ${event.holdMinutes} minutes while you pay. The final amount is confirmed on the next screen.`}
+                ? t('book.oneTimeQr')
+                : t('book.holdNote', { n: event.holdMinutes })}
             </p>
 
             {/* sticky summary */}
@@ -445,27 +450,27 @@ export default function BookEventPage() {
                       <p className="text-sm font-bold text-slate-900">
                         {free ? (
                           <>
-                            {people} {people === 1 ? 'person' : 'people'} · <span className="text-emerald-700">Free</span>
+                            {tp('common.people', people)} · <span className="text-emerald-700">{t('common.free')}</span>
                           </>
                         ) : (
                           <>
-                            {people} {people === 1 ? 'person' : 'people'} × {fmtMoney(slot.price)}
-                            {gstOnTop ? ` + ${gstRate}% GST` : ''} ={' '}
+                            {tp('common.people', people)} × {fmtMoney(slot.price)}
+                            {gstOnTop ? ` ${t('book.gstOnTop', { rate: gstRate })}` : ''} ={' '}
                             <span className="text-lg" style={{ color: theme.ink }}>
                               {fmtMoney(preview)}
                             </span>
-                            {event?.gst && !gstOnTop && <span className="ml-1 text-xs font-normal text-slate-500">(incl. {gstRate}% GST)</span>}
+                            {event?.gst && !gstOnTop && <span className="ml-1 text-xs font-normal text-slate-500">{t('book.gstIncl', { rate: gstRate })}</span>}
                           </>
                         )}
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm font-semibold text-slate-500">Choose a day and time slot</p>
+                    <p className="text-sm font-semibold text-slate-500">{t('book.chooseDaySlot')}</p>
                   )}
                 </div>
-                <Button type="submit" size="md" loading={submitting} className="min-h-[52px] shrink-0 px-5 text-base">
+                <Button type="submit" size="md" loading={submitting} className="min-h-[52px] max-w-[48%] shrink-0 whitespace-normal px-4 text-base leading-tight sm:max-w-none sm:px-5">
                   {!submitting && (free ? <Ticket aria-hidden className="h-5 w-5" /> : <CreditCard aria-hidden className="h-5 w-5" />)}
-                  {!slot ? 'Continue' : free ? 'Get free pass' : `Pay ${fmtMoney(preview)}`}
+                  {!slot ? t('book.continue') : free ? t('book.getFree') : t('book.pay', { amount: fmtMoney(preview) })}
                 </Button>
               </div>
             </div>

@@ -2,6 +2,9 @@
 
 import { useEffect } from 'react';
 import { AuthProvider } from '@/lib/auth';
+import type { Lang } from '@/lib/i18n/config';
+import type { Messages } from '@/lib/i18n/core';
+import { LanguageProvider } from '@/lib/i18n/provider';
 
 function useServiceWorker() {
   useEffect(() => {
@@ -13,7 +16,11 @@ function useServiceWorker() {
   }, []);
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, lang, messages }: { children: React.ReactNode; lang: Lang; messages: Messages | null }) {
   useServiceWorker();
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <LanguageProvider initialLang={lang} initialMessages={messages}>
+      <AuthProvider>{children}</AuthProvider>
+    </LanguageProvider>
+  );
 }

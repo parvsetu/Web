@@ -6,10 +6,13 @@ import { apiImageSrc } from '@/lib/media';
 import type { PublicPhoto } from '@/lib/gallery-types';
 import { cx } from '@/lib/cx';
 import { Lightbox } from './PhotoGrid';
+import { useT } from '@/lib/i18n/provider';
 
 /** Public photos as a swipeable strip (or a grid) with a full-screen viewer. Plain <img>, no login. */
-export function PublicGallery({ photos, title = 'Photo gallery', grid, accent }: { photos: PublicPhoto[]; title?: string; grid?: boolean; accent?: string }) {
+export function PublicGallery({ photos, title: titleProp, grid, accent }: { photos: PublicPhoto[]; title?: string; grid?: boolean; accent?: string }) {
   const [open, setOpen] = useState<number | null>(null);
+  const { t } = useT();
+  const title = titleProp ?? t('gallery.title');
   if (!photos.length) return null;
   return (
     <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
@@ -23,7 +26,7 @@ export function PublicGallery({ photos, title = 'Photo gallery', grid, accent }:
             type="button"
             onClick={() => setOpen(i)}
             className={cx('relative shrink-0 snap-start overflow-hidden rounded-xl bg-orange-50', grid ? 'aspect-square' : 'h-36 w-48 sm:h-44 sm:w-60')}
-            aria-label={p.caption ? `Open photo: ${p.caption}` : `Open photo ${i + 1}`}
+            aria-label={p.caption ? t('gallery.openCaption', { caption: p.caption }) : t('gallery.open', { i: i + 1 })}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={apiImageSrc(p.thumbUrl)!} alt={p.caption ?? ''} loading="lazy" className="h-full w-full object-cover" />
@@ -39,7 +42,7 @@ export function PublicGallery({ photos, title = 'Photo gallery', grid, accent }:
           onClose={() => setOpen(null)}
           caption={photos[open].caption}
           // eslint-disable-next-line @next/next/no-img-element
-          image={<img src={apiImageSrc(photos[open].url)!} alt={photos[open].caption ?? 'Festival photo'} className="max-h-[80vh] max-w-full object-contain" />}
+          image={<img src={apiImageSrc(photos[open].url)!} alt={photos[open].caption ?? t('gallery.photo')} className="max-h-[80vh] max-w-full object-contain" />}
         />
       )}
     </section>

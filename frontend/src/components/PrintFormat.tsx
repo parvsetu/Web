@@ -2,6 +2,8 @@
 
 import { FileText, Receipt } from 'lucide-react';
 import { cx } from './ui';
+import type { MessageKey } from '@/lib/i18n/core';
+import { useT } from '@/lib/i18n/provider';
 
 export type PrintFormat = 'A4' | 'THERMAL_80' | 'THERMAL_58';
 
@@ -46,8 +48,9 @@ export function printFormatLabel(f: string | null | undefined) {
 
 /** Small segmented control to choose the print layout before printing. */
 export function PrintFormatPicker({ value, onChange }: { value: PrintFormat; onChange: (f: PrintFormat) => void }) {
+  const { t } = useT();
   return (
-    <div className="no-print grid grid-cols-3 gap-2" role="radiogroup" aria-label="Print format">
+    <div className="no-print grid grid-cols-3 gap-2" role="radiogroup" aria-label={t('print.aria')}>
       {PRINT_FORMATS.map((f) => (
         <button
           key={f.key}
@@ -61,8 +64,8 @@ export function PrintFormatPicker({ value, onChange }: { value: PrintFormat; onC
           )}
         >
           {f.key === 'A4' ? <FileText aria-hidden className="h-4 w-4" /> : <Receipt aria-hidden className="h-4 w-4" />}
-          {f.label}
-          <span className="font-normal text-slate-500">{f.hint}</span>
+          <span className="leading-tight">{t(`print.${f.key}` as MessageKey)}</span>
+          <span className="font-normal leading-tight text-slate-500">{t(`print.${f.key}.hint` as MessageKey)}</span>
         </button>
       ))}
     </div>

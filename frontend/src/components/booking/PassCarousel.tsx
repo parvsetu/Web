@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Download, Printer } from 'lucide-react';
 import { saveBlob } from '@/lib/api';
-import { fmtPassWindow } from '@/lib/booking';
+import { fmtPassWindowL } from '@/lib/i18n/format';
+import { useT } from '@/lib/i18n/provider';
 import type { Pass, PassOrder } from '@/lib/booking-types';
 import { qrCardPng } from '../QrImage';
 import { Button, cx } from '../ui';
@@ -21,6 +22,7 @@ export function PassCarousel({ order, passes }: { order: PassOrder; passes: Pass
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const total = passes.length;
+  const { t, locale } = useT();
 
   useEffect(() => {
     const el = track.current;
@@ -54,16 +56,16 @@ export function PassCarousel({ order, passes }: { order: PassOrder; passes: Pass
           p.tokenCode,
           order.event.name,
           order.timeSlot?.label ?? '',
-          fmtPassWindow(order.validFrom, order.validUntil, order.event.timezone),
-          `Pass ${i + 1} of ${total} · admits ${p.admits ?? 1}`,
+          fmtPassWindowL(order.validFrom, order.validUntil, order.event.timezone, locale),
+          t('passCard.passOf', { i: i + 1, n: total, admits: p.admits ?? 1 }),
         ].filter(Boolean));
         saveBlob(blob, `parvsetu-pass-${i + 1}-of-${total}-${p.tokenCode}.png`);
         // Browsers drop rapid-fire downloads; space them out a little.
         if (i < total - 1) await sleep(350);
       }
-      setMsg(`Saved ${total} images. If only one appeared, allow multiple downloads for this site.`);
+      setMsg(t('carousel.saved', { n: total }));
     } catch {
-      setMsg('Could not create the images. Try Print instead.');
+      setMsg(t('carousel.imgsFailed'));
     } finally {
       setBusy(false);
     }
@@ -75,10 +77,10 @@ export function PassCarousel({ order, passes }: { order: PassOrder; passes: Pass
 
       <div className="no-print grid grid-cols-2 gap-2">
         <Button variant="primary" onClick={() => void downloadAll()} loading={busy}>
-          {!busy && <Download aria-hidden className="h-5 w-5" />} Download all
+          {!busy && <Download aria-hidden className="h-5 w-5" />} {t('carousel.downloadAll')}
         </Button>
         <Button variant="secondary" onClick={() => window.print()}>
-          <Printer aria-hidden className="h-5 w-5" /> Print all
+          <Printer aria-hidden className="h-5 w-5" /> {t('carousel.printAll')}
         </Button>
       </div>
       {msg && (
@@ -92,14 +94,14 @@ export function PassCarousel({ order, passes }: { order: PassOrder; passes: Pass
           type="button"
           onClick={() => go(active - 1)}
           disabled={active === 0}
-          aria-label="Previous pass"
+          aria-label={t('carousel.prev')}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-orange-200 bg-white text-slate-700 disabled:opacity-30"
         >
           <ChevronLeft aria-hidden className="h-5 w-5" />
         </button>
         <div className="flex flex-col items-center gap-1.5">
           <span className="text-sm font-bold text-slate-800" aria-live="polite">
-            Pass {active + 1} of {total}
+            {t('carousel.passOf', { i: active + 1, n: total })}
           </span>
           <div className="flex gap-1.5" aria-hidden>
             {passes.map((p, i) => (
@@ -111,7 +113,7 @@ export function PassCarousel({ order, passes }: { order: PassOrder; passes: Pass
           type="button"
           onClick={() => go(active + 1)}
           disabled={active === total - 1}
-          aria-label="Next pass"
+          aria-label={t('carousel.next')}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-orange-200 bg-white text-slate-700 disabled:opacity-30"
         >
           <ChevronRight aria-hidden className="h-5 w-5" />
@@ -122,7 +124,7 @@ export function PassCarousel({ order, passes }: { order: PassOrder; passes: Pass
         ref={track}
         role="region"
         aria-roledescription="carousel"
-        aria-label={`${total} passes`}
+        aria-label={t('carousel.passes', { n: total })}
         className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] print:mx-0 print:block print:overflow-visible print:px-0"
       >
         {passes.map((p, i) => (
@@ -130,7 +132,7 @@ export function PassCarousel({ order, passes }: { order: PassOrder; passes: Pass
             key={p.tokenCode}
             role="group"
             aria-roledescription="slide"
-            aria-label={`Pass ${i + 1} of ${total}`}
+            aria-label={t('carousel.passOf', { i: i + 1, n: total })}
             className="pass-slide flex w-[86%] max-w-[420px] shrink-0 snap-center flex-col gap-3 print:mx-auto print:w-auto"
           >
             <PassCard order={order} pass={p} index={i} total={total} />

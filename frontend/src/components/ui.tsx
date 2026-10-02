@@ -7,6 +7,7 @@ import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, In
 import type { LucideIcon } from 'lucide-react';
 
 import { cx } from '@/lib/cx';
+import { useT } from '@/lib/i18n/provider';
 export { cx };
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
@@ -297,6 +298,7 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const { t } = useT();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -328,7 +330,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('common.close')}
             className="flex h-11 w-11 items-center justify-center rounded-full text-2xl text-slate-500 hover:bg-slate-100"
           >
             <X aria-hidden className="h-5 w-5" />

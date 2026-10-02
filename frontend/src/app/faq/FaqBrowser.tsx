@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, HelpCircle, Mail, Search } from 'lucide-react';
-import { FAQ, FAQ_CONTACT_EMAIL } from '@/lib/faq';
+import { FAQ_CONTACT_EMAIL, type FaqSection } from '@/lib/faq';
+import { useT } from '@/lib/i18n/provider';
 import { cx } from '@/lib/cx';
 
-export function FaqBrowser() {
+/** `faq` comes from the server page, already in the visitor's language. */
+export function FaqBrowser({ faq: FAQ }: { faq: FaqSection[] }) {
+  const { t: tr, tp } = useT();
   const [q, setQ] = useState('');
   const [section, setSection] = useState<string>('all');
   const [open, setOpen] = useState<string | null>(null);
@@ -24,7 +27,7 @@ export function FaqBrowser() {
       FAQ.filter((s) => section === 'all' || s.id === section)
         .map((s) => ({ ...s, items: t ? s.items.filter((i) => `${i.q} ${i.a.join(' ')}`.toLowerCase().includes(t)) : s.items }))
         .filter((s) => s.items.length > 0),
-    [section, t],
+    [FAQ, section, t],
   );
   const count = sections.reduce((n, s) => n + s.items.length, 0);
 
@@ -38,25 +41,25 @@ export function FaqBrowser() {
             <HelpCircle aria-hidden className="h-7 w-7" />
           </span>
           <div>
-            <h1 className="text-2xl font-extrabold sm:text-3xl">Help &amp; FAQ</h1>
-            <p className="text-sm text-white/90 sm:text-base">Everything a mandal asks before and during the festival.</p>
+            <h1 className="text-2xl font-extrabold sm:text-3xl">{tr('faq.title')}</h1>
+            <p className="text-sm text-white/90 sm:text-base">{tr('faq.subtitle')}</p>
           </div>
         </div>
         <label className="relative mt-5 block">
-          <span className="sr-only">Search questions</span>
+          <span className="sr-only">{tr('faq.searchLabel')}</span>
           <Search aria-hidden className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search — e.g. group pass, GST, volunteer, refund"
+            placeholder={tr('faq.searchPlaceholder')}
             className="min-h-[52px] w-full rounded-2xl border-0 bg-white pl-12 pr-4 text-base text-slate-900 shadow-md outline-none ring-orange-300 focus:ring-4"
           />
         </label>
       </section>
 
-      <nav aria-label="FAQ topics" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-        {[{ id: 'all', title: 'All topics', emoji: '✨' }, ...FAQ].map((s) => (
+      <nav aria-label={tr('faq.topics')} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+        {[{ id: 'all', title: tr('faq.allTopics'), emoji: '✨' }, ...FAQ].map((s) => (
           <button
             key={s.id}
             type="button"
@@ -74,13 +77,13 @@ export function FaqBrowser() {
 
       {t && (
         <p className="text-sm text-slate-500" aria-live="polite">
-          {count} answer{count === 1 ? '' : 's'} for “{q.trim()}”
+          {tp('faq.answers', count, { q: q.trim() })}
         </p>
       )}
 
       {sections.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-orange-200 bg-white p-8 text-center text-slate-600">
-          No answer matches that yet. Try another word, or ask us below.
+          {tr('faq.noMatch')}
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
@@ -124,11 +127,11 @@ export function FaqBrowser() {
           <Mail aria-hidden className="h-6 w-6" />
         </span>
         <div className="flex-1">
-          <h2 className="font-bold text-slate-900">Still have a question?</h2>
-          <p className="text-sm text-slate-600">Write to us and we’ll help your mandal get set up.</p>
+          <h2 className="font-bold text-slate-900">{tr('faq.still')}</h2>
+          <p className="text-sm text-slate-600">{tr('faq.writeUs')}</p>
         </div>
         <a
-          href={`mailto:${FAQ_CONTACT_EMAIL}?subject=${encodeURIComponent('Parvsetu question')}`}
+          href={`mailto:${FAQ_CONTACT_EMAIL}?subject=${encodeURIComponent(tr('faq.mailSubject'))}`}
           className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-600 px-5 font-semibold text-white shadow-md"
         >
           <Mail aria-hidden className="h-5 w-5" /> {FAQ_CONTACT_EMAIL}

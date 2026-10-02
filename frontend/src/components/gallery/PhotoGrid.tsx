@@ -1,5 +1,6 @@
 'use client';
 
+import { useT } from '@/lib/i18n/provider';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Camera, ChevronLeft, ChevronRight, Globe, ImagePlus, Lock, Pencil, Trash2, Upload, X } from 'lucide-react';
@@ -252,6 +253,7 @@ export function Lightbox({ count, index, onIndex, onClose, image, caption }: {
   const prev = useCallback(() => onIndex((index - 1 + count) % count), [index, count, onIndex]);
   const next = useCallback(() => onIndex((index + 1) % count), [index, count, onIndex]);
   const touch = useRef<number | null>(null);
+  const { t } = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -280,9 +282,9 @@ export function Lightbox({ count, index, onIndex, onClose, image, caption }: {
       }}
       role="dialog"
       aria-modal="true"
-      aria-label="Photo viewer"
+      aria-label={t('gallery.viewer')}
     >
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
+      <button type="button" aria-label={t('common.close')} onClick={onClose} className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
         <X className="h-6 w-6" />
       </button>
       <div onClick={(e) => e.stopPropagation()} className="flex max-h-full max-w-full flex-col items-center gap-3">
@@ -291,10 +293,10 @@ export function Lightbox({ count, index, onIndex, onClose, image, caption }: {
       </div>
       {count > 1 && (
         <>
-          <button type="button" aria-label="Previous photo" onClick={(e) => { e.stopPropagation(); prev(); }} className="absolute left-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
+          <button type="button" aria-label={t('gallery.prev')} onClick={(e) => { e.stopPropagation(); prev(); }} className="absolute left-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
             <ChevronLeft className="h-7 w-7" />
           </button>
-          <button type="button" aria-label="Next photo" onClick={(e) => { e.stopPropagation(); next(); }} className="absolute right-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
+          <button type="button" aria-label={t('gallery.next')} onClick={(e) => { e.stopPropagation(); next(); }} className="absolute right-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
             <ChevronRight className="h-7 w-7" />
           </button>
         </>

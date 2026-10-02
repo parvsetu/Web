@@ -56,3 +56,9 @@ body {
     max-width: none !important;
   }
 }
+
+/* Indic scripts: letter-spacing breaks conjuncts and matras apart, so the
+   tracking-* utilities are neutralised whenever the page isn't English. */
+html:not([lang='en']) [class*='tracking-'] {
+  letter-spacing: normal !important;
+}

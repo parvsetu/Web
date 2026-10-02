@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Copy, Download, Facebook, Instagram, MessageCircle, Send, Share2, Twitter } from 'lucide-react';
 import { cx } from './ui';
+import { useT } from '@/lib/i18n/provider';
 
 /**
  * Share a festival link: WhatsApp / Facebook / X / Telegram intents, copy
@@ -13,6 +14,7 @@ export function ShareButtons({ url, text, posterUrl, posterName }: { url: string
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const { t } = useT();
   useEffect(() => setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function'), []);
   const enc = encodeURIComponent;
   const links = [
@@ -36,10 +38,10 @@ export function ShareButtons({ url, text, posterUrl, posterName }: { url: string
         a.download = file.name;
         a.click();
         URL.revokeObjectURL(a.href);
-        setMsg('Poster saved. Open Instagram → New post / Story and choose it from your gallery.');
+        setMsg(t('share.posterSaved'));
       }
     } catch (e) {
-      if (!(e instanceof DOMException && e.name === 'AbortError')) setMsg('Could not prepare the poster. Try Download instead.');
+      if (!(e instanceof DOMException && e.name === 'AbortError')) setMsg(t('share.posterFailed'));
     }
   }
 
@@ -55,7 +57,7 @@ export function ShareButtons({ url, text, posterUrl, posterName }: { url: string
       <div className="grid grid-cols-2 gap-2">
         {posterUrl && (
           <button type="button" onClick={() => void sharePoster()} className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#F58529] via-[#DD2A7B] to-[#8134AF] font-semibold text-white shadow-sm">
-            <Instagram aria-hidden className="h-5 w-5" /> Instagram poster
+            <Instagram aria-hidden className="h-5 w-5 shrink-0" /> {t('share.instagram')}
           </button>
         )}
         <button
@@ -75,12 +77,12 @@ export function ShareButtons({ url, text, posterUrl, posterName }: { url: string
           className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white font-semibold text-slate-800"
         >
           {canShare ? <Share2 aria-hidden className="h-5 w-5" /> : copied ? <Check aria-hidden className="h-5 w-5 text-green-600" /> : <Copy aria-hidden className="h-5 w-5" />}
-          {canShare ? 'More…' : copied ? 'Copied!' : 'Copy link'}
+          {canShare ? t('share.more') : copied ? t('common.copied') : t('common.copyLink')}
         </button>
       </div>
       {posterUrl && (
         <a href={`${posterUrl}?download=1`} className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-orange-700 hover:underline">
-          <Download aria-hidden className="h-4 w-4" /> Download poster (1080×1080)
+          <Download aria-hidden className="h-4 w-4" /> {t('share.downloadPoster')}
         </a>
       )}
       {msg && <p className="text-center text-sm text-slate-600">{msg}</p>}

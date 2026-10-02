@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Ticket } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
-import { fmtDate, fmtMoney } from '@/lib/format';
+import { fmtMoney } from '@/lib/format';
+import { fmtDateL } from '@/lib/i18n/format';
+import { useT, type I18n } from '@/lib/i18n/provider';
 import { isFree } from '@/lib/booking';
 import { eventCity, isLive } from '@/lib/explore';
 import type { BookableEvent } from '@/lib/booking-types';
@@ -12,12 +14,9 @@ import { cx } from '@/lib/cx';
 import { apiImageSrc } from '@/lib/media';
 import { FestivalArt, Mandala, Toran } from '../FestivalArt';
 
-const dates = (e: BookableEvent) => (e.startDate === e.endDate ? fmtDate(e.startDate) : `${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}`);
-const priceText = (p: string | null) => (p === null ? 'Passes soon' : isFree(p) ? 'Free entry' : `${fmtMoney(p)} onwards`);
-const typeLabel = (type: string) => {
-  const t = festivalTheme(type);
-  return t.label === 'Festival' ? type.replace(/_/g, ' ').toLowerCase() : t.label;
-};
+const dates = (e: BookableEvent, locale: string) =>
+  e.startDate === e.endDate ? fmtDateL(e.startDate, locale) : `${fmtDateL(e.startDate, locale)} – ${fmtDateL(e.endDate, locale)}`;
+const priceText = (i: I18n, p: string | null) => (p === null ? i.t('card.passesSoon') : isFree(p) ? i.t('card.freeEntry') : i.t('card.onwards', { price: fmtMoney(p) }));
 
 /** Mandal name, linking to its landing page (/m/<slug>) while that page is live. */
 export function MandalName({ org, className }: { org: BookableEvent['organization']; className?: string }) {
@@ -43,6 +42,7 @@ export function PosterCard({ event, className }: { event: BookableEvent; classNa
   const t = festivalTheme(event.festivalType);
   const live = isLive(event);
   const banner = apiImageSrc(event.organization.bannerUrl);
+  const i18n = useT();
   return (
     <div className={cx('group flex flex-col gap-2 rounded-2xl', className)}>
       <Link
@@ -66,19 +66,19 @@ export function PosterCard({ event, className }: { event: BookableEvent; classNa
         )}
         {live && (
           <span className="absolute left-2 top-3 inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white shadow">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Live
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> {i18n.t('card.live')}
           </span>
         )}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-3 pb-2.5 pt-8 text-white">
           <p className="flex items-center gap-1 text-xs font-semibold">
-            <CalendarDays aria-hidden className="h-3.5 w-3.5" /> {dates(event)}
+            <CalendarDays aria-hidden className="h-3.5 w-3.5 shrink-0" /> {dates(event, i18n.locale)}
           </p>
         </div>
       </Link>
       <div className="px-0.5">
         <Link href={`/book/${event.id}`} className="line-clamp-2 text-[15px] font-bold leading-snug text-slate-900 hover:underline">{event.name}</Link>
         <p className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-500">
-          <span className="shrink-0 capitalize">{typeLabel(event.festivalType)} ·</span>
+          <span className="max-w-[55%] shrink-0 truncate">{i18n.festivalType(event.festivalType)} ·</span>
           <MandalName org={event.organization} />
         </p>
         {eventCity(event) && (
@@ -88,7 +88,7 @@ export function PosterCard({ event, className }: { event: BookableEvent; classNa
           </p>
         )}
         <p className="mt-1 text-sm font-bold" style={{ color: t.ink }}>
-          {priceText(event.fromPrice)}
+          {priceText(i18n, event.fromPrice)}
         </p>
       </div>
     </div>
@@ -98,28 +98,57 @@ export function PosterCard({ event, className }: { event: BookableEvent; classNa
 /** Horizontal, swipeable row of posters with arrow buttons on desktop. */
 export function EventRow({ title, subtitle, events, seeAll }: { title: string; subtitle?: string; events: BookableEvent[]; seeAll?: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const { t } = useT();
+  // "See all" and the arrows only appear when the row really overflows at the
+  // current width. Hidden until measured, so server and first client render match.
+  const [over, setOver] = useState({ overflow: false, atStart: true, atEnd: true });
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const overflow = el.scrollWidth > el.clientWidth + 1;
+    const next = { overflow, atStart: el.scrollLeft <= 1, atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 };
+    setOver((o) => (o.overflow === next.overflow && o.atStart === next.atStart && o.atEnd === next.atEnd ? o : next));
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    measure();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    el.addEventListener('scroll', measure, { passive: true });
+    window.addEventListener('resize', measure);
+    return () => {
+      ro?.disconnect();
+      el.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+    };
+  }, [measure, events.length]);
+
   if (!events.length) return null;
   const scroll = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.85, behavior: 'smooth' });
+  const arrow = 'hidden h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-white md:flex';
   return (
     <section className="flex flex-col gap-3" aria-label={title}>
       <div className="flex items-end justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-xl font-extrabold text-slate-900">{title}</h2>
           {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
         </div>
-        <div className="flex items-center gap-1">
-          {seeAll && (
-            <button type="button" onClick={seeAll} className="inline-flex min-h-[44px] items-center gap-0.5 rounded-xl px-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">
-              See all <ChevronRight aria-hidden className="h-4 w-4" />
+        {over.overflow && (
+          <div className="flex shrink-0 items-center gap-1">
+            {seeAll && (
+              <button type="button" onClick={seeAll} className="inline-flex min-h-[44px] items-center gap-0.5 whitespace-nowrap rounded-xl px-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">
+                {t('card.seeAll')} <ChevronRight aria-hidden className="h-4 w-4" />
+              </button>
+            )}
+            <button type="button" aria-label={t('card.scrollLeft', { title })} disabled={over.atStart} onClick={() => scroll(-1)} className={arrow}>
+              <ChevronLeft aria-hidden className="h-5 w-5" />
             </button>
-          )}
-          <button type="button" aria-label={`Scroll ${title} left`} onClick={() => scroll(-1)} className="hidden h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 md:flex">
-            <ChevronLeft aria-hidden className="h-5 w-5" />
-          </button>
-          <button type="button" aria-label={`Scroll ${title} right`} onClick={() => scroll(1)} className="hidden h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 md:flex">
-            <ChevronRight aria-hidden className="h-5 w-5" />
-          </button>
-        </div>
+            <button type="button" aria-label={t('card.scrollRight', { title })} disabled={over.atEnd} onClick={() => scroll(1)} className={arrow}>
+              <ChevronRight aria-hidden className="h-5 w-5" />
+            </button>
+          </div>
+        )}
       </div>
       <div ref={ref} className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
         {events.map((e) => (
@@ -135,6 +164,7 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const i18n = useT();
   const go = useCallback((i: number) => {
     const el = ref.current;
     if (!el || !events.length) return;
@@ -154,7 +184,7 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
   return (
     <section
       aria-roledescription="carousel"
-      aria-label="Featured events"
+      aria-label={i18n.t('card.featured')}
       className="relative"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -171,7 +201,7 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
           const banner = apiImageSrc(e.organization.bannerUrl);
           const logo = apiImageSrc(e.organization.logoUrl);
           return (
-            <div key={e.id} role="group" aria-roledescription="slide" aria-label={`${i + 1} of ${events.length}`} className="relative w-full shrink-0 snap-start">
+            <div key={e.id} role="group" aria-roledescription="slide" aria-label={i18n.t('card.slideOf', { i: i + 1, n: events.length })} className="relative w-full shrink-0 snap-start">
               <div className="relative flex min-h-[230px] items-center overflow-hidden px-5 py-7 text-white sm:min-h-[300px] sm:px-10 md:px-20" style={{ background: gradient(t, 110) }}>
                 {banner && (
                   <>
@@ -186,10 +216,10 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
                 <div className="relative z-10 max-w-[62%] sm:max-w-[55%]">
                   {isLive(e) ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide shadow">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Happening now
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> {i18n.t('explore.happeningNow')}
                     </span>
                   ) : (
-                    <span className="inline-flex rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide">{typeLabel(e.festivalType)}</span>
+                    <span className="inline-flex rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide">{i18n.festivalType(e.festivalType)}</span>
                   )}
                   <h2 className="mt-2 line-clamp-2 text-2xl font-extrabold leading-tight drop-shadow sm:text-4xl">{e.name}</h2>
                   <p className="mt-1 flex min-w-0 items-center gap-1 text-sm text-white/90 sm:text-base">
@@ -197,20 +227,20 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
                     {eventCity(e) ? <span className="shrink-0">· {eventCity(e)}</span> : null}
                   </p>
                   <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold">
-                    <CalendarDays aria-hidden className="h-4 w-4" /> {dates(e)}
+                    <CalendarDays aria-hidden className="h-4 w-4 shrink-0" /> {dates(e, i18n.locale)}
                   </p>
                   <Link
                     href={`/book/${e.id}`}
-                    className="mt-4 inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-white px-5 font-bold shadow-lg hover:bg-orange-50"
+                    className="mt-4 inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-white px-4 py-1.5 text-sm font-bold leading-tight shadow-lg hover:bg-orange-50 sm:px-5 sm:text-base"
                     style={{ color: t.ink }}
                   >
-                    <Ticket aria-hidden className="h-5 w-5" /> Book · {priceText(e.fromPrice)}
+                    <Ticket aria-hidden className="h-5 w-5 shrink-0" /> {i18n.t('card.book', { price: priceText(i18n, e.fromPrice) })}
                   </Link>
                 </div>
                 <span className="absolute right-4 top-1/2 h-36 w-36 -translate-y-1/2 rounded-full bg-white/95 p-4 shadow-2xl ring-8 ring-white/30 sm:right-12 sm:h-56 sm:w-56 md:right-20 sm:p-6">
                   {logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={logo} alt={`${e.organization.name} logo`} className="h-full w-full rounded-full object-contain" />
+                    <img src={logo} alt={i18n.t('common.logo', { name: e.organization.name })} className="h-full w-full rounded-full object-contain" />
                   ) : (
                     <FestivalArt type={e.festivalType} className="h-full w-full" />
                   )}
@@ -222,10 +252,10 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
       </div>
       {events.length > 1 && (
         <>
-          <button type="button" aria-label="Previous" onClick={() => go(index - 1)} className="absolute left-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-lg hover:bg-white md:flex">
+          <button type="button" aria-label={i18n.t('common.previous')} onClick={() => go(index - 1)} className="absolute left-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-lg hover:bg-white md:flex">
             <ChevronLeft aria-hidden className="h-6 w-6" />
           </button>
-          <button type="button" aria-label="Next" onClick={() => go(index + 1)} className="absolute right-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-lg hover:bg-white md:flex">
+          <button type="button" aria-label={i18n.t('common.next')} onClick={() => go(index + 1)} className="absolute right-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-lg hover:bg-white md:flex">
             <ChevronRight aria-hidden className="h-6 w-6" />
           </button>
           <div className="mt-3 flex justify-center gap-1.5">
@@ -233,7 +263,7 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
               <button
                 key={e.id}
                 type="button"
-                aria-label={`Show slide ${i + 1}`}
+                aria-label={i18n.t('card.showSlide', { i: i + 1 })}
                 aria-current={i === index}
                 onClick={() => go(i)}
                 className={cx('h-2 rounded-full transition-all', i === index ? 'w-6 bg-rose-500' : 'w-2 bg-slate-300 hover:bg-slate-400')}

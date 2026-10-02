@@ -12,7 +12,10 @@ import { SponsorStrip, type SponsorPublic } from '@/components/SponsorStrip';
 import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '@/components/PrintFormat';
 import { Alert, Button, Empty, Skeleton, Spinner } from '@/components/ui';
 import { fmtMoney } from '@/lib/format';
-import { BookingError, booking, bookingErrorMessage, demoPayHref, fmtPassTime, orderPasses, savePass } from '@/lib/booking';
+import { BookingError, booking, demoPayHref, orderPasses, savePass } from '@/lib/booking';
+import { fmtPassTimeL } from '@/lib/i18n/format';
+import { useT } from '@/lib/i18n/provider';
+import { useBookingErrorText } from '@/lib/i18n/errors';
 import type { PassOrder } from '@/lib/booking-types';
 
 const POLL_MS = 4000;
@@ -32,6 +35,8 @@ function PassView() {
   const k = useSearchParams().get('k') ?? '';
   const [order, setOrder] = useState<PassOrder | null>(null);
   const [error, setError] = useState<BookingError | null>(null);
+  const { t, tp, locale } = useT();
+  const errText = useBookingErrorText();
 
   const load = useCallback(async () => {
     try {
@@ -40,9 +45,9 @@ function PassView() {
       setError(null);
       savePass({ orderId: o.id, accessKey: k, eventName: o.event.name, createdAt: o.createdAt });
     } catch (e) {
-      setError(e instanceof BookingError ? e : new BookingError(0, bookingErrorMessage(e)));
+      setError(e instanceof BookingError ? e : new BookingError(0, errText(e)));
     }
-  }, [orderId, k]);
+  }, [orderId, k, errText]);
 
   useEffect(() => {
     if (k) void load();
@@ -66,8 +71,8 @@ function PassView() {
 
   if (!k) {
     return (
-      <Empty title="This pass link is incomplete" icon={LinkIcon}>
-        Open the full link you got after booking, or find it under My passes on the phone you booked with.
+      <Empty title={t('pass.incomplete')} icon={LinkIcon}>
+        {t('pass.incompleteHint')}
         <FooterLinks />
       </Empty>
     );
@@ -75,16 +80,16 @@ function PassView() {
 
   if (error && !order) {
     return error.status === 404 ? (
-      <Empty title="Pass not found" icon={Ticket}>
-        This link doesn’t match any booking. Check that you copied the whole link.
+      <Empty title={t('pass.notFound')} icon={Ticket}>
+        {t('pass.notFoundHint')}
         <FooterLinks />
       </Empty>
     ) : (
       <Alert>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span>{error.message}</span>
+          <span>{errText(error)}</span>
           <Button size="sm" variant="secondary" onClick={() => void load()}>
-            <RotateCcw aria-hidden className="h-4 w-4" /> Retry
+            <RotateCcw aria-hidden className="h-4 w-4" /> {t('common.retry')}
           </Button>
         </div>
       </Alert>
@@ -102,16 +107,14 @@ function PassView() {
       <div className="flex flex-col gap-4">
         <style>{`@media print { .pass-ticket { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none !important; max-width: 420px; margin: 0 auto 8mm; } }`}</style>
         <div className="no-print text-center">
-          <h1 className="text-2xl font-extrabold text-slate-900">{multi ? `Your ${passes.length} passes are ready` : 'Your pass is ready'}</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900">{multi ? t('pass.readyMany', { n: passes.length }) : t('pass.ready')}</h1>
           <p className="text-sm text-slate-600">
-            {multi
-              ? 'One QR per person — swipe to see each one. Every QR is scanned once at the gate, so send each person their own.'
-              : 'Keep this page or download the image — you’ll need the QR at the gate.'}
+            {multi ? t('pass.readyManyHint') : t('pass.readyHint')}
           </p>
         </div>
         {error && (
           <div className="no-print">
-            <Alert kind="warning">Couldn’t refresh the pass status just now. Showing the last known details.</Alert>
+            <Alert kind="warning">{t('pass.refreshFailed')}</Alert>
           </div>
         )}
         {multi ? (
@@ -127,13 +130,13 @@ function PassView() {
         <TaxInvoice order={order} />
         <PrintChooser initial={order.printFormat ?? 'THERMAL_80'} ads={(order.printedSponsors?.length ?? 0) + (order.printedPartners?.length ?? 0)} />
         <div className="no-print flex flex-col gap-2 pt-2 text-center text-sm">
-          <p className="text-slate-500">Saved under My passes on this phone. Bookmark this page to open it anywhere.</p>
+          <p className="text-slate-500">{t('pass.savedNote')}</p>
           <div className="flex justify-center gap-4 font-semibold">
             <Link href="/book/my-passes" className="text-orange-700 hover:underline">
-              My passes
+              {t('common.myPasses')}
             </Link>
             <Link href={bookAgain} className="text-orange-700 hover:underline">
-              Book another pass
+              {t('pass.bookAnother')}
             </Link>
           </div>
         </div>
@@ -148,25 +151,25 @@ function PassView() {
           <Hourglass aria-hidden className="h-8 w-8" />
         </span>
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900">Waiting for payment</h1>
+          <h1 className="text-xl font-extrabold text-slate-900">{t('pass.waiting')}</h1>
           <p className="mt-1 text-slate-600">
-            {order.event.name} · {order.timeSlot?.label} · {order.visitorCount === 1 ? '1 person' : `${order.visitorCount} people`}
+            {order.event.name} · {order.timeSlot?.label} · {tp('common.people', order.visitorCount)}
           </p>
           {order.status === 'PENDING' && (
             <p className="mt-1 text-sm text-slate-500">
-              Amount {fmtMoney(order.amount, order.currency)} · places held until {fmtPassTime(order.expiresAt, order.event.timezone)}
+              {t('pass.amountHeld', { amount: fmtMoney(order.amount, order.currency), time: fmtPassTimeL(order.expiresAt, order.event.timezone, locale) })}
             </p>
           )}
         </div>
         <p className="inline-flex items-center justify-center gap-2 text-sm text-slate-500" aria-live="polite">
-          <Spinner className="text-amber-500" /> Checking automatically…
+          <Spinner className="text-amber-500" /> {t('pass.checking')}
         </p>
         {order.status === 'PENDING' && order.payment.demo && (
           <Link
             href={demoPayHref(order.id, k)}
             className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 px-5 font-semibold text-white shadow-md"
           >
-            <Wallet aria-hidden className="h-5 w-5" /> Complete payment
+            <Wallet aria-hidden className="h-5 w-5" /> {t('pass.completePayment')}
           </Link>
         )}
       </div>
@@ -181,11 +184,9 @@ function PassView() {
         {failed ? <CircleX aria-hidden className="h-8 w-8" /> : <Clock3 aria-hidden className="h-8 w-8" />}
       </span>
       <div>
-        <h1 className="text-xl font-extrabold text-slate-900">{failed ? 'Payment didn’t go through' : 'This booking expired'}</h1>
+        <h1 className="text-xl font-extrabold text-slate-900">{failed ? t('pass.failed') : t('pass.expired')}</h1>
         <p className="mt-1 text-slate-600">
-          {failed
-            ? 'No pass was issued and nothing was charged. You can book again — places are released back for everyone.'
-            : `Payment wasn’t completed within the hold time, so the places were released. No pass was issued.`}
+          {failed ? t('pass.failedHint') : t('pass.expiredHint')}
         </p>
         <p className="mt-2 text-sm text-slate-500">
           {order.event.name} · {order.timeSlot?.label}
@@ -195,7 +196,7 @@ function PassView() {
         href={bookAgain}
         className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 px-5 font-semibold text-white shadow-md"
       >
-        <TicketPlus aria-hidden className="h-5 w-5" /> Book again
+        <TicketPlus aria-hidden className="h-5 w-5" /> {t('pass.bookAgain')}
       </Link>
     </div>
   );
@@ -203,11 +204,12 @@ function PassView() {
 
 /** Invoice / tax-invoice details for a paid order (GST split when charged). */
 function TaxInvoice({ order }: { order: PassOrder }) {
+  const { t } = useT();
   if (!order.invoiceNo) return null;
   const g = order.gst;
   return (
     <section className="rounded-2xl border border-orange-100 bg-white p-4 text-sm shadow-sm">
-      <h2 className="mb-2 font-bold">{g ? 'Tax invoice' : 'Invoice'} · {order.invoiceNo}</h2>
+      <h2 className="mb-2 font-bold">{g ? t('pass.taxInvoice') : t('pass.invoice')} · {order.invoiceNo}</h2>
       {order.issuer && (
         <p className="text-slate-600">
           {order.issuer.legalName}
@@ -219,12 +221,12 @@ function TaxInvoice({ order }: { order: PassOrder }) {
       <dl className="mt-2 grid grid-cols-2 gap-y-1">
         {g ? (
           <>
-            <dt className="text-slate-500">Taxable value (SAC {g.sac})</dt><dd className="text-right">{fmtMoney(g.taxable)}</dd>
+            <dt className="text-slate-500">{t('pass.taxable', { sac: g.sac })}</dt><dd className="text-right">{fmtMoney(g.taxable)}</dd>
             <dt className="text-slate-500">CGST {g.ratePercent / 2}%</dt><dd className="text-right">{fmtMoney(g.cgst)}</dd>
             <dt className="text-slate-500">SGST {g.ratePercent / 2}%</dt><dd className="text-right">{fmtMoney(g.sgst)}</dd>
           </>
         ) : null}
-        <dt className="font-semibold">Total paid</dt><dd className="text-right font-bold">{fmtMoney(order.amount)}</dd>
+        <dt className="font-semibold">{t('pass.totalPaid')}</dt><dd className="text-right font-bold">{fmtMoney(order.amount)}</dd>
       </dl>
     </section>
   );
@@ -233,45 +235,49 @@ function TaxInvoice({ order }: { order: PassOrder }) {
 /** Defaults to the layout the platform chose for this pass; A4 with several ads also offers "Save as PDF". */
 function PrintChooser({ initial, ads }: { initial: PrintFormat; ads: number }) {
   const [format, setFormat] = useState<PrintFormat>(initial);
+  const { t } = useT();
   return (
     <div className="no-print flex flex-col gap-2 rounded-2xl border border-orange-100 bg-white p-3">
       <PrintFormatStyle format={format} />
-      <p className="text-sm font-semibold text-slate-700">Print format</p>
+      <p className="text-sm font-semibold text-slate-700">{t('pass.printFormat')}</p>
       <PrintFormatPicker value={format} onChange={setFormat} />
       {format === 'A4' && ads >= 2 && (
         <Button variant="secondary" onClick={() => window.print()}>
-          <FileDown aria-hidden className="h-5 w-5" /> Save as PDF
+          <FileDown aria-hidden className="h-5 w-5" /> {t('pass.savePdf')}
         </Button>
       )}
-      {format === 'A4' && ads >= 2 && <p className="text-xs text-slate-500">This pass carries partner logos, so an A4 page keeps them clear. Choose “Save as PDF” as the printer.</p>}
+      {format === 'A4' && ads >= 2 && <p className="text-xs text-slate-500">{t('pass.a4Note')}</p>}
     </div>
   );
 }
 
 function OrderSponsors({ eventId }: { eventId: string }) {
   const [list, setList] = useState<SponsorPublic[] | null>(null);
+  const { t } = useT();
   useEffect(() => {
     booking.sponsors(eventId).then(setList).catch(() => setList(null));
   }, [eventId]);
-  return <SponsorStrip sponsors={list} title="Festival partners" />;
+  return <SponsorStrip sponsors={list} title={t('pass.festivalPartners')} />;
 }
 
 function FooterLinks() {
+  const { t } = useT();
   return (
     <div className="mt-4 flex justify-center gap-4 font-semibold">
       <Link href="/book/my-passes" className="text-orange-700 hover:underline">
-        My passes
+        {t('common.myPasses')}
       </Link>
       <Link href="/" className="text-orange-700 hover:underline">
-        Browse festivals
+        {t('common.browseFestivals')}
       </Link>
     </div>
   );
 }
 
 function PassSkeleton() {
+  const { t } = useT();
   return (
-    <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading pass">
+    <div className="flex flex-col gap-4" aria-busy="true" aria-label={t('pass.loading')}>
       <Skeleton className="mx-auto h-8 w-48" />
       <div className="overflow-hidden rounded-[28px] border border-orange-100 bg-white">
         <Skeleton className="h-28 rounded-none" />

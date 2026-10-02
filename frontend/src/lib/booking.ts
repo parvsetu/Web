@@ -15,7 +15,32 @@ import type {
   SavedPass,
 } from './booking-types';
 
-const TIMEOUT_MS = 10_000;
+// The API sleeps when idle (free hosting) and can take up to a minute to wake,
+// so reads wait long and retry once; creating an order never retries.
+const GET_TIMEOUT_MS = 60_000;
+const POST_TIMEOUT_MS = 30_000;
+/** After this long, pages show a "waking up the server" notice (see useSlowServer). */
+export const SLOW_AFTER_MS = 5_000;
+
+// ─── "Slow server" signal ────────────────────────────────────────────────
+
+let slowCount = 0;
+const slowListeners = new Set<(slow: boolean) => void>();
+function setSlow(delta: number) {
+  const before = slowCount > 0;
+  slowCount = Math.max(0, slowCount + delta);
+  const after = slowCount > 0;
+  if (before !== after) slowListeners.forEach((l) => l(after));
+}
+/** Subscribe to "a public request has been waiting more than SLOW_AFTER_MS". */
+export function onSlowServer(listener: (slow: boolean) => void): () => void {
+  slowListeners.add(listener);
+  listener(slowCount > 0);
+  return () => {
+    slowListeners.delete(listener);
+  };
+}
+export const isServerSlow = () => slowCount > 0;
 
 /** Any failed booking request. `status` 0 = never reached the server. */
 export class BookingError extends Error {
@@ -49,8 +74,29 @@ async function call<T>(method: 'GET' | 'POST', path: string, opts: { query?: Que
   for (const [k, v] of Object.entries(opts.query ?? {})) {
     if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
   }
+  let slow = false;
+  const slowTimer = setTimeout(() => {
+    slow = true;
+    setSlow(1);
+  }, SLOW_AFTER_MS);
+  try {
+    try {
+      return await attempt<T>(method, url, opts.body);
+    } catch (e) {
+      // A sleeping server often drops or stalls the first request: retry reads once.
+      if (method === 'GET' && e instanceof BookingError && e.status === 0) return await attempt<T>(method, url, opts.body);
+      throw e;
+    }
+  } finally {
+    clearTimeout(slowTimer);
+    if (slow) setSlow(-1);
+  }
+}
+
+async function attempt<T>(method: 'GET' | 'POST', url: URL, body: unknown): Promise<T> {
+  const opts = { body };
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), method === 'GET' ? GET_TIMEOUT_MS : POST_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(url.toString(), {

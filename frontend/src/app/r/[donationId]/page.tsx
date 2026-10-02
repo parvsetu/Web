@@ -9,6 +9,7 @@ import { DonationReceipt } from '@/components/DonationReceipt';
 import { Alert, Button, Empty, Skeleton } from '@/components/ui';
 import { ApiError, api, errorMessage } from '@/lib/api';
 import type { Receipt } from '@/lib/types';
+import { useT } from '@/lib/i18n/provider';
 
 export default function PublicReceiptPage() {
   return (
@@ -27,6 +28,7 @@ function ReceiptView() {
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
+  const { t, tn } = useT();
 
   const load = useCallback(async () => {
     setError(null);
@@ -44,18 +46,18 @@ function ReceiptView() {
 
   if (!k) {
     return (
-      <Empty title="This receipt link is incomplete" icon={LinkIcon}>
-        Open the full link you received from the mandal (it ends with <span className="font-mono">?k=…</span>).
+      <Empty title={t('receipt.incomplete')} icon={LinkIcon}>
+        {tn('receipt.incompleteHint', { k: <span className="font-mono">?k=…</span> })}
       </Empty>
     );
   }
   if (error && !r) {
     return error.status === 404 ? (
-      <Empty title="Receipt not found" icon={ReceiptText}>
-        This link doesn’t match any receipt. Check that you copied the whole link, or ask the mandal to send it again.
+      <Empty title={t('receipt.notFound')} icon={ReceiptText}>
+        {t('receipt.notFoundHint')}
         <div className="mt-4">
           <Link href="/" className="font-semibold text-orange-700 hover:underline">
-            Browse festivals
+            {t('common.browseFestivals')}
           </Link>
         </div>
       </Empty>
@@ -64,7 +66,7 @@ function ReceiptView() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>{error.message}</span>
           <Button size="sm" variant="secondary" onClick={() => void load()}>
-            <RotateCcw aria-hidden className="h-4 w-4" /> Retry
+            <RotateCcw aria-hidden className="h-4 w-4" /> {t('common.retry')}
           </Button>
         </div>
       </Alert>
@@ -75,7 +77,7 @@ function ReceiptView() {
   async function share() {
     const url = window.location.href;
     try {
-      if (canShare) await navigator.share({ title: `Donation receipt ${r!.receiptNo}`, text: `Donation receipt — ${r!.event.name}`, url });
+      if (canShare) await navigator.share({ title: t('receipt.shareTitle', { no: r!.receiptNo }), text: t('receipt.shareText', { event: r!.event.name }), url });
       else {
         await navigator.clipboard.writeText(url);
         setCopied(true);
@@ -89,27 +91,28 @@ function ReceiptView() {
   return (
     <div className="flex flex-col gap-4">
       <div className="no-print text-center">
-        <h1 className="text-2xl font-extrabold text-slate-900">Thank you, {r.donorName.split(' ')[0]} 🙏</h1>
-        <p className="text-sm text-slate-600">Your donation receipt from {r.organization.name}. Print it or save it as a PDF for your records.</p>
+        <h1 className="text-2xl font-extrabold text-slate-900">{t('receipt.thanks', { name: r.donorName.split(' ')[0] })}</h1>
+        <p className="text-sm text-slate-600">{t('receipt.intro', { org: r.organization.name })}</p>
       </div>
       <DonationReceipt r={r} />
       <div className="no-print mx-auto grid w-full max-w-xl grid-cols-2 gap-2">
         <Button className="min-h-[56px]" onClick={() => window.print()}>
-          <Printer aria-hidden className="h-5 w-5" /> Print / PDF
+          <Printer aria-hidden className="h-5 w-5" /> {t('receipt.printPdf')}
         </Button>
         <Button className="min-h-[56px]" variant="secondary" onClick={() => void share()}>
           {canShare ? <Share2 aria-hidden className="h-5 w-5" /> : copied ? <Check aria-hidden className="h-5 w-5 text-green-600" /> : <Copy aria-hidden className="h-5 w-5" />}
-          {canShare ? 'Share' : copied ? 'Copied!' : 'Copy link'}
+          {canShare ? t('common.share') : copied ? t('common.copied') : t('common.copyLink')}
         </Button>
       </div>
-      <p className="no-print text-center text-xs text-slate-500">Tip: in the print dialog, choose “Save as PDF” as the printer.</p>
+      <p className="no-print text-center text-xs text-slate-500">{t('receipt.tip')}</p>
     </div>
   );
 }
 
 function ReceiptSkeleton() {
+  const { t } = useT();
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-4" aria-busy="true" aria-label="Loading receipt">
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-4" aria-busy="true" aria-label={t('receipt.loading')}>
       <Skeleton className="mx-auto h-8 w-56" />
       <div className="overflow-hidden rounded-3xl border border-orange-100 bg-white">
         <Skeleton className="h-28 rounded-none" />

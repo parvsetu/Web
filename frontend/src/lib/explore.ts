@@ -1,5 +1,6 @@
 /** Client-side browsing helpers for the public explore page (city, category, date, price). */
 import type { BookableEvent } from './booking-types';
+import type { MessageKey, Translator } from './i18n/core';
 
 export interface Category {
   key: string;
@@ -20,6 +21,13 @@ export const CATEGORIES: Category[] = [
   { key: 'sports', label: 'Sports & community', emoji: '🏏', groups: ['Community & Sports'] },
   { key: 'other', label: 'Other events', short: 'Other', emoji: '✨', groups: ['Other'] },
 ];
+
+/** Category label in the visitor's language (`short` for the header strip). */
+export function catLabel(t: Translator['t'], c: Pick<Category, 'key' | 'short'>, short = false): string {
+  return t((short && c.short ? `cat.${c.key}.short` : `cat.${c.key}`) as MessageKey);
+}
+export const dateLabel = (t: Translator['t'], key: DateFilter) => t(`date.${key}` as MessageKey);
+export const priceLabel = (t: Translator['t'], key: PriceFilter) => t(`price.${key}` as MessageKey);
 
 export function categoryOf(festivalType: string, groupOf: Map<string, string>): string {
   const g = groupOf.get(festivalType);

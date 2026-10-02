@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { CalendarDays, CheckCircle2, Facebook, History, Instagram, Mail, MapPin, MessageCircle, Phone, Sparkles, Ticket, Youtube } from 'lucide-react';
 import { FestivalArt, Mandala, Toran } from '../FestivalArt';
@@ -5,17 +7,20 @@ import { ShareButtons } from '../ShareButtons';
 import { SponsorStrip } from '../SponsorStrip';
 import { PublicGallery } from '../gallery/PublicGallery';
 import { apiImageSrc } from '@/lib/media';
-import { fmtRange } from '@/lib/public-festival';
+import { fmtRangeL } from '@/lib/i18n/format';
+import { useT, type I18n } from '@/lib/i18n/provider';
 import { landingTheme, type LandingEventCard, type LandingPublic } from '@/lib/landing';
 
-const price = (p: string | null) => (p === null ? null : Number(p) === 0 ? 'Free entry' : `From ₹${Number(p).toLocaleString('en-IN')}`);
+const price = (i: I18n, p: string | null) => (p === null ? null : Number(p) === 0 ? i.t('landing.freeEntry') : i.t('landing.from', { price: Number(p).toLocaleString('en-IN') }));
 
 /** The mandal's public landing page. Presentational: rendered by the server page and by the editor preview. */
 export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
-  const t = landingTheme(p.theme);
+  const th = landingTheme(p.theme);
   const banner = apiImageSrc(p.organization.bannerUrl);
   const logo = apiImageSrc(p.organization.logoUrl);
   const place = [p.organization.city, p.organization.state].filter(Boolean).join(', ');
+  const i18n = useT();
+  const { t, locale } = i18n;
   const socials = [
     p.social.instagram && { href: p.social.instagram, label: 'Instagram', icon: Instagram },
     p.social.facebook && { href: p.social.facebook, label: 'Facebook', icon: Facebook },
@@ -25,7 +30,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <section className="relative overflow-hidden rounded-3xl text-white shadow-xl" style={{ background: `linear-gradient(135deg, ${t.from}, ${t.via} 55%, ${t.to})` }}>
+      <section className="relative overflow-hidden rounded-3xl text-white shadow-xl" style={{ background: `linear-gradient(135deg, ${th.from}, ${th.via} 55%, ${th.to})` }}>
         {banner && (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -40,7 +45,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
             <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-white p-1.5 shadow-lg ring-4 ring-white/40 sm:h-28 sm:w-28">
               {logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt={`${p.organization.name} logo`} className="h-full w-full object-contain" />
+                <img src={logo} alt={t('common.logo', { name: p.organization.name })} className="h-full w-full object-contain" />
               ) : (
                 <FestivalArt type="DEFAULT" className="h-full w-full" />
               )}
@@ -60,7 +65,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
 
       {p.about && (
         <section className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm">
-          <h2 className="mb-2 text-lg font-bold" style={{ color: t.ink }}>About us</h2>
+          <h2 className="mb-2 text-lg font-bold" style={{ color: th.ink }}>{t('landing.about')}</h2>
           <p className="whitespace-pre-line text-slate-700">{p.about}</p>
         </section>
       )}
@@ -68,7 +73,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
       {p.highlights.length > 0 && (
         <section className="grid gap-2 sm:grid-cols-2">
           {p.highlights.map((h) => (
-            <div key={h} className="flex items-start gap-2 rounded-2xl p-3 font-semibold" style={{ background: t.soft, color: t.ink }}>
+            <div key={h} className="flex items-start gap-2 rounded-2xl p-3 font-semibold" style={{ background: th.soft, color: th.ink }}>
               <Sparkles aria-hidden className="mt-0.5 h-5 w-5 shrink-0" /> {h}
             </div>
           ))}
@@ -77,32 +82,32 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
 
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-xl font-extrabold text-slate-900">
-          <CalendarDays aria-hidden className="h-5 w-5" style={{ color: t.ink }} /> Upcoming &amp; ongoing
+          <CalendarDays aria-hidden className="h-5 w-5" style={{ color: th.ink }} /> {t('landing.upcoming')}
         </h2>
         {p.upcoming.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-orange-200 bg-white p-4 text-sm text-slate-600">No festivals open right now — follow us for the next one.</p>
+          <p className="rounded-2xl border border-dashed border-orange-200 bg-white p-4 text-sm text-slate-600">{t('landing.noUpcoming')}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {p.upcoming.map((e) => <EventCard key={e.id} e={e} ink={t.ink} />)}
+            {p.upcoming.map((e) => <EventCard key={e.id} e={e} ink={th.ink} />)}
           </div>
         )}
       </section>
 
-      <PublicGallery photos={p.photos} title="Moments from our festivals" grid accent={t.ink} />
+      <PublicGallery photos={p.photos} title={t('landing.moments')} grid accent={th.ink} />
 
       {p.past.length > 0 && (
         <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><History aria-hidden className="h-5 w-5" style={{ color: t.ink }} /> Past festivals</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><History aria-hidden className="h-5 w-5" style={{ color: th.ink }} /> {t('landing.past')}</h2>
           <div className="flex flex-col gap-3">
             {p.past.map((y) => (
               <div key={y.year}>
-                <p className="mb-1 text-sm font-extrabold" style={{ color: t.ink }}>{y.year}</p>
+                <p className="mb-1 text-sm font-extrabold" style={{ color: th.ink }}>{y.year}</p>
                 <ul className="flex flex-col divide-y divide-orange-50">
                   {y.events.map((e) => (
                     <li key={e.id}>
                       <Link href={`/f/${e.id}`} className="flex min-h-[44px] items-center justify-between gap-2 py-1.5 text-sm hover:underline">
                         <span className="font-semibold">{e.name}</span>
-                        <span className="shrink-0 text-slate-500">{fmtRange(e.startDate, e.endDate)}</span>
+                        <span className="shrink-0 text-slate-500">{fmtRangeL(e.startDate, e.endDate, locale)}</span>
                       </Link>
                     </li>
                   ))}
@@ -113,14 +118,14 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
         </section>
       )}
 
-      <SponsorStrip sponsors={p.sponsors} title="Our partners" />
+      <SponsorStrip sponsors={p.sponsors} title={t('landing.partners')} />
 
       {(p.contact.phone || p.contact.email || socials.length > 0) && (
         <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-lg font-bold">Contact us</h2>
+          <h2 className="mb-3 text-lg font-bold">{t('landing.contact')}</h2>
           <div className="flex flex-wrap gap-2">
             {p.contact.phone && (
-              <a href={`tel:${p.contact.phone.replace(/[^\d+]/g, '')}`} className="inline-flex min-h-[48px] items-center gap-2 rounded-xl px-4 font-semibold text-white" style={{ background: t.via }}>
+              <a href={`tel:${p.contact.phone.replace(/[^\d+]/g, '')}`} className="inline-flex min-h-[48px] items-center gap-2 rounded-xl px-4 font-semibold text-white" style={{ background: th.via }}>
                 <Phone aria-hidden className="h-4 w-4" /> {p.contact.phone}
               </a>
             )}
@@ -131,7 +136,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
             )}
             {socials.map((s) => (
               <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex min-h-[48px] items-center gap-2 rounded-xl border border-orange-200 bg-white px-4 font-semibold">
-                <s.icon aria-hidden className="h-4 w-4" style={{ color: t.ink }} /> {s.label}
+                <s.icon aria-hidden className="h-4 w-4" style={{ color: th.ink }} /> {s.label}
               </a>
             ))}
           </div>
@@ -139,7 +144,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
       )}
 
       <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 font-bold">Share this page</h2>
+        <h2 className="mb-3 font-bold">{t('landing.share')}</h2>
         <ShareButtons url={url} text={`🙏 ${p.organization.name}${p.headline ? ` — ${p.headline}` : ''}`} />
       </section>
     </div>
@@ -147,25 +152,27 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
 }
 
 function EventCard({ e, ink }: { e: LandingEventCard; ink: string }) {
-  const pr = price(e.fromPrice);
+  const i18n = useT();
+  const { t, locale } = i18n;
+  const pr = price(i18n, e.fromPrice);
   return (
     <article className="flex flex-col gap-2 rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-3">
         <span className="h-12 w-12 shrink-0 rounded-2xl bg-orange-50 p-1.5"><FestivalArt type={e.festivalType} className="h-full w-full" /></span>
         <div className="min-w-0">
           <h3 className="font-bold leading-snug">{e.name}</h3>
-          <p className="text-xs text-slate-500">{fmtRange(e.startDate, e.endDate)}{e.location ? ` · ${e.location}` : ''}</p>
+          <p className="text-xs text-slate-500">{fmtRangeL(e.startDate, e.endDate, locale)}{e.location ? ` · ${e.location}` : ''}</p>
         </div>
       </div>
       {e.description && <p className="line-clamp-2 text-sm text-slate-600">{e.description}</p>}
       <div className="mt-auto flex flex-wrap gap-2">
         {e.bookable && (
           <Link href={`/book/${e.id}`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-sm font-bold text-white" style={{ background: ink }}>
-            <Ticket aria-hidden className="h-4 w-4" /> Book passes{pr ? ` · ${pr}` : ''}
+            <Ticket aria-hidden className="h-4 w-4 shrink-0" /> {t('landing.bookPasses')}{pr ? ` · ${pr}` : ''}
           </Link>
         )}
         <Link href={`/f/${e.id}`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-orange-200 px-3 text-sm font-semibold">
-          <CheckCircle2 aria-hidden className="h-4 w-4" /> Details
+          <CheckCircle2 aria-hidden className="h-4 w-4" /> {t('landing.details')}
         </Link>
       </div>
     </article>

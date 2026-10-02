@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { headers } from 'next/headers';
 import { Providers } from './providers';
+import { PATH_HEADER, isPublicPath } from '@/lib/i18n/config';
+import { indicFontVars } from '@/lib/i18n/fonts';
+import { loadMessages } from '@/lib/i18n/locales';
+import { getRequestLang } from '@/lib/i18n/server';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://parvsetu-web.vercel.app').replace(/\/+$/, '');
 
@@ -30,11 +35,18 @@ export const viewport: Viewport = {
   themeColor: '#ea580c',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // The visitor's language (cookie / ?lang=). Public pages follow it; the
+  // organiser app stays English for now (see lib/i18n/config.ts).
+  const lang = getRequestLang();
+  const messages = await loadMessages(lang);
+  const path = headers().get(PATH_HEADER);
   return (
-    <html lang="en">
+    <html lang={isPublicPath(path) ? lang : 'en'} className={indicFontVars}>
       <body className="min-h-[100dvh] font-sans antialiased">
-        <Providers>{children}</Providers>
+        <Providers lang={lang} messages={messages}>
+          {children}
+        </Providers>
       </body>
     </html>
   );

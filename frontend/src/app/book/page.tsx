@@ -7,7 +7,7 @@ import { ExploreShell } from '@/components/explore/ExploreShell';
 import { EventRow, HeroCarousel, PosterCard } from '@/components/explore/Cards';
 import { FestivalArt } from '@/components/FestivalArt';
 import { Alert, Button, Empty, Modal, Skeleton } from '@/components/ui';
-import { booking, bookingErrorMessage } from '@/lib/booking';
+import { booking } from '@/lib/booking';
 import { useFestivalTypes } from '@/lib/catalog';
 import { cx } from '@/lib/cx';
 import {
@@ -15,7 +15,10 @@ import {
   DATE_FILTERS,
   PRICE_FILTERS,
   applyFilters,
+  catLabel,
   categoryOf,
+  dateLabel,
+  priceLabel,
   dateWindow,
   eventCity,
   isLive,
@@ -29,6 +32,8 @@ import {
   type SortKey,
 } from '@/lib/explore';
 import type { BookableEvent, BookingLocation } from '@/lib/booking-types';
+import { useT } from '@/lib/i18n/provider';
+import { useBookingErrorText } from '@/lib/i18n/errors';
 
 export default function BookPage() {
   return (
@@ -59,6 +64,8 @@ function Explore() {
   const [reload, setReload] = useState(0);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const types = useFestivalTypes();
+  const { t } = useT();
+  const errText = useBookingErrorText();
   const groupOf = useMemo(() => new Map((types.data ?? []).map((t) => [t.key, t.group])), [types.data]);
 
   function setQuery(patch: Record<string, string>, push = false) {
@@ -109,13 +116,13 @@ function Explore() {
       .then((r) => alive && setEvents(r))
       .catch((e) => {
         if (!alive) return;
-        setError(bookingErrorMessage(e));
+        setError(errText(e));
         setEvents([]);
       });
     return () => {
       alive = false;
     };
-  }, [reload]);
+  }, [reload, errText]);
 
   const today = todayIst();
   const upcoming = useMemo(() => (events ?? []).filter((e) => e.endDate >= today), [events, today]);
@@ -149,7 +156,7 @@ function Explore() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>{error}</span>
             <Button size="sm" variant="secondary" onClick={() => setReload((n) => n + 1)}>
-              <RotateCcw aria-hidden className="h-4 w-4" /> Retry
+              <RotateCcw aria-hidden className="h-4 w-4" /> {t('common.retry')}
             </Button>
           </div>
         </Alert>
@@ -188,14 +195,15 @@ function Home({
   today: string;
   setQuery: (p: Record<string, string>, push?: boolean) => void;
 }) {
+  const { t, tp, city: cityName } = useT();
   if (!events.length) {
     return (
-      <Empty title={city ? `No events in ${city} yet` : 'No events are taking bookings yet'} icon={MapPin}>
-        {city ? 'Try another city, or look across all of India.' : 'Check back soon — organisers open bookings closer to the date.'}
+      <Empty title={city ? t('explore.noEventsCity', { city: cityName(city) }) : t('explore.noEvents')} icon={MapPin}>
+        {city ? t('explore.tryAnotherCity') : t('explore.checkBack')}
         {city && (
           <div className="mt-3">
             <Button variant="secondary" onClick={() => setQuery({ city: '' })}>
-              Show all cities
+              {t('explore.showAllCities')}
             </Button>
           </div>
         )}
@@ -207,18 +215,18 @@ function Home({
   const weekend = soonest.filter((e) => overlaps(e, dateWindow('weekend', today)!));
   const free = soonest.filter((e) => e.fromPrice !== null && Number(e.fromPrice) === 0);
   const byCat = CATEGORIES.map((c) => ({ c, list: soonest.filter((e) => categoryOf(e.festivalType, groupOf) === c.key) })).filter((x) => x.list.length);
-  const where = city ? ` in ${city}` : '';
+  const cn = city ? cityName(city) : '';
 
   return (
     <div className="flex flex-col gap-9">
       <HeroCarousel events={featured} />
 
-      <EventRow title={`Happening now${where}`} subtitle="Open today — book and walk in" events={soonest.filter((e) => isLive(e, today))} seeAll={() => setQuery({ date: 'today' }, true)} />
-      <EventRow title="This weekend" events={weekend} seeAll={() => setQuery({ date: 'weekend' }, true)} />
+      <EventRow title={cn ? t('explore.happeningNowIn', { city: cn }) : t('explore.happeningNow')} subtitle={t('explore.happeningNowSub')} events={soonest.filter((e) => isLive(e, today))} seeAll={() => setQuery({ date: 'today' }, true)} />
+      <EventRow title={t('explore.thisWeekend')} events={weekend} seeAll={() => setQuery({ date: 'weekend' }, true)} />
 
       {byCat.length > 1 && (
-        <section aria-label="Browse by category" className="flex flex-col gap-3">
-          <h2 className="text-xl font-extrabold text-slate-900">Browse by category</h2>
+        <section aria-label={t('explore.browseByCategory')} className="flex flex-col gap-3">
+          <h2 className="text-xl font-extrabold text-slate-900">{t('explore.browseByCategory')}</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {byCat.map(({ c, list }) => (
               <button
@@ -230,23 +238,23 @@ function Home({
                 <span aria-hidden className="absolute -right-3 -top-3 h-20 w-20 rounded-full bg-white/90 p-3 shadow-lg">
                   <FestivalArt type={list[0].festivalType} className="h-full w-full" />
                 </span>
-                <span className="text-base font-extrabold leading-tight">{c.label}</span>
-                <span className="text-xs text-white/85">{list.length} event{list.length === 1 ? '' : 's'}</span>
+                <span className="relative text-base font-extrabold leading-tight [overflow-wrap:anywhere]">{catLabel(t, c)}</span>
+                <span className="relative text-xs text-white/85">{tp('common.events', list.length)}</span>
               </button>
             ))}
           </div>
         </section>
       )}
 
-      <EventRow title={`Coming up${where}`} events={soonest.filter((e) => e.startDate > today)} seeAll={() => setQuery({ view: 'all' }, true)} />
-      <EventRow title="Free entry" subtitle="Register for a free pass" events={free} seeAll={() => setQuery({ price: 'free' }, true)} />
+      <EventRow title={cn ? t('explore.comingUpIn', { city: cn }) : t('explore.comingUp')} events={soonest.filter((e) => e.startDate > today)} seeAll={() => setQuery({ view: 'all' }, true)} />
+      <EventRow title={t('explore.freeEntry')} subtitle={t('explore.freeEntrySub')} events={free} seeAll={() => setQuery({ price: 'free' }, true)} />
       {byCat.map(({ c, list }) => (
-        <EventRow key={c.key} title={`${c.emoji} ${c.label}`} events={list} seeAll={() => setQuery({ cat: c.key }, true)} />
+        <EventRow key={c.key} title={`${c.emoji} ${catLabel(t, c)}`} events={list} seeAll={() => setQuery({ cat: c.key }, true)} />
       ))}
 
       <div className="flex justify-center">
         <Button variant="secondary" onClick={() => setQuery({ view: 'all' }, true)}>
-          Explore all {events.length} events{where}
+          {cn ? tp('explore.exploreAllIn', events.length, { city: cn }) : tp('explore.exploreAll', events.length)}
         </Button>
       </div>
     </div>
@@ -268,6 +276,7 @@ function Listing({
   filtersOpen: boolean;
   setFiltersOpen: (v: boolean) => void;
 }) {
+  const { t, tp, city: cityName } = useT();
   const active = [f.date, f.price, f.cat, f.q].filter(Boolean).length;
   const cat = CATEGORIES.find((c) => c.key === f.cat);
   const panel = <Filters f={f} setQuery={setQuery} />;
@@ -276,24 +285,24 @@ function Listing({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900">
-            {cat ? cat.label : f.q ? `Results for “${f.q}”` : 'All events'}
-            {f.city ? <span className="font-semibold text-slate-500"> in {f.city}</span> : null}
+            {cat ? catLabel(t, cat) : f.q ? t('explore.resultsFor', { q: f.q }) : t('explore.allEvents')}
+            {f.city ? <span className="font-semibold text-slate-500"> {t('explore.inCity', { city: cityName(f.city) })}</span> : null}
           </h1>
           <p className="text-sm text-slate-500" aria-live="polite">
-            {events.length} event{events.length === 1 ? '' : 's'}
+            {tp('common.events', events.length)}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-sm text-slate-600">
-            <span className="hidden sm:inline">Sort</span>
+            <span className="hidden sm:inline">{t('explore.sort')}</span>
             <select
               value={f.sort}
               onChange={(e) => setQuery({ sort: e.target.value === 'soon' ? '' : e.target.value })}
               className="min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 font-medium text-slate-800"
             >
-              <option value="soon">Date: soonest</option>
-              <option value="price">Price: low to high</option>
-              <option value="name">Name A–Z</option>
+              <option value="soon">{t('explore.sortSoon')}</option>
+              <option value="price">{t('explore.sortPrice')}</option>
+              <option value="name">{t('explore.sortName')}</option>
             </select>
           </label>
           <button
@@ -301,7 +310,7 @@ function Listing({
             onClick={() => setFiltersOpen(true)}
             className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 lg:hidden"
           >
-            <SlidersHorizontal aria-hidden className="h-4 w-4" /> Filters{active ? ` (${active})` : ''}
+            <SlidersHorizontal aria-hidden className="h-4 w-4" /> {active ? t('explore.filtersCount', { n: active }) : t('explore.filters')}
           </button>
         </div>
       </div>
@@ -309,25 +318,25 @@ function Listing({
       {active > 0 && (
         <div className="flex flex-wrap gap-2">
           {f.q && <Chip label={`“${f.q}”`} onClear={() => setQuery({ q: '' })} />}
-          {cat && <Chip label={cat.label} onClear={() => setQuery({ cat: '' })} />}
-          {f.date && <Chip label={DATE_FILTERS.find((d) => d.key === f.date)?.label ?? f.date} onClear={() => setQuery({ date: '' })} />}
-          {f.price && <Chip label={PRICE_FILTERS.find((p) => p.key === f.price)?.label ?? f.price} onClear={() => setQuery({ price: '' })} />}
+          {cat && <Chip label={catLabel(t, cat)} onClear={() => setQuery({ cat: '' })} />}
+          {f.date && <Chip label={DATE_FILTERS.some((d) => d.key === f.date) ? dateLabel(t, f.date) : f.date} onClear={() => setQuery({ date: '' })} />}
+          {f.price && <Chip label={PRICE_FILTERS.some((p) => p.key === f.price) ? priceLabel(t, f.price) : f.price} onClear={() => setQuery({ price: '' })} />}
           <button type="button" onClick={clear} className="min-h-[36px] px-2 text-sm font-semibold text-rose-600 hover:underline">
-            Clear all
+            {t('explore.clearAll')}
           </button>
         </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-[250px_1fr] lg:items-start">
-        <aside className="sticky top-32 hidden rounded-2xl bg-white p-4 shadow-sm lg:block" aria-label="Filters">
+        <aside className="sticky top-32 hidden rounded-2xl bg-white p-4 shadow-sm lg:block" aria-label={t('explore.filters')}>
           {panel}
         </aside>
         {events.length === 0 ? (
-          <Empty title="No events match" icon={SearchX}>
-            Try another date, price or category — or clear the filters.
+          <Empty title={t('explore.noMatch')} icon={SearchX}>
+            {t('explore.noMatchHint')}
             <div className="mt-3">
               <Button variant="secondary" onClick={clear}>
-                Clear filters
+                {t('explore.clearFilters')}
               </Button>
             </div>
           </Empty>
@@ -340,10 +349,10 @@ function Listing({
         )}
       </div>
 
-      <Modal open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+      <Modal open={filtersOpen} onClose={() => setFiltersOpen(false)} title={t('explore.filters')}>
         {panel}
         <Button className="mt-4 w-full" onClick={() => setFiltersOpen(false)}>
-          Show {events.length} event{events.length === 1 ? '' : 's'}
+          {tp('explore.show', events.length)}
         </Button>
       </Modal>
     </div>
@@ -351,11 +360,12 @@ function Listing({
 }
 
 function Filters({ f, setQuery }: { f: ExploreFilters; setQuery: (p: Record<string, string>) => void }) {
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-5">
-      <FilterGroup title="Date" options={DATE_FILTERS} value={f.date} onChange={(v) => setQuery({ date: v })} />
-      <FilterGroup title="Category" options={CATEGORIES.map((c) => ({ key: c.key, label: `${c.emoji} ${c.label}` }))} value={f.cat} onChange={(v) => setQuery({ cat: v })} />
-      <FilterGroup title="Price" options={PRICE_FILTERS} value={f.price} onChange={(v) => setQuery({ price: v })} />
+      <FilterGroup title={t('explore.filterDate')} options={DATE_FILTERS.map((d) => ({ key: d.key, label: dateLabel(t, d.key) }))} value={f.date} onChange={(v) => setQuery({ date: v })} />
+      <FilterGroup title={t('explore.filterCategory')} options={CATEGORIES.map((c) => ({ key: c.key, label: `${c.emoji} ${catLabel(t, c)}` }))} value={f.cat} onChange={(v) => setQuery({ cat: v })} />
+      <FilterGroup title={t('explore.filterPrice')} options={PRICE_FILTERS.map((p) => ({ key: p.key, label: priceLabel(t, p.key) }))} value={f.price} onChange={(v) => setQuery({ price: v })} />
     </div>
   );
 }
@@ -385,10 +395,11 @@ function FilterGroup<K extends string>({ title, options, value, onChange }: { ti
 }
 
 function Chip({ label, onClear }: { label: string; onClear: () => void }) {
+  const { t } = useT();
   return (
     <span className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-rose-200 bg-rose-50 pl-3 pr-1 text-sm font-medium text-rose-700">
       {label}
-      <button type="button" aria-label={`Remove ${label}`} onClick={onClear} className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-rose-100">
+      <button type="button" aria-label={t('explore.remove', { label })} onClick={onClear} className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-rose-100">
         <X aria-hidden className="h-4 w-4" />
       </button>
     </span>
@@ -396,8 +407,9 @@ function Chip({ label, onClear }: { label: string; onClear: () => void }) {
 }
 
 function PageSkeleton({ bare }: { bare?: boolean }) {
+  const { t } = useT();
   const body = (
-    <div className="flex flex-col gap-8" aria-busy="true" aria-label="Loading events">
+    <div className="flex flex-col gap-8" aria-busy="true" aria-label={t('explore.loading')}>
       <Skeleton className="h-[230px] w-full rounded-3xl sm:h-[300px]" />
       {[0, 1].map((r) => (
         <div key={r} className="flex flex-col gap-3">
