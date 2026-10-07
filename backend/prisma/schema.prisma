@@ -162,6 +162,8 @@ model User {
   partnerId                 String?
   /// Set for field-agent accounts; such a user belongs to no Organization.
   agentId                   String?
+  /// Set for stall-vendor accounts; such a user belongs to no Organization.
+  vendorId                  String?
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
@@ -178,11 +180,14 @@ model User {
   otps                EmailOtp[]
   partner             Partner?               @relation(fields: [partnerId], references: [id], onDelete: SetNull)
   agent               Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  vendor              Vendor?                @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  stallBookings       StallBooking[]         @relation("StallBookingCreatedBy")
   mandalRegistrations MandalRegistration[]   @relation("RegistrationApplicant")
   passwordSetupTokens PasswordSetupToken[]
 
   @@index([partnerId])
   @@index([agentId])
+  @@index([vendorId])
   @@map("users")
 }
 
@@ -227,6 +232,8 @@ model Organization {
   reviews            VisitorReview[]
   reviewPhotos       ReviewPhoto[]
   achievements       Achievement[]
+  stallTypes         StallType[]
+  stallBookings      StallBooking[]
   agent              Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
   registration       MandalRegistration?
   eventFeePayments   EventFeePayment[]
@@ -341,6 +348,11 @@ model Event {
   gstSlabThresholdPaise     Int                 @default(10000)
   gstLowRateBps             Int                 @default(500)
   passInvoiceSeq            Int                 @default(0)
+  /// Stall booking (vendors book stalls online). Invoice numbers use their own counter.
+  stallBookingEnabled       Boolean             @default(false)
+  stallInvoiceSeq           Int                 @default(0)
+  /// GST on stall rent when the festival has GST on (added on top; CA review — see stalls.rules.ts).
+  stallGstRateBps           Int                 @default(1800)
   /// Default print layout for passes: A4 | THERMAL_80 | THERMAL_58
   passPrintFormat           String              @default("A4")
   maxVisitorsPerToken       Int                 @default(10)
@@ -384,6 +396,8 @@ model Event {
   photos           EventPhoto[]
   priceRules       PriceRule[]
   reviews          VisitorReview[]
+  stallTypes       StallType[]
+  stallBookings    StallBooking[]
 
   @@index([organizationId])
   @@index([state, city])
@@ -762,6 +776,8 @@ model PlatformSettings {
   agentReferralFeePaise       Int      @default(20000)
   /// Field-agent commission on every paid event fee (bps of the fee).
   agentCommissionBps          Int      @default(0)
+  /// Platform fee on every paid stall booking (bps of the stall rent, before GST).
+  stallCommissionBps          Int      @default(500)
   updatedAt                   DateTime @updatedAt
   updatedById                 String?
 
@@ -784,6 +800,8 @@ model OrgBilling {
   landingPageYearlyPricePaise Int?
   /// Per-event registration fee at this mandal (null = festival type / platform default).
   eventFeePaise               Int?
+  /// Platform fee on stall bookings at this mandal (null = platform default).
+  stallCommissionBps          Int?
   totalTokens                 Int      @default(0)
   totalSponsorFeesPaise       Int      @default(0)
   totalPersons                Int      @default(0)
@@ -1566,4 +1584,121 @@ model Achievement {
 
   @@index([organizationId, sortOrder])
   @@map("achievements")
+}
+
+// ─── Stall booking ─────────────────────────────────────────────────────
+// Vendors (their own login, like promotional partners) book stalls at a
+// festival: the mandal sets stall types with a count and price, a vendor pays
+// online, and the platform keeps stallCommissionBps of the rent through the
+// normal PaymentSettlement split. A PENDING booking with expiresAt in the
+// future holds its stalls; capacity is checked under a row lock on the
+// stall type (see StallsService.checkCapacity), so a type is never oversold.
+
+enum VendorStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum StallCategory {
+  FOOD
+  SHOPPING
+  SERVICES
+  EXHIBITOR
+  OTHER
+}
+
+model Vendor {
+  id           String         @id @default(uuid())
+  businessName String
+  contactName  String
+  contactEmail String
+  contactPhone String
+  category     StallCategory?
+  description  String?
+  city         String?
+  gstin        String?
+  status       VendorStatus   @default(ACTIVE)
+  statusNote   String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  users    User[]
+  bookings StallBooking[]
+
+  @@index([status, createdAt])
+  @@map("vendors")
+}
+
+model StallType {
+  id             String        @id @default(uuid())
+  organizationId String
+  eventId        String
+  name           String
+  category       StallCategory
+  description    String?
+  /// Free text, e.g. "10 × 10 ft".
+  size           String?
+  pricePaise     Int
+  totalCount     Int
+  isActive       Boolean       @default(true)
+  sortOrder      Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  bookings     StallBooking[]
+
+  @@index([eventId, isActive, sortOrder])
+  @@map("stall_types")
+}
+
+model StallBooking {
+  id               String          @id @default(uuid())
+  organizationId   String
+  eventId          String
+  stallTypeId      String
+  vendorId         String
+  createdById      String
+  quantity         Int
+  unitPricePaise   Int
+  basePaise        Int
+  gstRateBps       Int             @default(0)
+  gstPaise         Int             @default(0)
+  amountPaise      Int
+  /// Platform fee locked at booking time (bps of basePaise) and its amount.
+  commissionBps    Int
+  platformFeePaise Int
+  businessName     String
+  contactName      String
+  contactPhone     String
+  contactEmail     String?
+  /// What the vendor will sell / show.
+  products         String?
+  status           PassOrderStatus @default(PENDING)
+  paymentProvider  String
+  providerOrderId  String?
+  paymentReference String?
+  invoiceNo        String?
+  /// Assigned by the mandal after payment, e.g. "F-04, F-05".
+  stallNumbers     String?
+  mandalNote       String?
+  expiresAt        DateTime
+  paidAt           DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  stallType    StallType    @relation(fields: [stallTypeId], references: [id], onDelete: Restrict)
+  vendor       Vendor       @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  createdBy    User         @relation("StallBookingCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([paymentProvider, providerOrderId])
+  @@unique([eventId, invoiceNo])
+  @@index([stallTypeId, status, expiresAt])
+  @@index([vendorId, createdAt])
+  @@index([eventId, status, createdAt])
+  @@index([status, expiresAt])
+  @@map("stall_bookings")
 }

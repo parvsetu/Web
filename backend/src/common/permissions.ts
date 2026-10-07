@@ -53,6 +53,9 @@ export const PERMISSIONS = {
 
   REVIEW_VIEW: 'View visitor reviews and photos (including pending ones)',
   REVIEW_MANAGE: 'Approve, reject, hide, feature and delete visitor reviews',
+
+  STALL_VIEW: 'View stall types and vendor stall bookings',
+  STALL_MANAGE: 'Set up stall types, open stall booking and assign stall numbers',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -102,7 +105,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     description: 'Donations and expenses',
     permissions: [
       'EVENT_VIEW', 'DONATION_VIEW', 'DONATION_CREATE', 'DONATION_UPDATE',
-      'EXPENSE_VIEW', 'EXPENSE_CREATE', 'EXPENSE_UPDATE', 'REPORT_VIEW', 'REPORT_EXPORT', 'GALLERY_VIEW',
+      'EXPENSE_VIEW', 'EXPENSE_CREATE', 'EXPENSE_UPDATE', 'REPORT_VIEW', 'REPORT_EXPORT', 'GALLERY_VIEW', 'STALL_VIEW',
     ],
   },
   {
@@ -111,7 +114,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     description: 'Read-only access to reports and statistics',
     permissions: [
       'EVENT_VIEW', 'TOKEN_VIEW', 'VOLUNTEER_VIEW', 'REPORT_VIEW', 'REPORT_EXPORT',
-      'DONATION_VIEW', 'EXPENSE_VIEW', 'GALLERY_VIEW', 'REVIEW_VIEW',
+      'DONATION_VIEW', 'EXPENSE_VIEW', 'GALLERY_VIEW', 'REVIEW_VIEW', 'STALL_VIEW',
     ],
   },
 ];
