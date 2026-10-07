@@ -408,6 +408,12 @@ const kn: Messages = {
   'festival.timings': 'ದರ್ಶನ / ಪ್ರವೇಶ ಸಮಯ',
   'festival.share': 'ಕುಟುಂಬ ಮತ್ತು ಸ್ನೇಹಿತರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಿ',
   'festival.volunteer': '{org} ಜೊತೆ ಸ್ವಯಂಸೇವಕರಾಗಿ',
+  'festival.stallsTitle': 'ಮಾರಾಟಗಾರರಿಗೆ ಸ್ಟಾಲ್‌ಗಳು',
+  'festival.stallsLeft_one': '{n} ಸ್ಟಾಲ್ ಉಳಿದಿದೆ',
+  'festival.stallsLeft_other': '{n} ಸ್ಟಾಲ್‌ಗಳು ಉಳಿದಿವೆ',
+  'festival.stallsSoldOut': 'ಎಲ್ಲಾ ಸ್ಟಾಲ್‌ಗಳು ಬುಕ್ ಆಗಿವೆ',
+  'festival.stallsFrom': '₹{price} ರಿಂದ',
+  'festival.bookStall': 'ಸ್ಟಾಲ್ ಬುಕ್ ಮಾಡಿ',
 
   'landing.unavailable': 'ಈ ಪುಟ ಲಭ್ಯವಿಲ್ಲ',
   'landing.unavailableHint': 'ಸಮಿತಿಯ ಪುಟ ಈಗ ಸಕ್ರಿಯವಾಗಿಲ್ಲದಿರಬಹುದು. ಆದರೂ Parvsetu ನಲ್ಲಿ ಅವರ ಹಬ್ಬಗಳನ್ನು ಹುಡುಕಬಹುದು.',

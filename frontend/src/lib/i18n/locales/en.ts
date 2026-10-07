@@ -430,6 +430,12 @@ const en = {
   'festival.timings': 'Darshan / entry timings',
   'festival.share': 'Share with family & friends',
   'festival.volunteer': 'Volunteer with {org}',
+  'festival.stallsTitle': 'Stalls for vendors',
+  'festival.stallsLeft_one': '{n} stall left',
+  'festival.stallsLeft_other': '{n} stalls left',
+  'festival.stallsSoldOut': 'All stalls are booked',
+  'festival.stallsFrom': 'from ₹{price}',
+  'festival.bookStall': 'Book a stall',
 
   // mandal landing page (/m)
   'landing.unavailable': 'This page isn’t available',

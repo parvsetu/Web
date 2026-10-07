@@ -408,6 +408,12 @@ const or: Messages = {
   'festival.timings': 'ଦର୍ଶନ / ପ୍ରବେଶ ସମୟ',
   'festival.share': 'ପରିବାର ଓ ବନ୍ଧୁଙ୍କ ସହ ସେୟାର କରନ୍ତୁ',
   'festival.volunteer': '{org} ସହ ସ୍ୱେଚ୍ଛାସେବୀ ହୁଅନ୍ତୁ',
+  'festival.stallsTitle': 'ବିକ୍ରେତାଙ୍କ ପାଇଁ ଷ୍ଟଲ୍',
+  'festival.stallsLeft_one': '{n}ଟି ଷ୍ଟଲ୍ ବାକି',
+  'festival.stallsLeft_other': '{n}ଟି ଷ୍ଟଲ୍ ବାକି',
+  'festival.stallsSoldOut': 'ସମସ୍ତ ଷ୍ଟଲ୍ ବୁକ୍ ହୋଇସାରିଛି',
+  'festival.stallsFrom': '₹{price}ରୁ',
+  'festival.bookStall': 'ଷ୍ଟଲ୍ ବୁକ୍ କରନ୍ତୁ',
 
   'landing.unavailable': 'ଏହି ପେଜ୍ ଉପଲବ୍ଧ ନାହିଁ',
   'landing.unavailableHint': 'କମିଟିର ପେଜ୍ ହୁଏତ ଏବେ ଚାଲୁ ନାହିଁ। ତଥାପି Parvsetuରେ ସେମାନଙ୍କ ପର୍ବ ଖୋଜିପାରିବେ।',

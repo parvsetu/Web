@@ -408,6 +408,12 @@ const hi: Messages = {
   'festival.timings': 'दर्शन / प्रवेश का समय',
   'festival.share': 'परिवार और दोस्तों से शेयर करें',
   'festival.volunteer': '{org} के साथ स्वयंसेवक बनें',
+  'festival.stallsTitle': 'विक्रेताओं के लिए स्टॉल',
+  'festival.stallsLeft_one': '{n} स्टॉल बचा है',
+  'festival.stallsLeft_other': '{n} स्टॉल बचे हैं',
+  'festival.stallsSoldOut': 'सभी स्टॉल बुक हो चुके हैं',
+  'festival.stallsFrom': '₹{price} से',
+  'festival.bookStall': 'स्टॉल बुक करें',
 
   'landing.unavailable': 'यह पेज उपलब्ध नहीं है',
   'landing.unavailableHint': 'हो सकता है मंडल का पेज अभी चालू न हो। आप Parvsetu पर उनके उत्सव फिर भी ढूँढ सकते हैं।',

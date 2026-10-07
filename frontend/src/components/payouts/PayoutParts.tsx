@@ -31,7 +31,7 @@ export function PayoutStatusBadge({ status }: { status: PayoutStatus }) {
 }
 
 const SETTLEMENT_LABEL: Record<SettlementStatus, string> = { PENDING_PAYOUT: 'Pending payout', PAID_OUT: 'Paid out' };
-const SOURCE_LABEL: Record<string, string> = { PASS_ORDER: 'Online pass', DONATION: 'Online donation' };
+const SOURCE_LABEL: Record<string, string> = { PASS_ORDER: 'Online pass', DONATION: 'Online donation', STALL_BOOKING: 'Stall booking' };
 
 export function SettlementBadge({ status }: { status: SettlementStatus }) {
   return <Badge className={status === 'PAID_OUT' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-900'}>{SETTLEMENT_LABEL[status]}</Badge>;

@@ -11,14 +11,14 @@ import type { CreditStatus } from '../org/CreditTab';
 import { SearchBar } from '../SearchBar';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SectionTitle, SkeletonList, Stat, Table, Td, cx } from '../ui';
 
-interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerRate: string; feePerPass: string; gatewayFeePercent: string; defaultPassPrintFormat: string; landingPageYearlyPrice: string }
+interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerRate: string; feePerPass: string; gatewayFeePercent: string; defaultPassPrintFormat: string; landingPageYearlyPrice: string; stallCommissionPercent: string }
 interface Summary {
-  commissionEarned: string; partnerFeesEarned: string; promotionalPartnerEarned: string; eventFeesEarned: string; eventFeesPaid: number; agentEarningsDue: string; agentPayoutsMade: string; partnerWalletsOutstanding: string; splitCommissionEarned: string; onlineGross: string; totalEarned: string; landingPageEarned: string; landingPagesSold: number; tokensGenerated: number; personsAdmitted: number;
+  commissionEarned: string; partnerFeesEarned: string; promotionalPartnerEarned: string; eventFeesEarned: string; eventFeesPaid: number; agentEarningsDue: string; agentPayoutsMade: string; partnerWalletsOutstanding: string; splitCommissionEarned: string; onlineGross: string; stallFeesEarned: string; stallBookingsPaid: number; totalEarned: string; landingPageEarned: string; landingPagesSold: number; tokensGenerated: number; personsAdmitted: number;
   creditOutstanding: string; totalRecharged: string; paidRecharges: number;
   mandals: { total: number; low: number; exhausted: number };
   bySource: { source: string | null; commission: string; tokens: number }[];
 }
-interface MandalRow { id: string; name: string; city: string | null; state: string | null; billing: CreditStatus & { passPrintFormat: string; overrides: Record<string, boolean>; eventFee: string | null; landingPage: { price: string; paidUntil: string | null; active: boolean } } }
+interface MandalRow { id: string; name: string; city: string | null; state: string | null; billing: CreditStatus & { passPrintFormat: string; overrides: Record<string, boolean>; eventFee: string | null; stallCommissionPercent: string; landingPage: { price: string; paidUntil: string | null; active: boolean } } }
 interface TxRow { id: string; createdAt: string; type: string; source: string | null; organization: { name: string }; event: { name: string } | null; amount: string; balanceAfter: string; tokenCount: number; personCount: number; reference: string | null; note: string | null }
 
 const PRINT_SETTINGS = [
@@ -48,7 +48,7 @@ export function BillingAdmin() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">Your platform earnings</p>
             <p className="text-4xl font-black">{fmtMoney(s.totalEarned)}</p>
             <p className="text-sm text-white/90">
-              Event registration fees {fmtMoney(s.eventFeesEarned)}{s.eventFeesPaid ? ` (${s.eventFeesPaid} paid)` : ''} · Pass credit commission {fmtMoney(s.commissionEarned)} · Online split commission {fmtMoney(s.splitCommissionEarned)} · Promotional partners {fmtMoney(s.promotionalPartnerEarned)} · Landing pages {fmtMoney(s.landingPageEarned)}{s.landingPagesSold ? ` (${s.landingPagesSold} sold)` : ''}
+              Event registration fees {fmtMoney(s.eventFeesEarned)}{s.eventFeesPaid ? ` (${s.eventFeesPaid} paid)` : ''} · Pass credit commission {fmtMoney(s.commissionEarned)} · Online split commission {fmtMoney(s.splitCommissionEarned)} (incl. stall fees {fmtMoney(s.stallFeesEarned)}{s.stallBookingsPaid ? `, ${s.stallBookingsPaid} bookings` : ''}) · Promotional partners {fmtMoney(s.promotionalPartnerEarned)} · Landing pages {fmtMoney(s.landingPageEarned)}{s.landingPagesSold ? ` (${s.landingPagesSold} sold)` : ''}
               {Number(s.partnerFeesEarned) > 0 ? ` · Legacy sponsor print fees ${fmtMoney(s.partnerFeesEarned)}` : ''}
             </p>
             <p className="mt-1 text-xs text-white/75">Online payments collected: {fmtMoney(s.onlineGross)} · Partner wallets held: {fmtMoney(s.partnerWalletsOutstanding)} · Owed to field agents: {fmtMoney(s.agentEarningsDue)} (paid {fmtMoney(s.agentPayoutsMade)})</p>
@@ -162,8 +162,8 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
     setOk(false);
     setBusy(true);
     try {
-      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice } = f!;
-      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice });
+      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent } = f!;
+      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent });
       setForm(saved);
       setOk(true);
       onSaved();
@@ -188,6 +188,7 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
         <LabeledInput label="Welcome credit for new mandals (₹)" inputMode="decimal" value={f.welcomeCredit} onChange={set('welcomeCredit')} />
         <LabeledInput label="Gateway fee taken from the mandal's share (%)" inputMode="decimal" value={f.gatewayFeePercent ?? ''} onChange={set('gatewayFeePercent')} hint="Applied to each paid online pass before the mandal's net" />
         <LabeledInput label="Landing page yearly fee (₹)" inputMode="decimal" value={f.landingPageYearlyPrice ?? ''} onChange={set('landingPageYearlyPrice')} hint="Default price of a mandal page at /m/<slug> for one year" />
+        <LabeledInput label="Stall booking fee (%)" inputMode="decimal" value={f.stallCommissionPercent ?? ''} onChange={set('stallCommissionPercent')} hint="Platform share of each vendor stall booking (rent before GST); locked per booking" />
       </div>
       <p className="flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-900">
         <Percent aria-hidden className="h-4 w-4" /> Each person admitted costs a mandal {fmtMoney(fee)} ({f.defaultCommissionPercent}% of {fmtMoney(f.defaultTokenPrice)}). Mandal-specific rates override this.
@@ -212,6 +213,7 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
   const [format, setFormat] = useState(b.overrides.passPrintFormat ? b.passPrintFormat : '');
   const [landingPrice, setLandingPrice] = useState(b.overrides.landingPagePrice ? b.landingPage.price : '');
   const [eventFee, setEventFee] = useState(b.eventFee ?? '');
+  const [stallPct, setStallPct] = useState(b.overrides.stallCommission ? b.stallCommissionPercent : '');
   const [grantYears, setGrantYears] = useState('1');
   const [grantReason, setGrantReason] = useState('');
   const [amount, setAmount] = useState('');
@@ -249,6 +251,7 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
           <LabeledInput label="Partner rate per pass (₹)" value={print} onChange={(e) => setPrint(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
           <LabeledInput label="Landing page fee / year (₹)" value={landingPrice} onChange={(e) => setLandingPrice(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" />
           <LabeledInput label="Event registration fee (₹)" value={eventFee} onChange={(e) => setEventFee(e.target.value.replace(/[^\d.]/g, ''))} placeholder="by festival type" hint="Beats festival-type & default fees" />
+          <LabeledInput label="Stall booking fee (%)" value={stallPct} onChange={(e) => setStallPct(e.target.value.replace(/[^\d.]/g, ''))} placeholder="default" hint={`Currently ${b.stallCommissionPercent}%`} />
           <div className="col-span-2">
             <LabeledSelect label="Pass print format" value={format} onChange={(e) => setFormat(e.target.value)} hint={`Currently: ${b.passPrintFormat}`}>
               <option value="">Platform default</option>
@@ -256,7 +259,7 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
             </LabeledSelect>
           </div>
         </div>
-        <Button variant="secondary" loading={busy} onClick={() => void run(() => api.patch(`/platform/billing/mandals/${m.id}`, { tokenPrice: v(price), commissionPercent: v(pct), lowCreditThreshold: v(low), partnerRate: v(print), passPrintFormat: format || null, landingPagePrice: v(landingPrice), eventFee: v(eventFee) }))}>
+        <Button variant="secondary" loading={busy} onClick={() => void run(() => api.patch(`/platform/billing/mandals/${m.id}`, { tokenPrice: v(price), commissionPercent: v(pct), lowCreditThreshold: v(low), partnerRate: v(print), passPrintFormat: format || null, landingPagePrice: v(landingPrice), eventFee: v(eventFee), stallCommissionPercent: v(stallPct) }))}>
           <Save aria-hidden className="h-4 w-4" /> Save pricing
         </Button>
         <SectionTitle icon={Globe}>Landing page</SectionTitle>

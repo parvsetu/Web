@@ -33,6 +33,10 @@ export default function DashboardPage() {
       router.replace('/agent');
       return;
     }
+    if (me.vendor) {
+      router.replace('/vendor');
+      return;
+    }
     if (isApplicantOnly(me)) {
       router.replace('/registration');
       return;

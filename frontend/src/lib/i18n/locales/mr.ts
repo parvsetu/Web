@@ -408,6 +408,12 @@ const mr: Messages = {
   'festival.timings': 'दर्शन / प्रवेशाची वेळ',
   'festival.share': 'कुटुंब आणि मित्रांसोबत शेअर करा',
   'festival.volunteer': '{org} सोबत स्वयंसेवक व्हा',
+  'festival.stallsTitle': 'विक्रेत्यांसाठी स्टॉल',
+  'festival.stallsLeft_one': '{n} स्टॉल शिल्लक',
+  'festival.stallsLeft_other': '{n} स्टॉल शिल्लक',
+  'festival.stallsSoldOut': 'सर्व स्टॉल बुक झाले आहेत',
+  'festival.stallsFrom': '₹{price} पासून',
+  'festival.bookStall': 'स्टॉल बुक करा',
 
   'landing.unavailable': 'हे पान उपलब्ध नाही',
   'landing.unavailableHint': 'मंडळाचे पान कदाचित सध्या चालू नसेल. तरीही Parvsetu वर त्यांचे उत्सव शोधू शकता.',

@@ -582,6 +582,36 @@ async function seedVisitorShowcase() {
   if (demoLink) console.log(`Try "Share your experience" on a seeded pass: ${demoLink}`);
 }
 
+/**
+ * Stall booking demo: stall types on Jan Utsav Samiti's live craft exhibition
+ * (booking switched on) and a vendor login — Shree Chaat Corner,
+ * vendor@parvsetu.dev / 9000000040. Existence-guarded, so reruns are no-ops.
+ */
+async function seedStalls() {
+  const password = process.env.DEMO_PASSWORD ?? (IS_PROD ? '' : LOCAL_DEMO_PASSWORD);
+  if (password.length < 10) return;
+  if (!(await prisma.user.findUnique({ where: { mobile: '9000000040' } })) && !(await prisma.user.findUnique({ where: { email: 'vendor@parvsetu.dev' } }))) {
+    const v = await prisma.vendor.create({ data: {
+      businessName: 'Shree Chaat Corner', contactName: 'Sunil Jadhav', contactEmail: 'vendor@parvsetu.dev', contactPhone: '9000000040',
+      category: 'FOOD', city: 'Pune', description: 'Pani puri, bhel, sev puri and fresh lime soda.',
+    } });
+    await prisma.user.create({ data: { name: 'Sunil Jadhav', mobile: '9000000040', email: 'vendor@parvsetu.dev', passwordHash: await bcrypt.hash(password, 10), vendorId: v.id, emailVerifiedAt: new Date() } });
+    console.log('Demo stall vendor created (Shree Chaat Corner: 9000000040 / vendor@parvsetu.dev).');
+  }
+  const jan = await prisma.organization.findUnique({ where: { slug: 'jan-utsav-samiti' } });
+  if (!jan) return;
+  const ev = (await prisma.event.findFirst({ where: { organizationId: jan.id, festivalType: 'CRAFT_EXHIBITION', approvalStatus: 'LIVE', status: 'ACTIVE' } }))
+    ?? (await prisma.event.findFirst({ where: { organizationId: jan.id, approvalStatus: 'LIVE', status: 'ACTIVE' }, orderBy: { startDate: 'asc' } }));
+  if (!ev || (await prisma.stallType.findFirst({ where: { eventId: ev.id } }))) return;
+  await prisma.stallType.createMany({ data: [
+    { organizationId: jan.id, eventId: ev.id, name: 'Food stall', category: 'FOOD', size: '10 × 10 ft', pricePaise: 300000, totalCount: 20, sortOrder: 1, description: 'Table, 1 power point and water nearby. No open flame — induction only.' },
+    { organizationId: jan.id, eventId: ev.id, name: 'Handicraft stall', category: 'SHOPPING', size: '8 × 8 ft', pricePaise: 250000, totalCount: 30, sortOrder: 2, description: 'Covered stall with a table and 2 chairs.' },
+    { organizationId: jan.id, eventId: ev.id, name: 'Exhibitor booth', category: 'EXHIBITOR', size: '10 × 15 ft', pricePaise: 600000, totalCount: 8, sortOrder: 3, description: 'Corner booth with branding panel and 2 power points.' },
+  ] });
+  await prisma.event.update({ where: { id: ev.id }, data: { stallBookingEnabled: true } });
+  console.log(`Demo stall types added on ${ev.name} (stall booking open).`);
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -596,6 +626,7 @@ async function main() {
     await seedLandingAndPeakPricing();
     await seedRegistrationControl();
     await seedVisitorShowcase();
+    await seedStalls();
   }
 }
 

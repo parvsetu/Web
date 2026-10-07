@@ -113,6 +113,7 @@ export function useRequireAuth(): AuthState {
 export function homeFor(me: MeUser, next = DASHBOARD): string {
   if (me.partner) return next.startsWith('/partner') ? next : '/partner';
   if (me.agent) return next.startsWith('/agent') || next.startsWith('/profile') ? next : '/agent';
+  if (me.vendor) return next.startsWith('/vendor') || next.startsWith('/profile') ? next : '/vendor';
   if (isApplicantOnly(me)) return next.startsWith('/registration') || next.startsWith('/profile') ? next : '/registration';
   if (isAwaitingApproval(me)) return '/awaiting';
   // "/" is the public explore page; a signed-in user's home is the dashboard.
@@ -124,11 +125,11 @@ export const DASHBOARD = '/dashboard';
 
 /** Applied to register a mandal but has no mandal or festival access yet. */
 export function isApplicantOnly(me: MeUser): boolean {
-  return !me.partner && !me.agent && !me.isSuperAdmin && me.organizations.length === 0 && me.events.length === 0 && (me.mandalRegistrations?.length ?? 0) > 0;
+  return !me.partner && !me.agent && !me.vendor && !me.isSuperAdmin && me.organizations.length === 0 && me.events.length === 0 && (me.mandalRegistrations?.length ?? 0) > 0;
 }
 
 export function isAwaitingApproval(me: MeUser): boolean {
-  if (me.partner || me.agent || isApplicantOnly(me)) return false;
+  if (me.partner || me.agent || me.vendor || isApplicantOnly(me)) return false;
   return (
     !me.isSuperAdmin &&
     me.organizations.length === 0 &&

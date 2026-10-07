@@ -408,6 +408,12 @@ const bn: Messages = {
   'festival.timings': 'দর্শন / প্রবেশের সময়',
   'festival.share': 'পরিবার আর বন্ধুদের সঙ্গে শেয়ার করুন',
   'festival.volunteer': '{org}-এর সঙ্গে স্বেচ্ছাসেবক হোন',
+  'festival.stallsTitle': 'বিক্রেতাদের জন্য স্টল',
+  'festival.stallsLeft_one': '{n}টি স্টল বাকি',
+  'festival.stallsLeft_other': '{n}টি স্টল বাকি',
+  'festival.stallsSoldOut': 'সব স্টল বুক হয়ে গেছে',
+  'festival.stallsFrom': '₹{price} থেকে',
+  'festival.bookStall': 'স্টল বুক করুন',
 
   'landing.unavailable': 'এই পেজটি পাওয়া যাচ্ছে না',
   'landing.unavailableHint': 'কমিটির পেজ হয়তো এখন চালু নেই। তবুও Parvsetu-তে তাঁদের উৎসব খুঁজে পাবেন।',

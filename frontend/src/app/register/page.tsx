@@ -86,7 +86,7 @@ function BackLink({ onBack }: { onBack: () => void }) {
 function MandalRegister({ referralCode, onBack }: { referralCode: string; onBack: () => void }) {
   const { me, refresh } = useAuth();
   const router = useRouter();
-  const blocked = me && (me.partner || me.agent);
+  const blocked = me && (me.partner || me.agent || me.vendor);
   return (
     <AuthCard wide title="Register your mandal" subtitle="The Parvsetu team reviews every mandal before it goes live.">
       <BackLink onBack={onBack} />

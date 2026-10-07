@@ -2,13 +2,13 @@ import type { Metadata } from 'next';
 import { VenueCard } from '@/components/VenueDetails';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CalendarDays, Clock, HandHeart, MapPin, Ticket } from 'lucide-react';
+import { CalendarDays, Clock, HandHeart, MapPin, Store, Ticket } from 'lucide-react';
 import { FestivalBanner } from '@/components/FestivalBanner';
 import { PublicShell } from '@/components/booking/PublicShell';
 import { ShareButtons } from '@/components/ShareButtons';
 import { SponsorStrip } from '@/components/SponsorStrip';
 import { festivalTheme } from '@/lib/festival-theme';
-import { getPublicFestival, getPublicPhotos, siteUrl } from '@/lib/public-festival';
+import { getPublicFestival, getPublicPhotos, getPublicStalls, siteUrl } from '@/lib/public-festival';
 import { fmtRangeL } from '@/lib/i18n/format';
 import { getServerT } from '@/lib/i18n/server';
 import { PublicGallery } from '@/components/gallery/PublicGallery';
@@ -34,9 +34,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function FestivalPage({ params }: Props) {
   const f = await getPublicFestival(params.eventId);
   if (!f) notFound();
-  const photos = await getPublicPhotos(f.id);
+  const [photos, stalls] = await Promise.all([getPublicPhotos(f.id), getPublicStalls(f.id)]);
+  const stallsLeft = stalls.types.reduce((n, s) => n + s.available, 0);
+  const stallFrom = stalls.types.length ? Math.min(...stalls.types.map((s) => Number(s.price))) : 0;
   const th = festivalTheme(f.festivalType);
-  const { t, locale } = await getServerT();
+  const { t, tp, locale } = await getServerT();
   const range = fmtRangeL(f.startDate, f.endDate, locale);
   const url = `${siteUrl()}/f/${f.id}`;
   const place = [f.location, f.city, f.state].filter(Boolean).join(', ');
@@ -110,6 +112,25 @@ export default async function FestivalPage({ params }: Props) {
           <h2 className="mb-3 font-bold">{t('festival.share')}</h2>
           <ShareButtons url={url} text={`🙏 ${f.name} — ${f.organization.name}, ${range}`} posterUrl={`/f/${f.id}/poster`} posterName={f.name.replace(/[^\w-]+/g, '-')} />
         </section>
+
+        {stalls.open && (
+          <Link
+            href={`/vendor?festival=${f.id}`}
+            className="flex min-h-[64px] items-center justify-between gap-3 rounded-2xl border-2 border-teal-200 bg-gradient-to-r from-teal-50 to-emerald-50 px-4 py-3 text-teal-900"
+          >
+            <span className="flex items-center gap-3">
+              <Store aria-hidden className="h-7 w-7 shrink-0 text-teal-600" />
+              <span>
+                <span className="block font-extrabold">{t('festival.stallsTitle')}</span>
+                <span className="block text-sm">
+                  {stallsLeft > 0 ? tp('festival.stallsLeft', stallsLeft) : t('festival.stallsSoldOut')}
+                  {stallsLeft > 0 && stallFrom > 0 ? ` · ${t('festival.stallsFrom', { price: stallFrom.toLocaleString('en-IN') })}` : ''}
+                </span>
+              </span>
+            </span>
+            <span className="shrink-0 rounded-xl bg-teal-600 px-3 py-2 text-sm font-bold text-white">{t('festival.bookStall')}</span>
+          </Link>
+        )}
 
         {f.volunteerRegistrationOpen && (
           <Link href="/register" className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 font-semibold text-orange-800">

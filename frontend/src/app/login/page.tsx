@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { ApiError, errorMessage } from '@/lib/api';
 import { homeFor, useAuth } from '@/lib/auth';
-import { Handshake, LogIn, Ticket } from 'lucide-react';
+import { Handshake, LogIn, Store, Ticket } from 'lucide-react';
 import { Alert, Button, LabeledInput } from '@/components/ui';
 import { AuthCard } from '@/components/AuthCard';
 
@@ -88,6 +88,12 @@ function LoginForm() {
         className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-50 to-fuchsia-50 font-semibold text-violet-800 ring-1 ring-violet-200 hover:from-violet-100 hover:to-fuchsia-100"
       >
         <Handshake aria-hidden className="h-5 w-5" /> Brands: become a promotional partner
+      </Link>
+      <Link
+        href="/vendor/signup"
+        className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-50 to-emerald-50 font-semibold text-teal-800 ring-1 ring-teal-200 hover:from-teal-100 hover:to-emerald-100"
+      >
+        <Store aria-hidden className="h-5 w-5" /> Stall vendors: book stalls at festivals
       </Link>
     </form>
   );

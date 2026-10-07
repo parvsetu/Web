@@ -46,6 +46,16 @@ export async function getPublicPhotos(eventId: string): Promise<PublicPhoto[]> {
   }
 }
 
+/** Stall booking for vendors: open or not, and what's left (cached 1 minute — counts move). */
+export async function getPublicStalls(eventId: string): Promise<{ open: boolean; types: { available: number; price: string }[] }> {
+  try {
+    const res = await fetch(`${API}/public/events/${encodeURIComponent(eventId)}/stalls`, { next: { revalidate: 60 } });
+    return res.ok ? await res.json() : { open: false, types: [] };
+  } catch {
+    return { open: false, types: [] };
+  }
+}
+
 /** Absolute site origin for links/previews. */
 export function siteUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL;

@@ -36,6 +36,7 @@ function Profile() {
               {me.isSuperAdmin && <span className="rounded-full bg-white/25 px-2 py-0.5">Platform admin</span>}
               {me.partner && <span className="rounded-full bg-white/25 px-2 py-0.5">Partner · {me.partner.name}</span>}
               {me.agent && <span className="rounded-full bg-white/25 px-2 py-0.5">Field agent · {me.agent.code}</span>}
+              {me.vendor && <span className="rounded-full bg-white/25 px-2 py-0.5">Stall vendor · {me.vendor.businessName}</span>}
               {me.organizations.length > 0 && !me.isSuperAdmin && (
                 <span className="rounded-full bg-white/25 px-2 py-0.5">
                   {me.organizations.length} mandal{me.organizations.length === 1 ? '' : 's'}
@@ -53,7 +54,7 @@ function Profile() {
         </div>
         <div className="flex flex-col gap-4">
           <SecurityCard />
-          {me.agent ? <AgentCard me={me} /> : !me.partner && <AccessCard me={me} />}
+          {me.agent ? <AgentCard me={me} /> : !me.partner && !me.vendor && <AccessCard me={me} />}
         </div>
       </div>
     </div>

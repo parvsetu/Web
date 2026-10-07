@@ -12,7 +12,8 @@ export type Permission =
   | 'SETTINGS_VIEW' | 'SETTINGS_UPDATE'
   | 'AUDIT_VIEW'
   | 'GALLERY_VIEW' | 'GALLERY_MANAGE'
-  | 'REVIEW_VIEW' | 'REVIEW_MANAGE';
+  | 'REVIEW_VIEW' | 'REVIEW_MANAGE'
+  | 'STALL_VIEW' | 'STALL_MANAGE';
 
 export interface Paged<T> {
   items: T[];
@@ -91,6 +92,8 @@ export interface MeUser {
   partner?: { id: string; name: string; status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' } | null;
   /** Set for field-agent accounts — they use /agent, not the mandal app. */
   agent?: { id: string; name: string; code: string; status: 'ACTIVE' | 'SUSPENDED' } | null;
+  /** Set for stall-vendor accounts — they use /vendor, not the mandal app. */
+  vendor?: { id: string; businessName: string; status: 'ACTIVE' | 'SUSPENDED' } | null;
   /** Mandal registrations this person applied for (status at /registration). */
   mandalRegistrations?: { id: string; status: RegistrationStatus; orgName: string; organizationId: string | null; reviewNote: string | null; createdAt: string }[];
 }

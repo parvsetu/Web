@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, errorMessage, setToken } from '@/lib/api';
 import { useAuth, useRequireAuth } from '@/lib/auth';
-import { ArrowLeft, BriefcaseBusiness, CalendarHeart, ClipboardCheck, Handshake, HelpCircle, KeyRound, LogOut, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarHeart, ClipboardCheck, Handshake, HelpCircle, KeyRound, LogOut, ShieldCheck, Store, UserRound } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { LogoMark } from './FestivalArt';
 import { Alert, Button, LabeledInput, Modal, SkeletonList, cx } from './ui';
@@ -110,6 +110,10 @@ function UserMenu() {
             ) : me.agent ? (
               <Link href="/agent" className={menuItem} onClick={() => setOpen(false)}>
                 <BriefcaseBusiness aria-hidden className="h-5 w-5 text-emerald-600" /> Agent dashboard
+              </Link>
+            ) : me.vendor ? (
+              <Link href="/vendor" className={menuItem} onClick={() => setOpen(false)}>
+                <Store aria-hidden className="h-5 w-5 text-teal-600" /> My stalls
               </Link>
             ) : (
               <Link href="/dashboard" className={menuItem} onClick={() => setOpen(false)}>
