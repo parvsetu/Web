@@ -50,6 +50,9 @@ export const PERMISSIONS = {
 
   GALLERY_VIEW: 'View festival photos (including private ones)',
   GALLERY_MANAGE: 'Upload, caption, publish and delete festival photos',
+
+  REVIEW_VIEW: 'View visitor reviews and photos (including pending ones)',
+  REVIEW_MANAGE: 'Approve, reject, hide, feature and delete visitor reviews',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -108,7 +111,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     description: 'Read-only access to reports and statistics',
     permissions: [
       'EVENT_VIEW', 'TOKEN_VIEW', 'VOLUNTEER_VIEW', 'REPORT_VIEW', 'REPORT_EXPORT',
-      'DONATION_VIEW', 'EXPENSE_VIEW', 'GALLERY_VIEW',
+      'DONATION_VIEW', 'EXPENSE_VIEW', 'GALLERY_VIEW', 'REVIEW_VIEW',
     ],
   },
 ];

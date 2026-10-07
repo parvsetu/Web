@@ -11,6 +11,7 @@ import {
   UploadedImageFile, imageInfo,
 } from '../../common/images/image-info';
 import { orgImageUrls } from '../../common/org-brand';
+import { mb, storageUsage } from '../../common/images/quota';
 import { OrgPhotoListQuery, PhotoListQuery, UpdatePhotoDto } from './gallery.dto';
 
 /** Festivals whose public photos may be shown (drafts stay private). */
@@ -104,9 +105,9 @@ export class GalleryService {
 
   // ─── Photos ──────────────────────────────────────────────────────────
 
+  /** Festival photos + visitor review photos + achievement images (see common/images/quota.ts). */
   async usage(orgId: string, db: Prisma.TransactionClient | PrismaService = this.prisma) {
-    const agg = await db.eventPhoto.aggregate({ where: { organizationId: orgId }, _sum: { sizeBytes: true }, _count: { _all: true } });
-    return { usedBytes: agg._sum.sizeBytes ?? 0, quotaBytes: GALLERY_QUOTA_BYTES, photos: agg._count._all };
+    return storageUsage(db, orgId);
   }
 
   private parseMeta(raw: string | undefined, count: number): PhotoMeta[] {
@@ -304,8 +305,4 @@ export class GalleryService {
     ]);
     return paged(rows.map((p) => presentPhoto(p)), total, page, pageSize);
   }
-}
-
-function mb(bytes: number) {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }

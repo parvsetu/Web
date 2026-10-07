@@ -28,6 +28,7 @@ import { GalleryModule } from './modules/gallery/gallery.module';
 import { LandingModule } from './modules/landing/landing.module';
 import { RegistrationsModule } from './modules/registrations/registrations.module';
 import { AgentsModule } from './modules/agents/agents.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { AgentsModule } from './modules/agents/agents.module';
     LandingModule,
     RegistrationsModule,
     AgentsModule,
+    ReviewsModule,
   ],
   providers: [
     // Order matters: authenticate → rate-limit (per user) → authorize.

@@ -12,6 +12,9 @@ import { SponsorsService } from '../sponsors/sponsors.service';
 import { publicPhoto } from '../gallery/gallery.service';
 import { GrantLandingDto, UpdateLandingPageDto } from './landing.dto';
 import { extendPaidUntil, landingState, socialUrl, whatsappNumber } from './landing.rules';
+import { LAYOUT_CATALOG, defaultLayout, normalizeLayout, validateLayout } from './landing-layout';
+import { AchievementsService } from './achievements.service';
+import { ReviewsService } from '../reviews/reviews.service';
 
 type Db = Prisma.TransactionClient | PrismaService;
 
@@ -26,6 +29,7 @@ function presentContent(lp: LandingPage | null) {
     instagramUrl: lp?.instagramUrl ?? null, facebookUrl: lp?.facebookUrl ?? null, youtubeUrl: lp?.youtubeUrl ?? null,
     whatsappNumber: lp?.whatsappNumber ?? null,
     featuredEventIds: lp?.featuredEventIds ?? [], photoIds: lp?.photoIds ?? [], themeColor: lp?.themeColor ?? 'saffron',
+    layout: normalizeLayout(lp?.layout),
   };
 }
 
@@ -45,7 +49,10 @@ function presentPurchase(p: LandingPurchase) {
  */
 @Injectable()
 export class LandingService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly sponsors: SponsorsService, private readonly billing: BillingService) {}
+  constructor(
+    private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly sponsors: SponsorsService,
+    private readonly billing: BillingService, private readonly achievements: AchievementsService, private readonly reviews: ReviewsService,
+  ) {}
 
   async yearlyPricePaise(organizationId: string, db: Db = this.prisma) {
     return (await this.billing.rates(db, organizationId)).landingPagePricePaise;
@@ -104,6 +111,27 @@ export class LandingService {
       }, tx);
       return presentContent(after);
     });
+  }
+
+  // ─── Layout (section order / visibility / variant) ───────────────────
+
+  async layout(organizationId: string) {
+    const lp = await this.prisma.landingPage.findUnique({ where: { organizationId }, select: { layout: true } });
+    return { sections: normalizeLayout(lp?.layout), customized: !!lp?.layout, defaults: defaultLayout(), catalog: LAYOUT_CATALOG };
+  }
+
+  async setLayout(actorId: string, organizationId: string, input: { id: string; visible: boolean; variant?: string }[]) {
+    const sections = validateLayout(input);
+    await this.prisma.$transaction(async (tx) => {
+      const before = await tx.landingPage.findUnique({ where: { organizationId }, select: { layout: true } });
+      const json = sections as unknown as Prisma.InputJsonValue;
+      await tx.landingPage.upsert({ where: { organizationId }, create: { organizationId, layout: json }, update: { layout: json } });
+      await this.audit.log({
+        organizationId, actorId, action: 'landing.layout_updated', entityType: 'LandingPage', entityId: organizationId,
+        before: normalizeLayout(before?.layout), after: sections,
+      }, tx);
+    });
+    return this.layout(organizationId);
   }
 
   async startPurchase(actorId: string, organizationId: string) {
@@ -201,6 +229,21 @@ export class LandingService {
 
   // ─── Public ──────────────────────────────────────────────────────────
 
+  /** Organization id behind a live landing page (404 otherwise) — for its paginated public lists. */
+  private async liveOrgId(slug: string) {
+    const org = await this.prisma.organization.findUnique({ where: { slug }, select: { id: true, landingPage: { select: { paidUntil: true, enabled: true } } } });
+    if (!org || landingState(org.landingPage) !== 'ACTIVE') throw new NotFoundException('This page is not available.');
+    return org.id;
+  }
+
+  async publicReviews(slug: string, q: PageQuery) {
+    return this.reviews.publicList({ organizationId: await this.liveOrgId(slug) }, q, 6);
+  }
+
+  async publicVisitorPhotos(slug: string, q: PageQuery) {
+    return this.reviews.visitorPhotos(await this.liveOrgId(slug), q, 12);
+  }
+
   /** The public page. 404 unless paid up and enabled — unless `preview` (the mandal's own editor). */
   async publicPage(slug: string, preview = false) {
     const org = await this.prisma.organization.findUnique({
@@ -255,6 +298,10 @@ export class LandingService {
       past: [...pastByYear.entries()].sort((a, b) => b[0] - a[0]).map(([year, list]) => ({ year, events: list })),
       photos: photos.map(publicPhoto),
       sponsors: await this.sponsors.forOrg(org.id),
+      achievements: await this.achievements.publicFor(org.id),
+      ...(await this.reviews.landingBlock(org.id)),
+      /** Section order / visibility / variant, exactly as the mandal saved it (normalized). */
+      layout: lp.layout,
     };
   }
 }

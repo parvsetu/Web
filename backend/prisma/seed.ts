@@ -506,6 +506,82 @@ async function seedRegistrationControl() {
   console.log('Demo pending registration created: Shiv Shakti Mitra Mandal (Nagpur), referred by RAKESH30.');
 }
 
+/**
+ * Jan Utsav Samiti showcases visitor reviews, trophies and a custom landing layout:
+ * three achievements, a layout with "Trophies & recognition" right after the hero,
+ * and on one LIVE festival five PAID (seed) pass orders — four with approved,
+ * text-only reviews and one with a pending review that the auto-screen flagged —
+ * plus one paid order without a review, whose pass link is printed so the
+ * "Share your experience" flow can be tried. Each part is guarded by an existence
+ * check, so reruns on a live DB are no-ops.
+ */
+async function seedVisitorShowcase() {
+  const jan = await prisma.organization.findUnique({ where: { slug: 'jan-utsav-samiti' } });
+  if (!jan) return;
+  if (!(await prisma.achievement.findFirst({ where: { organizationId: jan.id } }))) {
+    await prisma.achievement.createMany({ data: [
+      { organizationId: jan.id, title: 'Best Pandal Decoration', year: 2025, awardedBy: 'Pune Municipal Corporation', icon: 'TROPHY', description: 'First prize in the city-wide pandal decoration contest for our eco-friendly “Wari” theme.' },
+      { organizationId: jan.id, title: 'Eco-friendly Ganesh Award', year: 2024, awardedBy: 'Maharashtra Pollution Control Board', icon: 'MEDAL', description: 'Shadu-clay murti, artificial immersion tank and zero plastic at the venue.' },
+      { organizationId: jan.id, title: 'Community Service Trophy', year: 2023, awardedBy: 'Rotary Club of Pune', icon: 'CROWN', description: 'For the free community kitchen that served 40,000+ meals during the festival season.' },
+    ] });
+    console.log('Demo achievements added for Jan Utsav Samiti.');
+  }
+  const lp = await prisma.landingPage.findUnique({ where: { organizationId: jan.id }, select: { layout: true } });
+  if (lp && lp.layout === null) {
+    const order = ['hero', 'trophies', 'about', 'upcoming', 'reviews', 'gallery', 'visitorPhotos', 'past', 'sponsors', 'contact'];
+    const variants: Record<string, string> = { hero: 'DEFAULT', trophies: 'SHELF', about: 'CHIPS', upcoming: 'CARDS', reviews: 'CARDS', gallery: 'GRID' };
+    await prisma.landingPage.update({ where: { organizationId: jan.id }, data: { layout: order.map((id) => ({ id, visible: true, variant: variants[id] ?? 'DEFAULT' })) } });
+    console.log('Demo landing layout saved for Jan Utsav Samiti (trophies right after the hero).');
+  }
+  if (await prisma.visitorReview.findFirst({ where: { organizationId: jan.id } })) return;
+  const ev = (await prisma.event.findFirst({ where: { organizationId: jan.id, festivalType: 'CRAFT_EXHIBITION', approvalStatus: 'LIVE', status: 'ACTIVE' }, include: { timeSlots: true } }))
+    ?? (await prisma.event.findFirst({ where: { organizationId: jan.id, approvalStatus: 'LIVE', status: 'ACTIVE' }, include: { timeSlots: true }, orderBy: { startDate: 'asc' } }));
+  const slot = ev?.timeSlots.find((t) => t.isActive) ?? ev?.timeSlots[0];
+  if (!ev || !slot) return;
+  const day = ev.startDate.toISOString().slice(0, 10);
+  const from = DateTime.fromISO(`${day}T${slot.startTime}`, { zone: ev.timezone });
+  const until = DateTime.fromISO(`${day}T${slot.endTime}`, { zone: ev.timezone });
+  const defs = [
+    { buyer: 'Priya Kulkarni', name: 'Priya K.', rating: 5, text: 'Beautiful stalls and so well organised! Loved the Warli painting workshop — my kids didn’t want to leave.', featured: true },
+    { buyer: 'Rahul Deshpande', name: 'Rahul D.', rating: 5, text: 'Entry with the QR pass took seconds. Clean venue, drinking water everywhere and very helpful volunteers.', featured: true },
+    { buyer: 'Sneha Joshi', name: 'Sneha J.', rating: 4, text: 'Great handloom collection from so many states. Parking was a bit tight in the evening, come early.', featured: false },
+    { buyer: 'Amit Patil', name: 'Amit P.', rating: 5, text: 'खूप छान आयोजन! Pottery and Madhubani art were the highlight for us. Will come again next year.', featured: false },
+    { buyer: 'Vikram Shinde', name: 'Vikram S.', rating: 2, text: 'Call me on 98765 43210 for cheap stall bookings, visit www.example-deals.in', featured: false, pending: true },
+    { buyer: 'Demo Visitor', name: null, rating: 0, text: null, featured: false, noReview: true },
+  ];
+  const price = slot.price;
+  let demoLink: string | null = null;
+  for (const [i, d] of defs.entries()) {
+    const paidAt = from.plus({ minutes: 10 + i * 7 }).toJSDate();
+    const order = await prisma.passOrder.create({ data: {
+      eventId: ev.id, timeSlotId: slot.id, validFrom: from.toJSDate(), validUntil: until.toJSDate(), visitorCount: 2,
+      buyerName: d.buyer, buyerMobile: `90000009${String(i).padStart(2, '0')}`, unitPrice: price, baseAmount: price.mul(2), amount: price.mul(2),
+      status: 'PAID', paymentProvider: 'demo', providerOrderId: `seed_review_${ev.id.slice(0, 8)}_${i}`, paymentReference: `seed_pay_${i}`,
+      accessKey: randomBytes(24).toString('base64url'), expiresAt: paidAt, paidAt, createdAt: paidAt,
+    } });
+    const [{ tokenSeq }] = await prisma.$queryRaw<{ tokenSeq: number }[]>`UPDATE events SET "tokenSeq" = "tokenSeq" + 1 WHERE id = ${ev.id} RETURNING "tokenSeq"`;
+    await prisma.token.create({ data: {
+      eventId: ev.id, tokenCode: `${ev.tokenPrefix}-${ev.startDate.getUTCFullYear()}-${String(tokenSeq).padStart(6, '0')}`, secureToken: randomBytes(16).toString('base64url'),
+      timeSlotId: slot.id, visitorCount: 2, validFrom: from.toJSDate(), validUntil: until.toJSDate(), passOrderId: order.id,
+      status: d.noReview ? 'ACTIVE' : 'USED', usedAt: d.noReview ? null : from.plus({ minutes: 40 }).toJSDate(),
+    } });
+    if (d.noReview) {
+      demoLink = `/pass/${order.id}?k=${order.accessKey}`;
+      continue;
+    }
+    const createdAt = from.plus({ hours: 3, minutes: i * 13 }).toJSDate();
+    await prisma.visitorReview.create({ data: {
+      organizationId: jan.id, eventId: ev.id, passOrderId: order.id, rating: d.rating, text: d.text, displayName: d.name!,
+      status: d.pending ? 'PENDING' : 'APPROVED', featured: d.featured, featuredAt: d.featured ? createdAt : null,
+      flagged: !!d.pending, flagReasons: d.pending ? ['CONTAINS_LINK', 'CONTAINS_PHONE'] : [],
+      consentVersion: 'review-consent-2026-10-02', consentAt: createdAt, createdAt,
+      moderatedAt: d.pending ? null : createdAt, moderationNote: null,
+    } });
+  }
+  console.log(`Demo visitor reviews added on ${ev.name} (4 approved, 1 pending + flagged).`);
+  if (demoLink) console.log(`Try "Share your experience" on a seeded pass: ${demoLink}`);
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -519,6 +595,7 @@ async function main() {
     await seedPartners();
     await seedLandingAndPeakPricing();
     await seedRegistrationControl();
+    await seedVisitorShowcase();
   }
 }
 

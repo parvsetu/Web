@@ -165,20 +165,20 @@ model User {
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
-  memberships      OrganizationMember[]
-  assignments      EventAssignment[]      @relation("AssignmentUser")
-  applications     VolunteerApplication[] @relation("ApplicationUser")
-  scanLogs         ScanLog[]
-  tokensUsed       Token[]                @relation("TokenUsedBy")
-  tokensIssued     Token[]                @relation("TokenIssuedBy")
-  tokensCancelled  Token[]                @relation("TokenCancelledBy")
-  donationsCreated Donation[]
-  expensesCreated  Expense[]
-  auditLogs        AuditLog[]
-  otps             EmailOtp[]
-  partner          Partner?               @relation(fields: [partnerId], references: [id], onDelete: SetNull)
-  agent            Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  mandalRegistrations MandalRegistration[] @relation("RegistrationApplicant")
+  memberships         OrganizationMember[]
+  assignments         EventAssignment[]      @relation("AssignmentUser")
+  applications        VolunteerApplication[] @relation("ApplicationUser")
+  scanLogs            ScanLog[]
+  tokensUsed          Token[]                @relation("TokenUsedBy")
+  tokensIssued        Token[]                @relation("TokenIssuedBy")
+  tokensCancelled     Token[]                @relation("TokenCancelledBy")
+  donationsCreated    Donation[]
+  expensesCreated     Expense[]
+  auditLogs           AuditLog[]
+  otps                EmailOtp[]
+  partner             Partner?               @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  agent               Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  mandalRegistrations MandalRegistration[]   @relation("RegistrationApplicant")
   passwordSetupTokens PasswordSetupToken[]
 
   @@index([partnerId])
@@ -187,24 +187,24 @@ model User {
 }
 
 model Organization {
-  id            String   @id @default(uuid())
-  name          String
-  slug          String   @unique
-  state         String?
-  city          String?
-  address       String?
+  id                String    @id @default(uuid())
+  name              String
+  slug              String    @unique
+  state             String?
+  city              String?
+  address           String?
   /// Festival/event types this mandal celebrates; the event form lists only these. Empty = show all.
-  festivalTypes String[] @default([])
+  festivalTypes     String[]  @default([])
   /// ImageStore keys (bytes live behind the ImageStore interface, never on this row).
-  logoKey         String?
-  logoUpdatedAt   DateTime?
-  bannerKey       String?
-  bannerUpdatedAt DateTime?
+  logoKey           String?
+  logoUpdatedAt     DateTime?
+  bannerKey         String?
+  bannerUpdatedAt   DateTime?
   /// Field agent who brought this mandal in (referral earnings). Set from the registration or by the super admin.
-  agentId         String?
+  agentId           String?
   agentAttributedAt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   members            OrganizationMember[]
   events             Event[]
@@ -224,7 +224,10 @@ model Organization {
   storedImages       StoredImage[]
   landingPage        LandingPage?
   landingPurchases   LandingPurchase[]
-  agent              Agent?               @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  reviews            VisitorReview[]
+  reviewPhotos       ReviewPhoto[]
+  achievements       Achievement[]
+  agent              Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
   registration       MandalRegistration?
   eventFeePayments   EventFeePayment[]
   agentLedger        AgentLedgerEntry[]
@@ -295,7 +298,7 @@ model OrganizationMember {
 }
 
 model Event {
-  id                        String      @id @default(uuid())
+  id                        String              @id @default(uuid())
   organizationId            String
   name                      String
   // Free-form key so new festivals need no migration (GANESH_UTSAV, DURGA_PUJA, ...).
@@ -312,40 +315,40 @@ model Event {
   venueLng                  Float?
   venueNotes                String?
   venueContactPhone         String?
-  startDate                 DateTime    @db.Date
-  endDate                   DateTime    @db.Date
-  timezone                  String      @default("Asia/Kolkata")
-  status                    EventStatus @default(DRAFT)
+  startDate                 DateTime            @db.Date
+  endDate                   DateTime            @db.Date
+  timezone                  String              @default("Asia/Kolkata")
+  status                    EventStatus         @default(DRAFT)
   tokenPrefix               String
   // Atomic per-event counter for human-readable token codes (PREFIX-YYYY-000001).
-  tokenSeq                  Int         @default(0)
-  donationReceiptSeq        Int         @default(0)
-  volunteerRegistrationOpen Boolean     @default(false)
+  tokenSeq                  Int                 @default(0)
+  donationReceiptSeq        Int                 @default(0)
+  volunteerRegistrationOpen Boolean             @default(false)
   // Visitors can buy/book passes on the public site (prices live on time slots).
-  publicBookingEnabled      Boolean     @default(false)
+  publicBookingEnabled      Boolean             @default(false)
   // Duration presets (hours) the token desk may issue, e.g. {3,4,6,24}.
   // Admins (TOKEN_GENERATE) may use any duration.
-  tokenDurationOptions      Int[]       @default([])
+  tokenDurationOptions      Int[]               @default([])
   // GST on online pass sales. Bearer CUSTOMER = added on top of the price;
   // MANDAL = price is GST-inclusive (tax carved out of it).
-  gstEnabled                Boolean     @default(false)
-  gstRateBps                Int         @default(1800)
-  gstBearer                 String      @default("CUSTOMER")
-  gstSac                    String      @default("9996")
+  gstEnabled                Boolean             @default(false)
+  gstRateBps                Int                 @default(1800)
+  gstBearer                 String              @default("CUSTOMER")
+  gstSac                    String              @default("9996")
   /// SLAB: per-ticket taxable value ≤ threshold → gstLowRateBps, above → gstRateBps.
   /// FLAT: gstRateBps for every ticket.
-  gstMode                   String      @default("SLAB")
-  gstSlabThresholdPaise     Int         @default(10000)
-  gstLowRateBps             Int         @default(500)
-  passInvoiceSeq            Int         @default(0)
+  gstMode                   String              @default("SLAB")
+  gstSlabThresholdPaise     Int                 @default(10000)
+  gstLowRateBps             Int                 @default(500)
+  passInvoiceSeq            Int                 @default(0)
   /// Default print layout for passes: A4 | THERMAL_80 | THERMAL_58
-  passPrintFormat           String      @default("A4")
-  maxVisitorsPerToken       Int         @default(10)
+  passPrintFormat           String              @default("A4")
+  maxVisitorsPerToken       Int                 @default(10)
   /// Platform review/payment state (see common/event-approval.ts). Only LIVE events are public,
   /// bookable, can issue/scan passes or be set ACTIVE. Event.status stays the operational state.
   approvalStatus            EventApprovalStatus @default(DRAFT)
   /// Events that existed before per-event fees (treated as paid, fee 0).
-  feeLegacy                 Boolean     @default(false)
+  feeLegacy                 Boolean             @default(false)
   /// Fee quoted when submitted for review; locked into feePaise when the super admin approves.
   feeQuotedPaise            Int?
   feePaise                  Int?
@@ -360,8 +363,8 @@ model Event {
   liveAt                    DateTime?
   /// The registration this event was requested in (null for events added later).
   registrationId            String?
-  createdAt                 DateTime    @default(now())
-  updatedAt                 DateTime    @updatedAt
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
 
   organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   feePayments      EventFeePayment[]
@@ -380,6 +383,7 @@ model Event {
   partnerCampaigns PartnerCampaign[]
   photos           EventPhoto[]
   priceRules       PriceRule[]
+  reviews          VisitorReview[]
 
   @@index([organizationId])
   @@index([state, city])
@@ -671,9 +675,10 @@ model PassOrder {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  timeSlot TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
+  event    Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  timeSlot TimeSlot       @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
   tokens   Token[]
+  review   VisitorReview?
 
   @@unique([paymentProvider, providerOrderId])
   @@unique([eventId, invoiceNo], map: "pass_orders_event_invoice_key")
@@ -737,28 +742,28 @@ model Sponsor {
 // fee per person admitted = round(tokenPrice × commissionBps / 10000).
 
 model PlatformSettings {
-  id                      String   @id @default("default")
-  defaultTokenPricePaise  Int      @default(10000)
-  defaultCommissionBps    Int      @default(100)
-  lowCreditThresholdPaise Int      @default(20000)
-  welcomeCreditPaise      Int      @default(10000)
+  id                          String   @id @default("default")
+  defaultTokenPricePaise      Int      @default(10000)
+  defaultCommissionBps        Int      @default(100)
+  lowCreditThresholdPaise     Int      @default(20000)
+  welcomeCreditPaise          Int      @default(10000)
   /// Default promotional-partner rate per printed pass (paid by the partner, not the mandal).
-  sponsorPassFeePaise     Int      @default(50)
+  sponsorPassFeePaise         Int      @default(50)
   /// Gateway fee deducted from the mandal's share on online payments (bps).
-  gatewayFeeBps           Int      @default(0)
+  gatewayFeeBps               Int      @default(0)
   /// Pass print layout for mandals without an override: AUTO | A4 | THERMAL_80 | THERMAL_58.
   /// AUTO = A4 when a pass carries 2+ ads (sponsors + platform partners), else THERMAL_80.
-  defaultPassPrintFormat  String   @default("AUTO")
+  defaultPassPrintFormat      String   @default("AUTO")
   /// Yearly fee for a mandal landing page at /m/<slug>, for mandals without an override.
-  landingPageYearlyPricePaise Int  @default(99900)
+  landingPageYearlyPricePaise Int      @default(99900)
   /// Registration fee per event (each event is paid separately) when no festival-type / mandal rate applies.
-  defaultEventFeePaise    Int      @default(49900)
+  defaultEventFeePaise        Int      @default(49900)
   /// Field-agent referral: fixed amount per mandal, earned when it pays its first event fee.
-  agentReferralFeePaise   Int      @default(20000)
+  agentReferralFeePaise       Int      @default(20000)
   /// Field-agent commission on every paid event fee (bps of the fee).
-  agentCommissionBps      Int      @default(0)
-  updatedAt               DateTime @updatedAt
-  updatedById             String?
+  agentCommissionBps          Int      @default(0)
+  updatedAt                   DateTime @updatedAt
+  updatedById                 String?
 
   @@map("platform_settings")
 }
@@ -766,26 +771,26 @@ model PlatformSettings {
 /// One per mandal. creditBalancePaise has a CHECK (>= 0) — the database
 /// itself refuses any debit that would overdraw.
 model OrgBilling {
-  organizationId          String   @id
-  creditBalancePaise      Int      @default(0)
-  tokenPricePaise         Int?
-  commissionBps           Int?
-  lowCreditThresholdPaise Int?
+  organizationId              String   @id
+  creditBalancePaise          Int      @default(0)
+  tokenPricePaise             Int?
+  commissionBps               Int?
+  lowCreditThresholdPaise     Int?
   /// Partner rate per pass at this mandal (null = platform default).
-  sponsorPassFeePaise     Int?
+  sponsorPassFeePaise         Int?
   /// Pass print layout, set by the super admin (null = platform default). The mandal can't change it.
-  passPrintFormat         String?
+  passPrintFormat             String?
   /// Landing page yearly fee at this mandal (null = platform default).
   landingPageYearlyPricePaise Int?
   /// Per-event registration fee at this mandal (null = festival type / platform default).
-  eventFeePaise           Int?
-  totalTokens             Int      @default(0)
-  totalSponsorFeesPaise   Int      @default(0)
-  totalPersons            Int      @default(0)
-  totalFeesPaise          Int      @default(0)
-  totalRechargedPaise     Int      @default(0)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  eventFeePaise               Int?
+  totalTokens                 Int      @default(0)
+  totalSponsorFeesPaise       Int      @default(0)
+  totalPersons                Int      @default(0)
+  totalFeesPaise              Int      @default(0)
+  totalRechargedPaise         Int      @default(0)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -1119,6 +1124,9 @@ model LandingPage {
   /// Empty = the latest public photos. Only photos that are (still) public are ever shown.
   photoIds         String[]  @default([])
   themeColor       String    @default("saffron")
+  /// Section order / visibility / variant: [{ id, visible, variant }]. Null = the default layout.
+  /// Always read through normalizeLayout() (landing-layout.ts) — unknown ids dropped, missing ones appended.
+  layout           Json?
   totalPaidPaise   Int       @default(0)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -1164,20 +1172,20 @@ enum PriceRuleKind {
 }
 
 model PriceRule {
-  id          String        @id @default(uuid())
-  eventId     String
-  label       String
-  kind        PriceRuleKind
+  id              String        @id @default(uuid())
+  eventId         String
+  label           String
+  kind            PriceRuleKind
   /// DATES only: calendar dates in the event's timezone.
-  dates       DateTime[]    @db.Date
+  dates           DateTime[]    @db.Date
   /// Empty = every slot of the event.
-  timeSlotIds String[]      @default([])
+  timeSlotIds     String[]      @default([])
   /// Exactly one of fixedPricePaise / upliftBps is set (CHECK).
   fixedPricePaise Int?
-  upliftBps   Int?
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  upliftBps       Int?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
@@ -1440,4 +1448,122 @@ model PasswordSetupToken {
 
   @@index([userId])
   @@map("password_setup_tokens")
+}
+
+// ─── Visitor reviews, photos & selfies (moderated by the mandal) ──────────
+// Only a PAID PassOrder holder (order id + accessKey) can post, one review per
+// order. Nothing is public until the mandal approves it.
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+model VisitorReview {
+  id             String       @id @default(uuid())
+  organizationId String
+  eventId        String
+  passOrderId    String       @unique
+  rating         Int
+  text           String?
+  displayName    String
+  status         ReviewStatus @default(PENDING)
+  /// Auto-screening (abuse words, links, phone numbers, emails) — still goes to the queue, highlighted.
+  flagged        Boolean      @default(false)
+  flagReasons    String[]     @default([])
+  featured       Boolean      @default(false)
+  featuredAt     DateTime?
+  consentVersion String
+  consentAt      DateTime
+  moderatedById  String?
+  moderatedAt    DateTime?
+  moderationNote String?
+  /// Open (unresolved) public reports. At REVIEW_REPORT_HIDE_THRESHOLD the review is auto-hidden.
+  reportCount    Int          @default(0)
+  autoHiddenAt   DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  passOrder    PassOrder      @relation(fields: [passOrderId], references: [id], onDelete: Cascade)
+  photos       ReviewPhoto[]
+  reports      ReviewReport[]
+
+  @@index([organizationId, status, createdAt])
+  @@index([eventId, status, createdAt])
+  @@index([reportCount])
+  @@map("visitor_reviews")
+}
+
+/// A visitor photo/selfie on a review. sizeBytes (full + thumb) counts toward the mandal's 300 MB quota.
+/// Shown publicly only while approved AND its review is APPROVED.
+model ReviewPhoto {
+  id             String   @id @default(uuid())
+  reviewId       String
+  organizationId String
+  imageKey       String
+  thumbKey       String?
+  mimeType       String
+  width          Int
+  height         Int
+  sizeBytes      Int
+  approved       Boolean  @default(false)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  review       VisitorReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@index([organizationId, approved, createdAt])
+  @@map("review_photos")
+}
+
+/// A public "Report" on a review. One per reporter fingerprint (hashed IP) per review.
+model ReviewReport {
+  id           String    @id @default(uuid())
+  reviewId     String
+  reason       String
+  note         String?
+  reporterHash String
+  resolvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  review VisitorReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, reporterHash])
+  @@index([reviewId, resolvedAt])
+  @@map("review_reports")
+}
+
+// ─── Achievements, badges & trophies (landing page "Trophies & recognition") ──
+
+model Achievement {
+  id             String    @id @default(uuid())
+  organizationId String
+  title          String
+  year           Int?
+  awardedBy      String?
+  description    String?
+  /// TROPHY | MEDAL | STAR | RIBBON | CERTIFICATE | CROWN
+  icon           String    @default("TROPHY")
+  imageKey       String?
+  thumbKey       String?
+  imageMimeType  String?
+  /// Full + thumbnail bytes; counts toward the mandal's 300 MB quota.
+  imageSizeBytes Int       @default(0)
+  imageUpdatedAt DateTime?
+  /// 0 everywhere = default order (newest year first); set 1..n once the mandal reorders.
+  sortOrder      Int       @default(0)
+  isVisible      Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, sortOrder])
+  @@map("achievements")
 }
