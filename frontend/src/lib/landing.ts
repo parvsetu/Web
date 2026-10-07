@@ -1,6 +1,7 @@
 // Mandal landing page (/m/<slug>) — types and the fixed theme palette.
 import type { PublicPhoto } from './gallery-types';
 import type { SponsorPublic } from '@/components/SponsorStrip';
+import type { LayoutSection, PublicAchievement, PublicReview, ReviewSummary, VisitorPhoto } from './review-types';
 
 export const LANDING_THEMES: Record<string, { label: string; from: string; via: string; to: string; ink: string; soft: string }> = {
   saffron: { label: 'Saffron', from: '#f59e0b', via: '#f97316', to: '#e11d48', ink: '#c2410c', soft: '#fff7ed' },
@@ -29,6 +30,7 @@ export interface LandingContent {
   featuredEventIds: string[];
   photoIds: string[];
   themeColor: string;
+  layout: LayoutSection[];
 }
 
 export interface LandingPurchase {
@@ -80,6 +82,11 @@ export interface LandingPublic {
   past: { year: number; events: LandingEventCard[] }[];
   photos: PublicPhoto[];
   sponsors: SponsorPublic[];
+  achievements: PublicAchievement[];
+  reviews: ReviewSummary & { items: PublicReview[]; total: number };
+  visitorPhotos: { items: VisitorPhoto[]; total: number };
+  /** Section order / visibility / variant as the mandal saved it (normalized by the server). */
+  layout: LayoutSection[];
 }
 
 const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/+$/, '');

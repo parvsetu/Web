@@ -32,6 +32,11 @@ export function UsageBar({ usage }: { usage: GalleryUsage | null | undefined }) 
       <div className="h-2 overflow-hidden rounded-full bg-orange-100">
         <div className={cx('h-full rounded-full', pct > 90 ? 'bg-red-500' : 'bg-gradient-to-r from-amber-400 to-orange-500')} style={{ width: `${pct}%` }} />
       </div>
+      {usage.breakdown && (usage.breakdown.visitorPhotoBytes > 0 || usage.breakdown.achievementBytes > 0) && (
+        <p className="text-xs text-slate-500">
+          Festival photos {formatMb(usage.breakdown.photoBytes)} · visitor review photos {formatMb(usage.breakdown.visitorPhotoBytes)} · trophy photos {formatMb(usage.breakdown.achievementBytes)}
+        </p>
+      )}
     </div>
   );
 }

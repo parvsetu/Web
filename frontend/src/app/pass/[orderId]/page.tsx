@@ -9,6 +9,7 @@ import { PublicShell } from '@/components/booking/PublicShell';
 import { PassActions, PassCard } from '@/components/booking/PassCard';
 import { PassCarousel } from '@/components/booking/PassCarousel';
 import { SponsorStrip, type SponsorPublic } from '@/components/SponsorStrip';
+import { ReviewPanel } from '@/components/reviews/ReviewForm';
 import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '@/components/PrintFormat';
 import { Alert, Button, Empty, Skeleton, Spinner } from '@/components/ui';
 import { fmtMoney } from '@/lib/format';
@@ -125,6 +126,7 @@ function PassView() {
             <PassActions order={order} pass={passes[0]} />
           </>
         )}
+        <ReviewPanel orderId={order.id} k={k} />
         <VenueCard venue={order.event.venue} className="no-print" />
         <OrderSponsors eventId={order.event.id} />
         <TaxInvoice order={order} />

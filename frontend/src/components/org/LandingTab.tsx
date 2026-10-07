@@ -14,6 +14,8 @@ import { LANDING_THEMES, type LandingContent, type LandingPurchase, type Landing
 import type { Photo } from '@/lib/gallery-types';
 import type { EventDetail, Paged } from '@/lib/types';
 import { cx } from '@/lib/cx';
+import { AchievementsEditor } from './AchievementsEditor';
+import { LayoutEditor } from './LayoutEditor';
 import { Alert, Badge, Button, Card, Checkbox, Field, LabeledInput, Modal, SectionTitle, SkeletonList, Textarea } from '../ui';
 
 const STATE_LABEL: Record<LandingStatus['state'], { text: string; tone: string }> = {
@@ -52,8 +54,8 @@ export function LandingTab() {
           </div>
         </div>
         <p className="text-sm text-slate-600">
-          A shareable page for your mandal with your banner and logo, upcoming festivals (with booking links), past festivals by year, public photos, sponsors and
-          contact buttons. Renewing while active adds a year to the current end date.
+          A shareable page for your mandal with your banner and logo, upcoming festivals (with booking links), trophies, visitor reviews and photos, past
+          festivals by year, public photos, sponsors and contact buttons. Renewing while active adds a year to the current end date.
         </p>
         <div className="flex flex-wrap gap-2">
           {edit && (
@@ -78,6 +80,8 @@ export function LandingTab() {
         {s.purchases.length > 0 && <PurchaseList list={s.purchases} />}
       </Card>
       <Editor key={JSON.stringify(s.content)} content={s.content} editable={edit} onSaved={q.reload} />
+      <AchievementsEditor editable={edit} />
+      <LayoutEditor editable={edit} />
       {paying && <PayModal price={s.price} onClose={() => setPaying(false)} onDone={() => { setPaying(false); q.reload(); }} />}
     </div>
   );

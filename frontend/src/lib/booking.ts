@@ -14,6 +14,7 @@ import type {
   PassOrder,
   SavedPass,
 } from './booking-types';
+import type { OrderReviewState, OwnReview, PublicReviewPage, ReportReason, VisitorPhotoPage } from './review-types';
 
 // The API sleeps when idle (free hosting) and can take up to a minute to wake,
 // so reads wait long and retry once; creating an order never retries.
@@ -143,7 +144,43 @@ export const booking = {
   demoPay: (orderId: string, k: string, outcome: 'success' | 'fail') =>
     call<PassOrder>('POST', `/public/booking/orders/${encodeURIComponent(orderId)}/demo-pay`, { body: { k, outcome } }),
   sponsors: (eventId: string) => call<import('@/components/SponsorStrip').SponsorPublic[]>('GET', `/public/events/${encodeURIComponent(eventId)}/sponsors`),
+  // Visitor reviews. Posting/editing is multipart (photos) — see lib/reviews.ts.
+  orderReview: (orderId: string, k: string) => call<OrderReviewState>('GET', `/public/booking/orders/${encodeURIComponent(orderId)}/review`, { query: { k } }),
+  eventReviews: (eventId: string, page = 1) => call<PublicReviewPage>('GET', `/public/events/${encodeURIComponent(eventId)}/reviews`, { query: { page } }),
+  landingReviews: (slug: string, page = 1) => call<PublicReviewPage>('GET', `/public/landing/${encodeURIComponent(slug)}/reviews`, { query: { page } }),
+  visitorPhotos: (slug: string, page = 1) => call<VisitorPhotoPage>('GET', `/public/landing/${encodeURIComponent(slug)}/visitor-photos`, { query: { page } }),
+  reportReview: (reviewId: string, body: { reason: ReportReason; note?: string }) =>
+    call<{ received: true }>('POST', `/public/reviews/${encodeURIComponent(reviewId)}/report`, { body }),
 };
+
+/**
+ * Posts (POST) or edits (PUT) the visitor's review as multipart — no bearer
+ * token, like every booking call. XHR for upload progress (0–1).
+ */
+export function sendReview(orderId: string, form: FormData, method: 'POST' | 'PUT', onProgress?: (f: number) => void): Promise<OwnReview> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, `${API_URL}/public/booking/orders/${encodeURIComponent(orderId)}/review`);
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.timeout = 120_000;
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
+    xhr.onerror = () => reject(new BookingError(0, 'Could not reach the server. Check your internet connection.', 'NETWORK'));
+    xhr.ontimeout = () => reject(new BookingError(0, 'The request took too long. Check your connection and try again.', 'TIMEOUT'));
+    xhr.onload = () => {
+      let data: unknown = null;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        data = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(data as OwnReview);
+      const body = (data ?? {}) as { message?: unknown; code?: unknown };
+      const msg = xhr.status === 413 && !body.message ? 'That photo is too large.' : friendly(xhr.status, body.message);
+      reject(new BookingError(xhr.status, msg, typeof body.code === 'string' ? body.code : undefined));
+    };
+    xhr.send(form);
+  });
+}
 
 export function bookingErrorMessage(e: unknown): string {
   if (e instanceof BookingError) return e.message;

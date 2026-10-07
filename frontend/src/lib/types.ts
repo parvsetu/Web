@@ -11,7 +11,8 @@ export type Permission =
   | 'ROLE_VIEW' | 'ROLE_CREATE' | 'ROLE_UPDATE' | 'ROLE_DELETE'
   | 'SETTINGS_VIEW' | 'SETTINGS_UPDATE'
   | 'AUDIT_VIEW'
-  | 'GALLERY_VIEW' | 'GALLERY_MANAGE';
+  | 'GALLERY_VIEW' | 'GALLERY_MANAGE'
+  | 'REVIEW_VIEW' | 'REVIEW_MANAGE';
 
 export interface Paged<T> {
   items: T[];

@@ -5,7 +5,7 @@ import { useOrg } from '@/lib/org-context';
 import { canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
-import { Building2, Camera, CreditCard, Globe, FileBarChart, Handshake, History, KeyRound, Landmark, PartyPopper, Settings, UserCheck, UserCog, Users, Wallet } from 'lucide-react';
+import { Building2, Camera, CreditCard, Globe, FileBarChart, Handshake, History, KeyRound, Landmark, MessageSquareQuote, PartyPopper, Settings, UserCheck, UserCog, Users, Wallet } from 'lucide-react';
 import { AccountsTab } from '@/components/org/AccountsTab';
 import { SponsorsTab } from '@/components/org/SponsorsTab';
 import { CreditTab } from '@/components/org/CreditTab';
@@ -23,6 +23,7 @@ import { OrgReportsTab } from '@/components/org/OrgReportsTab';
 import { OrgSettingsTab } from '@/components/org/OrgSettingsTab';
 import { GalleryTab } from '@/components/org/GalleryTab';
 import { LandingTab } from '@/components/org/LandingTab';
+import { OrgReviewsTab } from '@/components/org/OrgReviewsTab';
 import { apiImageSrc } from '@/lib/images';
 
 const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] }[] = [
@@ -34,6 +35,7 @@ const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] 
   { key: 'accounts', label: 'Accounts & P/L', icon: Wallet, anyOf: ['EXPENSE_VIEW'] },
   { key: 'sponsors', label: 'Sponsors', icon: Handshake, anyOf: ['EVENT_VIEW'] },
   { key: 'gallery', label: 'Gallery', icon: Camera, anyOf: ['GALLERY_VIEW'] },
+  { key: 'reviews', label: 'Visitor reviews', icon: MessageSquareQuote, anyOf: ['REVIEW_VIEW'] },
   { key: 'landing', label: 'Landing page', icon: Globe, anyOf: ['SETTINGS_VIEW'] },
   { key: 'credit', label: 'Pass credit', icon: CreditCard, anyOf: ['SETTINGS_VIEW'] },
   { key: 'payouts', label: 'Payouts & bank', icon: Landmark, anyOf: ['SETTINGS_VIEW'] },
@@ -112,6 +114,7 @@ function OrgAdmin() {
       {tab === 'accounts' && <AccountsTab />}
       {tab === 'sponsors' && <SponsorsTab />}
       {tab === 'gallery' && <GalleryTab />}
+      {tab === 'reviews' && <OrgReviewsTab />}
       {tab === 'landing' && <LandingTab />}
       {tab === 'credit' && <CreditTab />}
       {tab === 'payouts' && <PayoutsTab />}

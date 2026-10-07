@@ -32,6 +32,8 @@ export interface GalleryUsage {
   usedBytes: number;
   quotaBytes: number;
   photos: number;
+  /** What the used space is made of (festival photos, visitor review photos, trophy images). */
+  breakdown?: { photoBytes: number; visitorPhotoBytes: number; achievementBytes: number };
 }
 
 export interface GallerySummary {

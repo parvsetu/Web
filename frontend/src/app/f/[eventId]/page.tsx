@@ -12,6 +12,7 @@ import { getPublicFestival, getPublicPhotos, siteUrl } from '@/lib/public-festiv
 import { fmtRangeL } from '@/lib/i18n/format';
 import { getServerT } from '@/lib/i18n/server';
 import { PublicGallery } from '@/components/gallery/PublicGallery';
+import { ReviewsSection } from '@/components/reviews/PublicReviews';
 
 type Props = { params: { eventId: string } };
 
@@ -100,6 +101,8 @@ export default async function FestivalPage({ params }: Props) {
         )}
 
         <PublicGallery photos={photos} accent={th.ink} />
+
+        <ReviewsSection source={{ eventId: f.id }} accent={th.ink} />
 
         <SponsorStrip sponsors={f.sponsors} title={t('pass.festivalPartners')} />
 
