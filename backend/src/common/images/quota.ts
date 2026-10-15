@@ -8,7 +8,8 @@ type Db = Prisma.TransactionClient | PrismaService;
  * Everything that counts toward a mandal's 300 MB image quota: festival photos,
  * visitor review photos and achievement images (full + thumbnail bytes each).
  * Logo and banner are small and fixed-size, so they don't count.
- * Callers that add bytes must hold the organization row lock (`SELECT … FOR UPDATE`).
+ * Callers that add bytes must hold the organization row lock (`SELECT … FOR NO KEY UPDATE` — it doesn't
+ * collide with the FOR KEY SHARE locks that inserting rows referencing the org takes).
  */
 export async function storageUsage(db: Db, organizationId: string) {
   const [photos, reviewPhotos, achievements] = await Promise.all([
@@ -33,5 +34,5 @@ export function mb(bytes: number) {
 
 /** Locks the organization row: serializes every quota-consuming upload of one mandal. */
 export async function lockOrg(tx: Prisma.TransactionClient, organizationId: string) {
-  await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${organizationId} FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${organizationId} FOR NO KEY UPDATE`;
 }

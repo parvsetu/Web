@@ -15,8 +15,11 @@ type Db = Prisma.TransactionClient | PrismaService;
  *  - COMMISSION: % of every paid event fee (agent override, else default, default 0%).
  *
  * Called inside the payment transaction, after the payment and event rows are
- * locked; the mandal row is locked here (FOR UPDATE), so two simultaneous fee
- * payments of one mandal serialize. Partial unique indexes are the backstop:
+ * locked; the mandal row is locked here (FOR NO KEY UPDATE), so two simultaneous
+ * fee payments of one mandal serialize. Not FOR UPDATE: the payment transaction
+ * has already inserted rows referencing the mandal (audit log), which hold a
+ * FOR KEY SHARE lock on it — two such transactions both asking FOR UPDATE
+ * deadlocked (seen as the flaky "two simultaneous payments" test). Partial unique indexes are the backstop:
  * inserts use ON CONFLICT DO NOTHING, never a failing insert that would abort
  * the payment. Suspended agents don't earn.
  */
@@ -25,7 +28,7 @@ export class AgentEarningsService {
   constructor(private readonly billing: BillingService) {}
 
   async onFeePaid(tx: Prisma.TransactionClient, p: { organizationId: string; eventId: string; paymentId: string; amountPaise: number }) {
-    const rows = await tx.$queryRaw<{ agentId: string | null }[]>`SELECT "agentId" FROM organizations WHERE id = ${p.organizationId} FOR UPDATE`;
+    const rows = await tx.$queryRaw<{ agentId: string | null }[]>`SELECT "agentId" FROM organizations WHERE id = ${p.organizationId} FOR NO KEY UPDATE`;
     const agentId = rows[0]?.agentId;
     if (!agentId) return;
     const agent = await tx.agent.findUnique({ where: { id: agentId } });
@@ -52,7 +55,7 @@ export class AgentEarningsService {
 
   /** A refunded fee reverses what it earned (its commission, and the referral if this payment earned it). */
   async onFeeRefunded(tx: Prisma.TransactionClient, p: { organizationId: string; paymentId: string; actorId: string }) {
-    await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${p.organizationId} FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${p.organizationId} FOR NO KEY UPDATE`;
     const earned = await tx.agentLedgerEntry.findMany({ where: { eventFeePaymentId: p.paymentId, type: 'EARNED', reversedAt: null } });
     for (const e of earned) {
       await tx.agentLedgerEntry.update({ where: { id: e.id }, data: { reversedAt: new Date() } });

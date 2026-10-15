@@ -145,6 +145,18 @@ describe('Field agents & referrals (e2e)', () => {
     expect((await agentMe(auth)).earnings.earned).toBe('300.00');
   });
 
+  it('many mandals paying two fees at once: no deadlock, one referral each', async () => {
+    // Regression: the fee transaction inserts rows referencing the mandal (FOR KEY SHARE on it) before
+    // locking it; FOR UPDATE there deadlocked two concurrent payments of one mandal.
+    const { agent } = await createAgent({ commissionPercent: '0' });
+    const mandals = await Promise.all(Array.from({ length: 6 }, () => referredMandal(agent.code, ['500', '700'])));
+    // Each payment from its own IP so the public 10/min limit doesn't trip.
+    const res = await Promise.all(mandals.flatMap((m) => m.tokens).map((t, i) =>
+      ctx.http().post(api(`/public/event-fee/${t}/demo-pay`)).set('X-Forwarded-For', `10.88.0.${i + 1}`).send({ outcome: 'success' })));
+    expect(res.map((r) => r.status)).toEqual(res.map(() => 200));
+    expect(await ctx.prisma.agentLedgerEntry.count({ where: { agentId: agent.id, kind: 'REGISTRATION' } })).toBe(6);
+  });
+
   it('payouts can\'t exceed what is due; suspended agents keep read access but can\'t register or earn', async () => {
     const { agent, auth } = await createAgent();
     const m = await referredMandal(agent.code);

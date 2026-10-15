@@ -151,7 +151,7 @@ export class GalleryService {
 
     const created = await this.prisma.$transaction(async (tx) => {
       // Serialize uploads per mandal so the quota check can't be raced.
-      await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${orgId} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${orgId} FOR NO KEY UPDATE`;
       const { usedBytes } = await this.usage(orgId, tx);
       if (usedBytes + incoming > GALLERY_QUOTA_BYTES) {
         throw new PayloadTooLargeException({
