@@ -7,6 +7,7 @@ import { PublicShell } from '@/components/booking/PublicShell';
 import { FestivalBadge } from '@/components/FestivalBanner';
 import { Badge, Empty, Skeleton } from '@/components/ui';
 import { InstallPrompt } from '@/components/InstallPrompt';
+import { AddPassForm } from '@/components/booking/AddPassForm';
 import { festivalTheme } from '@/lib/festival-theme';
 import { fmtMoney } from '@/lib/format';
 import { BookingError, booking, cacheOrder, cachedOrder, demoPayHref, isFree, isOffline, loadSavedPasses, orderPasses, passHref, removeSavedPass } from '@/lib/booking';
@@ -65,6 +66,7 @@ export default function MyPassesPage() {
           </p>
         </div>
         <InstallPrompt />
+        <AddPassForm onAdded={(p) => { setSaved(loadSavedPasses()); void fetchOne(p); }} />
 
         {saved === null ? (
           <div className="flex flex-col gap-3" aria-busy="true" aria-label={t('myPasses.loading')}>

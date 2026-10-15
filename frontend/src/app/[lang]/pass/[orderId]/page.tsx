@@ -12,6 +12,7 @@ import { SponsorStrip, type SponsorPublic } from '@/components/SponsorStrip';
 import { ReviewPanel } from '@/components/reviews/ReviewForm';
 import { InstallPrompt } from '@/components/InstallPrompt';
 import { RemindButton } from '@/components/booking/RemindButton';
+import { CopyToApp } from '@/components/booking/CopyToApp';
 import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '@/components/PrintFormat';
 import { Alert, Button, Empty, Skeleton, Spinner } from '@/components/ui';
 import { fmtMoney } from '@/lib/format';
@@ -133,6 +134,7 @@ function PassView() {
           </div>
         )}
         <InstallPrompt />
+        <CopyToApp />
         <RemindButton orderId={order.id} accessKey={k} validUntil={order.validUntil} />
         {offlineSince && (
           <div className="no-print">

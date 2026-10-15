@@ -276,6 +276,16 @@ function forgetOrder(orderId: string) {
   }
 }
 
+/**
+ * Reads a pass link someone received (WhatsApp, SMS, email), e.g.
+ * https://parvsetu-web.vercel.app/pass/<orderId>?k=<accessKey>, or just the
+ * path. Null when it isn't one.
+ */
+export function parsePassLink(text: string): { orderId: string; accessKey: string } | null {
+  const m = text.trim().match(/\/pass\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?\?(?:[^#\s]*&)?k=([A-Za-z0-9_-]{20,64})/i);
+  return m ? { orderId: m[1].toLowerCase(), accessKey: decodeURIComponent(m[2]) } : null;
+}
+
 /** A network failure (no signal, timeout) rather than an answer from the server. */
 export const isOffline = (e: unknown) => e instanceof BookingError && e.status === 0;
 
