@@ -139,6 +139,8 @@ export const booking = {
   event: (eventId: string) => call<BookableEventDetail>('GET', `/public/booking/events/${encodeURIComponent(eventId)}`),
   availability: (eventId: string, date: string) =>
     call<Availability>('GET', `/public/booking/events/${encodeURIComponent(eventId)}/availability`, { query: { date } }),
+  /** Who referred you (a blogger's code for this festival) — 404 when not valid here. */
+  referral: (eventId: string, code: string) => call<{ code: string; bloggerName: string }>('GET', `/public/booking/events/${encodeURIComponent(eventId)}/referral`, { query: { code } }),
   createOrder: (body: CreatePassOrderBody) => call<CreatedPassOrder>('POST', '/public/booking/orders', { body }),
   order: (orderId: string, k: string) => call<PassOrder>('GET', `/public/booking/orders/${encodeURIComponent(orderId)}`, { query: { k } }),
   demoPay: (orderId: string, k: string, outcome: 'success' | 'fail') =>

@@ -24,6 +24,8 @@ interface PassOrderRow {
   perPersonPasses: boolean;
   timeSlot: { label: string };
   tokens: { id: string; tokenCode: string; status: string }[];
+  /** Blogger whose referral link/code brought this booking. */
+  referral?: { code: string | null; bloggerName: string } | null;
 }
 
 /** Online pass bookings made by visitors on the public site. */
@@ -69,6 +71,7 @@ export function PassOrdersTab() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold">{o.buyerName}</span>
                   <Badge value={o.status === 'PAID' ? 'SUCCESS' : o.status} >{o.status}</Badge>
+                  {o.referral && <Badge className="bg-fuchsia-100 text-fuchsia-800">via {o.referral.bloggerName}{o.referral.code ? ` · ${o.referral.code}` : ''}</Badge>}
                 </div>
                 <div className="text-sm text-slate-600">
                   {o.buyerMobile} · {o.visitorCount} {o.visitorCount === 1 ? 'person' : 'people'} · {o.timeSlot.label}

@@ -51,6 +51,8 @@ export default function BookEventPage() {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
+  const [refCode, setRefCode] = useState('');
+  const [refState, setRefState] = useState<{ kind: 'idle' | 'checking' | 'ok' | 'bad'; name?: string }>({ kind: 'idle' });
   const [errors, setErrors] = useState<Errors>({});
   const [submitError, setSubmitError] = useState<{ kind: 'error' | 'warning'; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -70,6 +72,42 @@ export default function BookEventPage() {
       alive = false;
     };
   }, [eventId, reload, errText]);
+
+  // Referral code: from a blogger's link (?ref=) or remembered for this festival on this device.
+  useEffect(() => {
+    const key = `parvsetu_ref_${eventId}`;
+    let code = '';
+    try {
+      code = new URLSearchParams(window.location.search).get('ref')?.trim().toUpperCase() ?? '';
+      if (code) localStorage.setItem(key, JSON.stringify({ code, at: Date.now() }));
+      else {
+        const saved = JSON.parse(localStorage.getItem(key) ?? 'null') as { code: string; at: number } | null;
+        if (saved && Date.now() - saved.at < 30 * 86400_000) code = saved.code;
+      }
+    } catch {
+      /* storage blocked — the code from the URL still applies */
+    }
+    if (code) setRefCode(code);
+  }, [eventId]);
+
+  const checkRef = useCallback(async (raw: string) => {
+    const code = raw.trim().toUpperCase();
+    if (!code) return setRefState({ kind: 'idle' });
+    if (!/^[A-Z0-9]{4,20}$/.test(code)) return setRefState({ kind: 'bad' });
+    setRefState({ kind: 'checking' });
+    try {
+      const r = await booking.referral(eventId, code);
+      setRefState({ kind: 'ok', name: r.bloggerName });
+    } catch {
+      setRefState({ kind: 'bad' });
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    if (refCode && refState.kind === 'idle') void checkRef(refCode);
+    // Only the initial (link / remembered) code is checked automatically.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refCode]);
 
   const tz = event?.timezone ?? 'Asia/Kolkata';
   const today = useMemo(() => todayIn(tz), [tz]);
@@ -171,6 +209,7 @@ export default function BookEventPage() {
         buyerName: name.trim(),
         buyerMobile: v.mobile,
         ...(email.trim() ? { buyerEmail: email.trim() } : {}),
+        ...(refState.kind === 'ok' ? { referralCode: refCode.trim().toUpperCase() } : {}),
       });
       savePass({ orderId: order.id, accessKey: order.accessKey, eventName: event.name, createdAt: order.createdAt });
       if (order.status === 'PAID') router.push(passHref(order.id, order.accessKey));
@@ -425,6 +464,20 @@ export default function BookEventPage() {
                   error={errors.email}
                   aria-invalid={!!errors.email}
                   placeholder="you@example.com"
+                />
+                <LabeledInput
+                  label={t('book.ref.label')}
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  value={refCode}
+                  maxLength={20}
+                  onChange={(e) => {
+                    setRefCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+                    setRefState({ kind: 'idle' });
+                  }}
+                  onBlur={() => void checkRef(refCode)}
+                  hint={refState.kind === 'ok' ? `✓ ${t('book.ref.applied', { name: refState.name ?? '' })}` : undefined}
+                  error={refState.kind === 'bad' ? t('book.ref.invalid') : undefined}
                 />
               </div>
             </Step>

@@ -37,6 +37,10 @@ export default function DashboardPage() {
       router.replace('/vendor');
       return;
     }
+    if (me.blogger) {
+      router.replace('/blogger');
+      return;
+    }
     if (isApplicantOnly(me)) {
       router.replace('/registration');
       return;
@@ -53,7 +57,7 @@ export default function DashboardPage() {
 
   return (
     <AppShell title="My festivals" subtitle={me ? `Hello, ${me.name}` : undefined}>
-      {me && !me.partner && !me.agent && <Picker me={me} />}
+      {me && !me.partner && !me.agent && !me.vendor && !me.blogger && <Picker me={me} />}
     </AppShell>
   );
 }

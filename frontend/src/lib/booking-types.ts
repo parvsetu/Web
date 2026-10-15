@@ -138,6 +138,8 @@ export interface CreatePassOrderBody {
   buyerEmail?: string;
   /** Server default: true (one QR per person). */
   perPersonPasses?: boolean;
+  /** Blogger referral code; the server ignores one that isn't valid for this festival. */
+  referralCode?: string;
 }
 
 /** What we keep on this device so /book/my-passes can find a buyer's passes. */

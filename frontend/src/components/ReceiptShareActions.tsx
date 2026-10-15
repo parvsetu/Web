@@ -10,7 +10,8 @@ import { Alert, Button, Modal, cx } from './ui';
 interface Props {
   eventId: string;
   donationId: string;
-  donorName: string;
+  /** null = anonymous donation. */
+  donorName: string | null;
   donorEmail: string | null;
   amount: string;
   eventName: string;
@@ -55,7 +56,7 @@ export function ReceiptShareActions({ eventId, donationId, donorName, donorEmail
     }
   }
 
-  const text = `🙏 Thank you, ${donorName}, for your donation of ${fmtMoney(amount)} to ${eventName}. Here is your receipt:`;
+  const text = `🙏 Thank you${donorName ? `, ${donorName},` : ''} for your ${donorName ? 'donation' : 'gupt daan'} of ${fmtMoney(amount)} to ${eventName}. Here is your receipt:`;
 
   return (
     <div className={cx('no-print flex flex-col gap-2', className)}>
@@ -70,7 +71,7 @@ export function ReceiptShareActions({ eventId, donationId, donorName, donorEmail
         )}
       </div>
       {msg && <Alert kind={msg.kind}>{msg.text}</Alert>}
-      {open && link && <ShareModal link={link} text={text} title={`Receipt for ${donorName}`} onClose={() => setOpen(false)} />}
+      {open && link && <ShareModal link={link} text={text} title={donorName ? `Receipt for ${donorName}` : 'Receipt (anonymous donor)'} onClose={() => setOpen(false)} />}
     </div>
   );
 }

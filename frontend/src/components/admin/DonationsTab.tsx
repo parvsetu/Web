@@ -72,7 +72,8 @@ export function DonationsTab() {
             <Card key={d.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold">{d.donorName}</span>
+                  <span className="font-bold">{d.donorName ?? 'Anonymous donor'}</span>
+                  {d.isAnonymous && <Badge className="bg-violet-100 text-violet-800">Gupt daan</Badge>}
                   <Badge value={d.paymentStatus} />
                 </div>
                 <div className="text-xs text-slate-500">
@@ -161,6 +162,7 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
   const online = !!provider?.online;
   const canIssue = can(ev.perms, 'TOKEN_CREATE');
   const slots = useAsync(() => api.get<TimeSlot[]>(`/events/${ev.eventId}/time-slots`), [ev.eventId], canIssue);
+  const [anonymous, setAnonymous] = useState(false);
   const [givePasses, setGivePasses] = useState(false);
   const [passCount, setPassCount] = useState(1);
   const [perPerson, setPerPerson] = useState(true);
@@ -172,10 +174,10 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!form.donorName.trim()) return setError('Enter the donor name.');
+    if (!anonymous && !form.donorName.trim()) return setError('Enter the donor name, or tick “Anonymous donation”.');
     if (!/^\d+(\.\d{1,2})?$/.test(form.amount) || Number(form.amount) <= 0) return setError('Enter a valid amount, e.g. 501 or 1500.00.');
     const body: Record<string, unknown> = {
-      donorName: form.donorName.trim(),
+      ...(anonymous ? { isAnonymous: true } : { donorName: form.donorName.trim() }),
       amount: Number(form.amount).toFixed(2),
       method: form.method,
       provider: form.provider || 'manual',
@@ -207,7 +209,7 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
       <Modal open onClose={onClose} title="Donation recorded">
         <div className="flex flex-col gap-4">
           <Alert kind={created.paymentStatus === 'SUCCESS' ? 'success' : 'info'}>
-            {fmtMoney(created.amount)} from {created.donorName} — status {humanize(created.paymentStatus)}
+            {fmtMoney(created.amount)} from {created.donorName ?? 'an anonymous donor'} — status {humanize(created.paymentStatus)}
             {created.receiptNo ? `, receipt #${created.receiptNo}` : ''}.
           </Alert>
           {created.payment && (
@@ -259,7 +261,12 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
   return (
     <Modal open onClose={onClose} title="Record donation">
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Donor name" value={form.donorName} onChange={set('donorName')} />
+        <Checkbox
+          label={<span><span className="font-semibold">Anonymous donation (gupt daan)</span><span className="block text-xs text-slate-500">No name is stored or printed. Anonymous donations can’t get an 80G deduction.</span></span>}
+          checked={anonymous}
+          onChange={setAnonymous}
+        />
+        {!anonymous && <LabeledInput label="Donor name" value={form.donorName} onChange={set('donorName')} />}
         <LabeledInput label="Amount (₹)" inputMode="decimal" value={form.amount} onChange={set('amount')} placeholder="501" />
         <div className="grid grid-cols-2 gap-3">
           <LabeledSelect label="Method" value={form.method} onChange={set('method')}>
@@ -286,6 +293,7 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
           <LabeledInput label="Mobile (optional)" type="tel" value={form.donorMobile} onChange={set('donorMobile')} />
           <LabeledInput label="Email (optional)" type="email" value={form.donorEmail} onChange={set('donorEmail')} />
         </div>
+        {anonymous && <p className="-mt-2 text-xs text-slate-500">Mobile / email are only used to send the receipt; they never appear on it.</p>}
         {!online && (
           <>
             <LabeledInput label="Payment reference (optional)" value={form.paymentReference} onChange={set('paymentReference')} placeholder="UPI txn id / cheque no." />
@@ -337,11 +345,13 @@ function UpdateDonation({ donation, onClose, onDone }: { donation: Donation; onC
   const [ref, setRef] = useState(donation.paymentReference ?? '');
   const [notes, setNotes] = useState(donation.notes ?? '');
   const [reason, setReason] = useState('');
+  const [makeAnonymous, setMakeAnonymous] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const body: Record<string, unknown> = {};
+    if (makeAnonymous) body.makeAnonymous = true;
     if (status !== donation.paymentStatus) body.paymentStatus = status;
     if (ref !== (donation.paymentReference ?? '')) body.paymentReference = ref;
     if (notes !== (donation.notes ?? '')) body.notes = notes;
@@ -359,7 +369,7 @@ function UpdateDonation({ donation, onClose, onDone }: { donation: Donation; onC
     }
   }
   return (
-    <Modal open onClose={onClose} title={`Update donation — ${donation.donorName}`}>
+    <Modal open onClose={onClose} title={`Update donation — ${donation.donorName ?? 'Anonymous donor'}`}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <LabeledSelect label="Payment status" value={status} onChange={(e) => setStatus(e.target.value)}>
           {PAYMENT_STATUSES.map((s) => (
@@ -372,6 +382,15 @@ function UpdateDonation({ donation, onClose, onDone }: { donation: Donation; onC
         <Field label="Notes">
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
+        {!donation.isAnonymous && (
+          <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-3">
+            <Checkbox
+              label={<span><span className="font-semibold">Make this donation anonymous</span><span className="block text-xs text-slate-600">The donor asked for gupt daan. Their name is erased from this donation, its receipt and their passes. This can’t be undone.</span></span>}
+              checked={makeAnonymous}
+              onChange={setMakeAnonymous}
+            />
+          </div>
+        )}
         <LabeledInput label="Reason for change" value={reason} onChange={(e) => setReason(e.target.value)} />
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>

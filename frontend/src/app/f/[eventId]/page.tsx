@@ -14,7 +14,7 @@ import { getServerT } from '@/lib/i18n/server';
 import { PublicGallery } from '@/components/gallery/PublicGallery';
 import { ReviewsSection } from '@/components/reviews/PublicReviews';
 
-type Props = { params: { eventId: string } };
+type Props = { params: { eventId: string }; searchParams?: { ref?: string } };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const f = await getPublicFestival(params.eventId);
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function FestivalPage({ params }: Props) {
+export default async function FestivalPage({ params, searchParams }: Props) {
   const f = await getPublicFestival(params.eventId);
   if (!f) notFound();
   const [photos, stalls] = await Promise.all([getPublicPhotos(f.id), getPublicStalls(f.id)]);
@@ -78,7 +78,7 @@ export default async function FestivalPage({ params }: Props) {
 
         {f.status === 'ACTIVE' && f.publicBookingEnabled && (
           <Link
-            href={`/book/${f.id}`}
+            href={`/book/${f.id}${refQuery(searchParams?.ref)}`}
             className="flex min-h-[64px] items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-xl font-extrabold text-white shadow-lg shadow-orange-500/30"
           >
             <Ticket aria-hidden className="h-7 w-7" /> {allFree ? t('festival.bookFree') : prices.includes(0) ? t('festival.bookFreePaid') : t('festival.bookFrom', { price: minPaid })}
@@ -140,4 +140,10 @@ export default async function FestivalPage({ params }: Props) {
       </div>
     </PublicShell>
   );
+}
+
+/** A blogger's referral link (/f/<id>?ref=CODE) carries the code on into booking. */
+function refQuery(ref?: string) {
+  const code = (ref ?? '').trim();
+  return /^[A-Za-z0-9]{4,20}$/.test(code) ? `?ref=${encodeURIComponent(code.toUpperCase())}` : '';
 }

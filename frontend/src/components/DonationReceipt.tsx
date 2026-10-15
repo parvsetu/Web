@@ -58,7 +58,7 @@ export function DonationReceipt({ r, timezone }: { r: Receipt; timezone?: string
         </div>
 
         <p className="mt-4 text-sm text-slate-600">{t('donation.receivedFrom')}</p>
-        <p className="text-2xl font-extrabold text-slate-900">{r.donorName}</p>
+        <p className="text-2xl font-extrabold text-slate-900">{r.donorName ?? t('donation.anonymous')}</p>
 
         <div className="mt-4 rounded-2xl p-4 ring-1 ring-orange-100" style={{ background: th.soft }}>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('donation.sumOf')}</p>
@@ -122,7 +122,10 @@ export function DonationReceipt({ r, timezone }: { r: Receipt; timezone?: string
                 </div>
               )}
             </dl>
-            {issuer.reg80G && (
+            {issuer.reg80G && r.isAnonymous && (
+              <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 font-semibold text-amber-900 ring-1 ring-amber-200">{t('donation.not80g')}</p>
+            )}
+            {issuer.reg80G && !r.isAnonymous && (
               <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 font-semibold text-emerald-900 ring-1 ring-emerald-200">
                 {t('donation.80g')}
               </p>

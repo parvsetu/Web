@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { ApiError, errorMessage } from '@/lib/api';
 import { homeFor, useAuth } from '@/lib/auth';
-import { Handshake, LogIn, Store, Ticket } from 'lucide-react';
+import { Handshake, LogIn, Megaphone, Store, Ticket } from 'lucide-react';
 import { Alert, Button, LabeledInput } from '@/components/ui';
 import { AuthCard } from '@/components/AuthCard';
 
@@ -94,6 +94,12 @@ function LoginForm() {
         className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-50 to-emerald-50 font-semibold text-teal-800 ring-1 ring-teal-200 hover:from-teal-100 hover:to-emerald-100"
       >
         <Store aria-hidden className="h-5 w-5" /> Stall vendors: book stalls at festivals
+      </Link>
+      <Link
+        href="/blogger/signup"
+        className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-50 to-rose-50 font-semibold text-pink-800 ring-1 ring-pink-200 hover:from-pink-100 hover:to-rose-100"
+      >
+        <Megaphone aria-hidden className="h-5 w-5" /> Bloggers &amp; influencers: earn by promoting festivals
       </Link>
     </form>
   );

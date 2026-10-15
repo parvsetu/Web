@@ -20,12 +20,13 @@ import { RegistrationsAdmin } from '@/components/platform/RegistrationsAdmin';
 import { EventReviewsAdmin } from '@/components/platform/EventReviewsAdmin';
 import { ReportedReviewsAdmin } from '@/components/platform/ReportedReviewsAdmin';
 import { VendorsAdmin } from '@/components/platform/VendorsAdmin';
+import { BloggersAdmin } from '@/components/platform/BloggersAdmin';
 import { AgentsAdmin } from '@/components/platform/AgentsAdmin';
 import { EventFeesAdmin } from '@/components/platform/EventFeesAdmin';
 import { FestivalChooser } from '@/components/org/OrgSettingsTab';
 import type { AgentInfo } from '@/lib/registration-types';
 import { BadgeIndianRupee, BriefcaseBusiness, ClipboardCheck, Flag, Ticket, Users as Users2, Wallet } from 'lucide-react';
-import { Building2, CalendarDays, Handshake, Landmark, Plus, Store } from 'lucide-react';
+import { Building2, CalendarDays, Handshake, Landmark, Megaphone, Plus, Store } from 'lucide-react';
 
 export default function PlatformPage() {
   const { me } = useAuth();
@@ -59,13 +60,14 @@ export default function PlatformPage() {
               { key: 'payouts', label: 'Payouts & KYC', icon: Landmark },
               { key: 'partners', label: 'Promotional partners', icon: Handshake },
               { key: 'vendors', label: 'Stall vendors', icon: Store },
+              { key: 'bloggers', label: 'Bloggers', icon: Megaphone },
               { key: 'orgs', label: 'Mandals', icon: Building2 },
               { key: 'users', label: 'Users', icon: Users2 },
             ]}
             active={tab}
             onChange={change}
           >
-            {tab === 'registrations' ? <RegistrationsAdmin /> : tab === 'reviews' ? <EventReviewsAdmin /> : tab === 'reported' ? <ReportedReviewsAdmin /> : tab === 'agents' ? <AgentsAdmin /> : tab === 'fees' ? <EventFeesAdmin /> : tab === 'billing' ? <BillingAdmin /> : tab === 'payouts' ? <PayoutsAdmin /> : tab === 'partners' ? <PartnersAdmin /> : tab === 'vendors' ? <VendorsAdmin /> : tab === 'orgs' ? <Orgs /> : <Users />}
+            {tab === 'registrations' ? <RegistrationsAdmin /> : tab === 'reviews' ? <EventReviewsAdmin /> : tab === 'reported' ? <ReportedReviewsAdmin /> : tab === 'agents' ? <AgentsAdmin /> : tab === 'fees' ? <EventFeesAdmin /> : tab === 'billing' ? <BillingAdmin /> : tab === 'payouts' ? <PayoutsAdmin /> : tab === 'partners' ? <PartnersAdmin /> : tab === 'vendors' ? <VendorsAdmin /> : tab === 'bloggers' ? <BloggersAdmin /> : tab === 'orgs' ? <Orgs /> : <Users />}
           </SideTabsLayout>
         </div>
       )}
@@ -280,6 +282,8 @@ function Users() {
           <option value="VOLUNTEER">Festival volunteers only</option>
           <option value="PARTNER">Promotional partners</option>
           <option value="AGENT">Field agents</option>
+          <option value="VENDOR">Stall vendors</option>
+          <option value="BLOGGER">Bloggers</option>
           <option value="SUPER_ADMIN">Super admins</option>
           <option value="NO_ACCESS">No access yet</option>
         </LabeledSelect>

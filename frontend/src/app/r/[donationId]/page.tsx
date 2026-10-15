@@ -91,7 +91,7 @@ function ReceiptView() {
   return (
     <div className="flex flex-col gap-4">
       <div className="no-print text-center">
-        <h1 className="text-2xl font-extrabold text-slate-900">{t('receipt.thanks', { name: r.donorName.split(' ')[0] })}</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">{r.donorName ? t('receipt.thanks', { name: r.donorName.split(' ')[0] }) : t('receipt.thanksAnon')}</h1>
         <p className="text-sm text-slate-600">{t('receipt.intro', { org: r.organization.name })}</p>
       </div>
       <DonationReceipt r={r} />

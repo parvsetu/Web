@@ -94,6 +94,8 @@ export interface MeUser {
   agent?: { id: string; name: string; code: string; status: 'ACTIVE' | 'SUSPENDED' } | null;
   /** Set for stall-vendor accounts — they use /vendor, not the mandal app. */
   vendor?: { id: string; businessName: string; status: 'ACTIVE' | 'SUSPENDED' } | null;
+  /** Set for blogger / influencer accounts — they use /blogger, not the mandal app. */
+  blogger?: { id: string; name: string; status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED' } | null;
   /** Mandal registrations this person applied for (status at /registration). */
   mandalRegistrations?: { id: string; status: RegistrationStatus; orgName: string; organizationId: string | null; reviewNote: string | null; createdAt: string }[];
 }
@@ -412,7 +414,9 @@ export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED' | stri
 export interface Donation {
   id: string;
   receiptNo: string | null;
-  donorName: string;
+  /** null for an anonymous donation (gupt daan) — show "Anonymous donor". */
+  donorName: string | null;
+  isAnonymous: boolean;
   donorMobile: string | null;
   donorEmail: string | null;
   amount: string;
@@ -452,7 +456,10 @@ export interface Receipt {
   organization: { name: string; city: string | null; state: string | null; address: string | null; logoUrl?: string | null };
   event: { name: string; festivalType: string | null };
   issuer: ReceiptIssuer | null;
-  donorName: string;
+  donorName: string | null;
+  isAnonymous?: boolean;
+  /** false for an anonymous donation (no name/PAN → no 80G deduction). */
+  eligibleFor80G?: boolean;
   donorMobile: string | null;
   donorEmail: string | null;
   amount: string;
