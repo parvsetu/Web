@@ -5,7 +5,8 @@ import { useOrg } from '@/lib/org-context';
 import { canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
-import { Building2, Camera, CreditCard, Globe, FileBarChart, Handshake, History, KeyRound, Landmark, MessageSquareQuote, PartyPopper, Settings, UserCheck, UserCog, Users, Wallet } from 'lucide-react';
+import { BadgePercent, Building2, Camera, CreditCard, Globe, FileBarChart, Handshake, History, KeyRound, Landmark, MessageSquareQuote, PartyPopper, Settings, UserCheck, UserCog, Users, Wallet } from 'lucide-react';
+import { TaxTab } from '@/components/org/TaxTab';
 import { AccountsTab } from '@/components/org/AccountsTab';
 import { SponsorsTab } from '@/components/org/SponsorsTab';
 import { CreditTab } from '@/components/org/CreditTab';
@@ -33,6 +34,7 @@ const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] 
   { key: 'members', label: 'Members', icon: UserCog, anyOf: ['USER_VIEW'] },
   { key: 'roles', label: 'Roles', icon: KeyRound, anyOf: ['ROLE_VIEW'] },
   { key: 'accounts', label: 'Accounts & P/L', icon: Wallet, anyOf: ['EXPENSE_VIEW'] },
+  { key: 'tax', label: '80G & Form 10BD', icon: BadgePercent, anyOf: ['DONATION_TAX_VIEW'] },
   { key: 'sponsors', label: 'Sponsors', icon: Handshake, anyOf: ['EVENT_VIEW'] },
   { key: 'gallery', label: 'Gallery', icon: Camera, anyOf: ['GALLERY_VIEW'] },
   { key: 'reviews', label: 'Visitor reviews', icon: MessageSquareQuote, anyOf: ['REVIEW_VIEW'] },
@@ -112,6 +114,7 @@ function OrgAdmin() {
       {tab === 'members' && <MembersTab />}
       {tab === 'roles' && <RolesTab />}
       {tab === 'accounts' && <AccountsTab />}
+      {tab === 'tax' && <TaxTab />}
       {tab === 'sponsors' && <SponsorsTab />}
       {tab === 'gallery' && <GalleryTab />}
       {tab === 'reviews' && <OrgReviewsTab />}

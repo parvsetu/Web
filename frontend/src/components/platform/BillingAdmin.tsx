@@ -11,7 +11,7 @@ import type { CreditStatus } from '../org/CreditTab';
 import { SearchBar } from '../SearchBar';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SectionTitle, SkeletonList, Stat, Table, Td, cx } from '../ui';
 
-interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerRate: string; feePerPass: string; gatewayFeePercent: string; defaultPassPrintFormat: string; landingPageYearlyPrice: string; stallCommissionPercent: string; referralCommissionMode: 'PERCENT' | 'FIXED'; referralCommissionValue: string }
+interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerRate: string; feePerPass: string; gatewayFeePercent: string; defaultPassPrintFormat: string; landingPageYearlyPrice: string; stallCommissionPercent: string; referralCommissionMode: 'PERCENT' | 'FIXED'; referralCommissionValue: string; tax80GCashLimit: string; tax10BDDueMonthDay: string }
 interface Summary {
   commissionEarned: string; partnerFeesEarned: string; promotionalPartnerEarned: string; eventFeesEarned: string; eventFeesPaid: number; agentEarningsDue: string; agentPayoutsMade: string; bloggerCommissionDue?: string; bloggerPayoutsMade?: string; partnerWalletsOutstanding: string; splitCommissionEarned: string; onlineGross: string; stallFeesEarned: string; stallBookingsPaid: number; totalEarned: string; landingPageEarned: string; landingPagesSold: number; tokensGenerated: number; personsAdmitted: number;
   creditOutstanding: string; totalRecharged: string; paidRecharges: number;
@@ -162,8 +162,8 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
     setOk(false);
     setBusy(true);
     try {
-      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent, referralCommissionMode, referralCommissionValue } = f!;
-      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent, referralCommissionMode, referralCommissionValue });
+      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent, referralCommissionMode, referralCommissionValue, tax80GCashLimit, tax10BDDueMonthDay } = f!;
+      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent, referralCommissionMode, referralCommissionValue, tax80GCashLimit, tax10BDDueMonthDay });
       setForm(saved);
       setOk(true);
       onSaved();
@@ -194,6 +194,8 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
           <option value="FIXED">Fixed ₹ per booking</option>
         </LabeledSelect>
         <LabeledInput label={f.referralCommissionMode === 'FIXED' ? 'Blogger commission (₹ per booking)' : 'Blogger commission (%)'} inputMode="decimal" value={f.referralCommissionValue ?? ''} onChange={set('referralCommissionValue')} hint="Default; a festival can have its own rate (Bloggers tab)" />
+        <LabeledInput label="80G cash limit (₹)" inputMode="decimal" value={f.tax80GCashLimit ?? ''} onChange={set('tax80GCashLimit')} hint="Cash donations above this get no 80G deduction (₹2,000 today). CA review." />
+        <LabeledInput label="Form 10BD / 10BE due (MM-DD)" value={f.tax10BDDueMonthDay ?? ''} onChange={(e) => setForm({ ...f, tax10BDDueMonthDay: e.target.value.replace(/[^\d-]/g, '').slice(0, 5) })} hint="After the financial year ends (05-31 today). CA review." />
       </div>
       <p className="flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-900">
         <Percent aria-hidden className="h-4 w-4" /> Each person admitted costs a mandal {fmtMoney(fee)} ({f.defaultCommissionPercent}% of {fmtMoney(f.defaultTokenPrice)}). Mandal-specific rates override this.

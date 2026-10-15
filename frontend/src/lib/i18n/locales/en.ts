@@ -417,6 +417,8 @@ const en = {
   'donation.80g': 'Donations are eligible for deduction under section 80G of the Income-tax Act.',
   'donation.anonymous': 'Anonymous donor (gupt daan)',
   'donation.not80g': 'Anonymous donation — not eligible for an 80G deduction (that needs the donor’s name and PAN).',
+  'donation.donorId': 'Donor ID',
+  'donation.80gPercent': 'Eligible for a {pct}% deduction under section 80G of the Income-tax Act.',
   'donation.noGst': 'Voluntary donation — not a sale of goods or services; no GST is charged on this amount.',
   'donation.thanks': '🙏 Thank you for your generous contribution.',
   'donation.computer': 'Computer-generated receipt · Parvsetu',

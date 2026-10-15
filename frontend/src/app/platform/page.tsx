@@ -21,12 +21,13 @@ import { EventReviewsAdmin } from '@/components/platform/EventReviewsAdmin';
 import { ReportedReviewsAdmin } from '@/components/platform/ReportedReviewsAdmin';
 import { VendorsAdmin } from '@/components/platform/VendorsAdmin';
 import { BloggersAdmin } from '@/components/platform/BloggersAdmin';
+import { TaxProfilesAdmin } from '@/components/platform/TaxProfilesAdmin';
 import { AgentsAdmin } from '@/components/platform/AgentsAdmin';
 import { EventFeesAdmin } from '@/components/platform/EventFeesAdmin';
 import { FestivalChooser } from '@/components/org/OrgSettingsTab';
 import type { AgentInfo } from '@/lib/registration-types';
 import { BadgeIndianRupee, BriefcaseBusiness, ClipboardCheck, Flag, Ticket, Users as Users2, Wallet } from 'lucide-react';
-import { Building2, CalendarDays, Handshake, Landmark, Megaphone, Plus, Store } from 'lucide-react';
+import { BadgePercent, Building2, CalendarDays, Handshake, Landmark, Megaphone, Plus, Store } from 'lucide-react';
 
 export default function PlatformPage() {
   const { me } = useAuth();
@@ -58,6 +59,7 @@ export default function PlatformPage() {
               { key: 'fees', label: 'Event fees', icon: BadgeIndianRupee },
               { key: 'billing', label: 'Billing & earnings', icon: Wallet },
               { key: 'payouts', label: 'Payouts & KYC', icon: Landmark },
+              { key: 'tax', label: '80G verification', icon: BadgePercent },
               { key: 'partners', label: 'Promotional partners', icon: Handshake },
               { key: 'vendors', label: 'Stall vendors', icon: Store },
               { key: 'bloggers', label: 'Bloggers', icon: Megaphone },
@@ -67,7 +69,7 @@ export default function PlatformPage() {
             active={tab}
             onChange={change}
           >
-            {tab === 'registrations' ? <RegistrationsAdmin /> : tab === 'reviews' ? <EventReviewsAdmin /> : tab === 'reported' ? <ReportedReviewsAdmin /> : tab === 'agents' ? <AgentsAdmin /> : tab === 'fees' ? <EventFeesAdmin /> : tab === 'billing' ? <BillingAdmin /> : tab === 'payouts' ? <PayoutsAdmin /> : tab === 'partners' ? <PartnersAdmin /> : tab === 'vendors' ? <VendorsAdmin /> : tab === 'bloggers' ? <BloggersAdmin /> : tab === 'orgs' ? <Orgs /> : <Users />}
+            {tab === 'registrations' ? <RegistrationsAdmin /> : tab === 'reviews' ? <EventReviewsAdmin /> : tab === 'reported' ? <ReportedReviewsAdmin /> : tab === 'agents' ? <AgentsAdmin /> : tab === 'fees' ? <EventFeesAdmin /> : tab === 'billing' ? <BillingAdmin /> : tab === 'payouts' ? <PayoutsAdmin /> : tab === 'tax' ? <TaxProfilesAdmin /> : tab === 'partners' ? <PartnersAdmin /> : tab === 'vendors' ? <VendorsAdmin /> : tab === 'bloggers' ? <BloggersAdmin /> : tab === 'orgs' ? <Orgs /> : <Users />}
           </SideTabsLayout>
         </div>
       )}

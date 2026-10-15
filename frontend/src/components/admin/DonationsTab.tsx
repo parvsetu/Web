@@ -8,6 +8,7 @@ import { fmtDateTime, fmtMoney, humanize, isoToLocalInput, localInputToIso } fro
 import { useAsync, useDebounced } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
 import type { Donation, DonationCreateResponse, Paged, PaymentProvider, TimeSlot } from '@/lib/types';
+import { DONOR_ID_TYPES, type DonationDocumentRow } from '@/lib/tax-types';
 import { QrImage } from '../QrImage';
 import { PassSponsors } from '../SponsorStrip';
 import { ValidityPicker, VisitorCountInput, buildValidity, initialValidity, type ValidityState } from '../TokenParts';
@@ -28,6 +29,7 @@ export function DonationsTab() {
   const list = useAsync(() => api.get<Paged<Donation>>(`/events/${ev.eventId}/donations`, { ...f, q, page }), [ev.eventId, f, q, page]);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Donation | null>(null);
+  const [taxing, setTaxing] = useState<Donation | null>(null);
   const set = (k: keyof typeof f) => (v: string) => {
     setF((x) => ({ ...x, [k]: v }));
     setPage(1);
@@ -74,13 +76,18 @@ export function DonationsTab() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold">{d.donorName ?? 'Anonymous donor'}</span>
                   {d.isAnonymous && <Badge className="bg-violet-100 text-violet-800">Gupt daan</Badge>}
+                  {d.tax?.eligibleFor80G && <Badge className="bg-emerald-100 text-emerald-800">80G {d.tax.deductionPercent}%</Badge>}
                   <Badge value={d.paymentStatus} />
                 </div>
                 <div className="text-xs text-slate-500">
                   {d.receiptNo ? `#${d.receiptNo} · ` : ''}
                   {humanize(d.method)} · {fmtDateTime(d.donatedAt, ev.timezone)}
                   {d.paymentReference ? ` · Ref ${d.paymentReference}` : ''}
+                  {d.tax?.donorId ? ` · ${d.tax.donorId}` : ''}
                 </div>
+                {d.paymentStatus === 'SUCCESS' && d.tax && !d.tax.eligibleFor80G && !d.isAnonymous && can(ev.perms, 'DONATION_TAX_VIEW') && (
+                  <div className="text-xs text-amber-700">Not 80G: {d.tax.ineligibleLabel}</div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold tabular-nums">{fmtMoney(d.amount, d.currency || 'INR')}</span>
@@ -91,6 +98,9 @@ export function DonationsTab() {
                   >
                     <ReceiptText aria-hidden className="h-4 w-4" /> Receipt
                   </Link>
+                )}
+                {can(ev.perms, 'DONATION_TAX_MANAGE') && !d.isAnonymous && d.paymentStatus === 'SUCCESS' && (
+                  <Button variant="secondary" size="sm" onClick={() => setTaxing(d)}>80G</Button>
                 )}
                 {can(ev.perms, 'DONATION_UPDATE') && (
                   <Button variant="secondary" size="sm" onClick={() => setEditing(d)}>
@@ -125,6 +135,7 @@ export function DonationsTab() {
           }}
         />
       )}
+      {taxing && <TaxModal donation={taxing} onClose={() => setTaxing(null)} onDone={() => { setTaxing(null); list.reload(); }} />}
       {editing && (
         <UpdateDonation
           donation={editing}
@@ -163,6 +174,8 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
   const canIssue = can(ev.perms, 'TOKEN_CREATE');
   const slots = useAsync(() => api.get<TimeSlot[]>(`/events/${ev.eventId}/time-slots`), [ev.eventId], canIssue);
   const [anonymous, setAnonymous] = useState(false);
+  const canTax = can(ev.perms, 'DONATION_TAX_MANAGE');
+  const [taxId, setTaxId] = useState({ idType: 'PAN', idNumber: '', address: '' });
   const [givePasses, setGivePasses] = useState(false);
   const [passCount, setPassCount] = useState(1);
   const [perPerson, setPerPerson] = useState(true);
@@ -186,6 +199,7 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
     if (form.donorEmail.trim()) body.donorEmail = form.donorEmail.trim();
     if (form.paymentReference.trim()) body.paymentReference = form.paymentReference.trim();
     if (form.notes.trim()) body.notes = form.notes.trim();
+    if (!anonymous && canTax && taxId.idNumber.trim()) body.taxId = { idType: taxId.idType, idNumber: taxId.idNumber.trim(), ...(taxId.address.trim() ? { address: taxId.address.trim() } : {}) };
     if (form.donatedAt && !online) body.donatedAt = localInputToIso(form.donatedAt);
     if (givePasses && !online && validity) {
       const v = buildValidity(validity);
@@ -294,6 +308,7 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
           <LabeledInput label="Email (optional)" type="email" value={form.donorEmail} onChange={set('donorEmail')} />
         </div>
         {anonymous && <p className="-mt-2 text-xs text-slate-500">Mobile / email are only used to send the receipt; they never appear on it.</p>}
+        {!anonymous && canTax && <TaxIdFields value={taxId} onChange={setTaxId} />}
         {!online && (
           <>
             <LabeledInput label="Payment reference (optional)" value={form.paymentReference} onChange={set('paymentReference')} placeholder="UPI txn id / cheque no." />
@@ -397,6 +412,73 @@ function UpdateDonation({ donation, onClose, onDone }: { donation: Donation; onC
           <Save aria-hidden className="h-4 w-4" /> Save
         </Button>
       </form>
+    </Modal>
+  );
+}
+
+/** Donor PAN / ID for 80G. Stored encrypted; Parvsetu decides eligibility. */
+function TaxIdFields({ value, onChange }: { value: { idType: string; idNumber: string; address: string }; onChange: (v: { idType: string; idNumber: string; address: string }) => void }) {
+  const type = DONOR_ID_TYPES.find((t) => t.key === value.idType) ?? DONOR_ID_TYPES[0];
+  return (
+    <fieldset className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3">
+      <legend className="px-1 text-sm font-semibold text-emerald-900">80G details (optional)</legend>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_1fr]">
+        <LabeledSelect label="ID type" value={value.idType} onChange={(e) => onChange({ ...value, idType: e.target.value })}>
+          {DONOR_ID_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </LabeledSelect>
+        <LabeledInput label={`${type.label} number`} value={value.idNumber} autoCapitalize="characters" autoComplete="off" onChange={(e) => onChange({ ...value, idNumber: e.target.value.toUpperCase() })} placeholder={type.placeholder} maxLength={40} />
+      </div>
+      <LabeledInput label="Donor address (for Form 10BD)" value={value.address} onChange={(e) => onChange({ ...value, address: e.target.value })} maxLength={300} />
+      <p className="text-xs text-slate-600">Needed for an 80G receipt. Stored encrypted and shown masked. Eligibility is checked automatically (your verified 80G registration, cash limit, validity).</p>
+    </fieldset>
+  );
+}
+
+/** Add / correct / remove the donor's ID on one donation; shows the receipt versions it produced. */
+function TaxModal({ donation, onClose, onDone }: { donation: Donation; onClose: () => void; onDone: () => void }) {
+  const ev = useEvent();
+  const docs = useAsync(() => api.get<DonationDocumentRow[]>(`/events/${ev.eventId}/donations/${donation.id}/documents`), [ev.eventId, donation.id]);
+  const [v, setV] = useState({ idType: donation.tax?.idType ?? 'PAN', idNumber: '', address: donation.tax?.donorAddress ?? '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function run(fn: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+      onDone();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const t = donation.tax;
+  return (
+    <Modal open onClose={onClose} title={`80G — ${donation.donorName ?? 'Anonymous donor'}`}>
+      <div className="flex flex-col gap-3">
+        {t && (t.eligibleFor80G
+          ? <Alert kind="success">Eligible for a {t.deductionPercent}% deduction (FY {t.financialYear}). {t.donorId}</Alert>
+          : <Alert kind="warning">Not eligible: {t.ineligibleLabel}{t.donorId ? ` · ${t.donorId}` : ''}</Alert>)}
+        <TaxIdFields value={v} onChange={setV} />
+        {error && <Alert>{error}</Alert>}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button loading={busy} disabled={!v.idNumber.trim()} onClick={() => void run(() => api.put(`/events/${ev.eventId}/donations/${donation.id}/tax-id`, { idType: v.idType, idNumber: v.idNumber.trim(), ...(v.address.trim() ? { address: v.address.trim() } : {}) }))}>
+            <Save aria-hidden className="h-4 w-4" /> {t?.hasDonorId ? 'Replace donor ID' : 'Save donor ID'}
+          </Button>
+          {t?.hasDonorId && <Button variant="secondary" loading={busy} onClick={() => void run(() => api.post(`/events/${ev.eventId}/donations/${donation.id}/tax-id/clear`, {}))}>Remove donor ID</Button>}
+        </div>
+        {(docs.data ?? []).length > 0 && (
+          <div className="text-xs text-slate-600">
+            <p className="font-semibold">Receipt versions</p>
+            <ul className="mt-1 flex flex-col gap-0.5">
+              {docs.data!.map((d) => (
+                <li key={d.id}>v{d.version} · {d.kind === 'RECEIPT' ? 'Receipt' : 'Form 10BE'} {d.docNo} · {d.status.toLowerCase()} · {fmtDateTime(d.issuedAt, ev.timezone)}{d.closeReason ? ` (${d.closeReason})` : ''}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }

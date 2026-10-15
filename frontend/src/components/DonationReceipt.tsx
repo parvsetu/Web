@@ -122,12 +122,18 @@ export function DonationReceipt({ r, timezone }: { r: Receipt; timezone?: string
                 </div>
               )}
             </dl>
-            {issuer.reg80G && r.isAnonymous && (
+            {r.isAnonymous && (issuer.reg80G || r.tax80G) && (
               <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 font-semibold text-amber-900 ring-1 ring-amber-200">{t('donation.not80g')}</p>
             )}
-            {issuer.reg80G && !r.isAnonymous && (
+            {r.eligibleFor80G && r.tax80G && (
+              <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                <div className="flex gap-2"><dt className="text-slate-500">80G URN</dt><dd className="font-mono font-semibold">{r.tax80G.urn}</dd></div>
+                {r.tax80G.donorId && <div className="flex gap-2"><dt className="text-slate-500">{t('donation.donorId')}</dt><dd className="font-mono font-semibold">{r.tax80G.donorId}</dd></div>}
+              </dl>
+            )}
+            {r.eligibleFor80G && (
               <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 font-semibold text-emerald-900 ring-1 ring-emerald-200">
-                {t('donation.80g')}
+                {r.tax80G?.deductionPercent ? t('donation.80gPercent', { pct: r.tax80G.deductionPercent }) : t('donation.80g')}
               </p>
             )}
           </section>

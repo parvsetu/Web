@@ -5,7 +5,7 @@ export type Permission =
   | 'VOLUNTEER_VIEW' | 'VOLUNTEER_CREATE' | 'VOLUNTEER_UPDATE' | 'VOLUNTEER_DELETE' | 'VOLUNTEER_ASSIGN'
   | 'EVENT_VIEW' | 'EVENT_CREATE' | 'EVENT_UPDATE' | 'EVENT_DELETE'
   | 'TOKEN_VIEW' | 'TOKEN_CREATE' | 'TOKEN_GENERATE' | 'TOKEN_SCAN' | 'TOKEN_MANUAL_ENTRY' | 'TOKEN_CANCEL' | 'TOKEN_REACTIVATE'
-  | 'DONATION_VIEW' | 'DONATION_CREATE' | 'DONATION_UPDATE'
+  | 'DONATION_VIEW' | 'DONATION_CREATE' | 'DONATION_UPDATE' | 'DONATION_TAX_VIEW' | 'DONATION_TAX_MANAGE'
   | 'EXPENSE_VIEW' | 'EXPENSE_CREATE' | 'EXPENSE_UPDATE'
   | 'REPORT_VIEW' | 'REPORT_EXPORT'
   | 'ROLE_VIEW' | 'ROLE_CREATE' | 'ROLE_UPDATE' | 'ROLE_DELETE'
@@ -417,6 +417,8 @@ export interface Donation {
   /** null for an anonymous donation (gupt daan) — show "Anonymous donor". */
   donorName: string | null;
   isAnonymous: boolean;
+  /** 80G state (server-decided); masked donor ID only with DONATION_TAX_VIEW. */
+  tax?: import('./tax-types').DonationTax | null;
   donorMobile: string | null;
   donorEmail: string | null;
   amount: string;
@@ -458,8 +460,9 @@ export interface Receipt {
   issuer: ReceiptIssuer | null;
   donorName: string | null;
   isAnonymous?: boolean;
-  /** false for an anonymous donation (no name/PAN → no 80G deduction). */
+  /** Server-decided: verified 80G profile, validity, not anonymous, cash limit, donor ID. */
   eligibleFor80G?: boolean;
+  tax80G?: { urn: string; urnIssuedOn: string; deductionPercent: number | null; donorId: string | null; donorAddress: string | null; financialYear: string } | null;
   donorMobile: string | null;
   donorEmail: string | null;
   amount: string;
