@@ -14,6 +14,7 @@ import { dayRange, slotWindow, ymd } from '../../common/time/validity';
 import { presentToken, tokenSelect } from './token-presenter';
 import { BillingService } from '../billing/billing.service';
 import { PartnerBillingService } from '../partners/partner-billing.service';
+import { ReferralEarningsService } from '../referrals/referral-earnings.service';
 import { BulkGenerateDto, ChangeValidityDto, IssueTokenDto, ReactivateTokenDto, TokenListQuery, ValidityDto } from './tokens.dto';
 
 const MAX_CUSTOM_WINDOW_MS = 31 * 24 * 3600 * 1000;
@@ -33,6 +34,7 @@ export class TokensService {
     private readonly qr: QrSigner,
     private readonly billing: BillingService,
     private readonly partners: PartnerBillingService,
+    private readonly referrals: ReferralEarningsService,
   ) {}
 
   // ─── Validity ────────────────────────────────────────────────────────
@@ -345,6 +347,8 @@ export class TokensService {
         organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'token.cancelled',
         entityType: 'Token', entityId: tokenId, before: { status: before.status }, after: { status: 'CANCELLED' }, reason,
       }, tx);
+      // Last live pass of an online booking cancelled → the booking is cancelled; reverse its referral commission.
+      await this.referrals.onPassCancelled(tx, before.passOrderId, actor.id);
     });
     return this.getWithQr(event.id, tokenId);
   }

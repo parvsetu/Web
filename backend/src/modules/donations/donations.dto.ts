@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsISO8601, IsOptional, IsString, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsISO8601, IsOptional, IsString, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IssueTokenDto } from '../tokens/tokens.dto';
 import { MoneyField } from '../../common/money';
@@ -8,7 +8,10 @@ export const DONATION_METHODS = ['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'ONLINE
 const PAYMENT_STATUSES = ['PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'] as const;
 
 export class CreateDonationDto {
-  @IsString() @Length(1, 150) donorName: string;
+  /** Required unless isAnonymous; ignored (never stored) for an anonymous donation. */
+  @IsOptional() @IsString() @Length(1, 150) donorName?: string;
+  /** Anonymous donation (gupt daan): no name is stored; receipts and lists say "Anonymous donor". Mobile/email stay optional, only to deliver the receipt. */
+  @IsOptional() @IsBoolean() isAnonymous?: boolean;
   @IsOptional() @IsString() @Length(10, 20) donorMobile?: string;
   @IsOptional() @IsEmail() donorEmail?: string;
   @MoneyField() amount: string;
@@ -26,6 +29,8 @@ export class UpdateDonationDto {
   @IsOptional() @IsString() @MaxLength(120) paymentReference?: string;
   @IsOptional() @IsString() @MaxLength(1000) notes?: string;
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
+  /** One-way: the donor asked to be anonymous after the fact. Erases the stored name (and the name on their passes). */
+  @IsOptional() @IsIn([true]) makeAnonymous?: true;
 }
 
 export class DonationListQuery extends PageQuery {

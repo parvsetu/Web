@@ -26,6 +26,10 @@ export class PlatformSettingsDto {
   @IsOptional() @Matches(PERCENT) agentCommissionPercent?: string;
   /** Platform fee on vendor stall bookings (% of the rent before GST). */
   @IsOptional() @Matches(PERCENT) stallCommissionPercent?: string;
+  /** Blogger referral commission on a paid pass booking: PERCENT of the ex-GST ticket value, or FIXED ₹ per booking. Send with referralCommissionValue. */
+  @IsOptional() @IsIn(['PERCENT', 'FIXED']) referralCommissionMode?: 'PERCENT' | 'FIXED';
+  /** % (0–100) for PERCENT, ₹ for FIXED. */
+  @IsOptional() @IsString() @Length(1, 12) referralCommissionValue?: string;
 }
 
 /** Per-mandal overrides; send null to fall back to the platform default. */

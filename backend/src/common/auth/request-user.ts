@@ -8,4 +8,6 @@ export interface RequestUser {
   agentId?: string | null;
   /** Set for stall-vendor accounts (no org memberships either). */
   vendorId?: string | null;
+  /** Set for blogger / influencer accounts (no org memberships either). */
+  bloggerId?: string | null;
 }

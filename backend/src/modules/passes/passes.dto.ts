@@ -21,6 +21,8 @@ export class CreatePassOrderDto {
   @IsOptional() @IsEmail() @MaxLength(200) buyerEmail?: string;
   /** true (default): one QR per person; false: one group QR. */
   @IsOptional() @IsBoolean() perPersonPasses?: boolean;
+  /** Blogger referral code (from a /f/<event>?ref=CODE link or typed). An unknown code is ignored, never an error. */
+  @IsOptional() @IsString() @MaxLength(40) referralCode?: string;
 }
 
 export class OrderKeyQuery {

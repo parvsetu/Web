@@ -786,3 +786,58 @@ Super admin:
   `GET /platform/agents/:id/ledger|payouts`, `POST /platform/agents/:id/payouts` `{ amount, paidOn, reference, note? }`
   (`400 PAYOUT_EXCEEDS_DUE`; serialized on the agent row), `POST /platform/organizations/:orgId/agent` `{ agentId | null, reason }`
   (audited attribution). `GET /organizations` (super admin) rows add `agent` and `registration.source`; `GET /users?kind=AGENT`.
+
+## Blogger / influencer referrals
+
+Bloggers sign themselves up, pick festivals to promote, and earn a commission
+(paid by the platform) on every **paid** pass booking made through their
+per-festival referral code / link. A blogger account (`User.bloggerId`) has no
+memberships: every org/event route answers 404, `/blogger/*` answers 403
+`NOT_A_BLOGGER` to anyone else. `/auth/me` carries `blogger: { id, name, status }`.
+
+### Public
+- `POST /bloggers/signup` — `{ name, email, mobile, password, eventIds[1..10], youtubeUrl?, instagramHandle?, blogUrl?, audience?, city?, bio? }`.
+  At least one channel (400 `CHANNEL_REQUIRED`); every event must be platform-LIVE and not over (400 `EVENT_NOT_PROMOTABLE`).
+  Account is locked until the emailed code is verified, then `PENDING` until the super admin approves.
+- `GET /public/booking/events/:eventId/referral?code=X` → `{ code, bloggerName }`, 404 `REFERRAL_CODE_INVALID` when the
+  code isn't an approved promotion of THIS festival with an ACTIVE blogger.
+- `POST /public/booking/orders` takes `referralCode?`. An invalid code is ignored (the booking still works); the response has
+  `referral: { bloggerName } | null`. A buyer whose mobile (last 10 digits) or email matches the blogger's is not attributed.
+- Referral link: `/f/<eventId>?ref=CODE` → the booking page carries the code (remembered 30 days per festival on the device).
+
+### Blogger portal
+`read` = any blogger; `write` = PENDING or ACTIVE (403 `BLOGGER_INACTIVE` otherwise).
+- `GET /blogger/me` — profile, default commission, earnings `{ earned, reversed, paid, due }`, stats.
+- `PATCH /blogger/me` (write) — profile/channels (at least one channel must remain).
+- `GET /blogger/promotions` — per festival: status, `code`, `link`, commission, stats (referrals, paid bookings, visitors, gross, commission).
+- `POST /blogger/promotions` (write) — `{ eventId }`; 409 `ALREADY_REQUESTED`, `TOO_MANY_PENDING` (10).
+- `GET /blogger/ledger`, `GET /blogger/payouts` — paged. Ledger rows show the booking's invoice number and size, never the buyer.
+
+### Super admin
+- `GET /platform/bloggers?status&q`, `GET /platform/bloggers/:id`, `PATCH /platform/bloggers/:id/status` `{ status: ACTIVE|REJECTED|SUSPENDED, note? }`
+  (ACTIVE = approve / re-activate; only PENDING can be REJECTED, which also rejects its pending requests). Emails the blogger.
+- `GET /platform/blogger-promotions?status&q` — review queue.
+- `POST /platform/blogger-promotions/:id/review` `{ decision: APPROVE|REJECT|REVOKE, note?, code?, commissionMode?: DEFAULT|PERCENT|FIXED, commissionValue? }`.
+  APPROVE needs an ACTIVE blogger and a promotable festival and assigns the code (re-approving a revoked one keeps its code). Emails the blogger.
+- `PATCH /platform/blogger-promotions/:id/commission` `{ commissionMode, commissionValue? }` — applies to bookings paid from now on.
+- `POST /platform/bloggers/:id/payouts` `{ amount, paidOn, reference, note? }` — 400 `PAYOUT_EXCEEDS_DUE`.
+- `POST /platform/referral-ledger/:entryId/reverse` `{ reason }` — for a refund made outside Parvsetu; 409 `ALREADY_REVERSED`.
+- `GET /platform/referrals/report?bloggerId&eventId&from&to&format=json|csv` — per promotion: referrals, paid bookings, visitors,
+  payments, commission earned / reversed / net; totals + payouts.
+- `PUT /platform/billing/settings` takes `referralCommissionMode` (`PERCENT` | `FIXED`) + `referralCommissionValue` (% or ₹).
+
+### Commission rules
+- PERCENT = % of the booking's ex-GST ticket value; FIXED = ₹ per paid booking, capped at the ticket value. Free bookings earn nothing.
+- Credited in the payment transaction (order row locked), at most once per booking — a partial unique index backs it.
+- Reversed (once) when every pass of the booking is cancelled, or by the super admin. A reversed booking never re-earns.
+- A suspended blogger or a revoked promotion earns nothing, even for bookings placed before.
+- Mandals see `referral: { code, bloggerName }` on `GET /events/:eventId/pass-orders`.
+
+## Anonymous donations (gupt daan)
+
+- `POST /events/:eventId/donations` takes `isAnonymous: true`; `donorName` is then optional and **never stored** (even if sent).
+  A named donation without a name → 400 `DONOR_NAME_REQUIRED`. Mobile/email stay optional, used only to deliver the receipt.
+- Donations carry `isAnonymous`; `donorName` is `null` for anonymous ones. A CHECK constraint keeps the two consistent.
+- Receipts (staff and public `/public/receipts/:id`) carry `isAnonymous` and `eligibleFor80G` (false for anonymous — no name/PAN).
+- `PATCH …/donations/:id` takes `makeAnonymous: true` (one-way): erases the name from the donation and from the visitor
+  record of its passes. The erased name is not copied into the audit log.

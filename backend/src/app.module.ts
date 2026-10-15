@@ -30,6 +30,7 @@ import { RegistrationsModule } from './modules/registrations/registrations.modul
 import { AgentsModule } from './modules/agents/agents.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { StallsModule } from './modules/stalls/stalls.module';
+import { ReferralsModule } from './modules/referrals/referrals.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { StallsModule } from './modules/stalls/stalls.module';
     AgentsModule,
     ReviewsModule,
     StallsModule,
+    ReferralsModule,
   ],
   providers: [
     // Order matters: authenticate → rate-limit (per user) → authorize.

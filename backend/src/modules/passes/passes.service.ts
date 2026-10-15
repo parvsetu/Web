@@ -24,6 +24,7 @@ import { PartnerBillingService } from '../partners/partner-billing.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { CreatePassOrderDto, PassOrderListQuery } from './passes.dto';
 import { LIVE_WHERE } from '../../common/event-approval';
+import { ReferralEarningsService } from '../referrals/referral-earnings.service';
 
 /** How long an unpaid order holds its places. */
 export const ORDER_HOLD_MINUTES = 15;
@@ -61,6 +62,7 @@ export class PassesService {
     private readonly billing: BillingService,
     private readonly payouts: PayoutsService,
     private readonly partners: PartnerBillingService,
+    private readonly referrals: ReferralEarningsService,
     @Inject(PASS_GATEWAYS) private readonly gateways: PaymentProvider[],
   ) {}
 
@@ -201,6 +203,8 @@ export class PassesService {
       buyerMobile: normalizeMobile(dto.buyerMobile),
       buyerEmail: normalizeEmail(dto.buyerEmail),
     };
+    // Who referred this booking (approved promotion of THIS festival, active blogger, not self-referral).
+    const referral = await this.referrals.resolveForOrder(this.prisma, event.id, dto.referralCode, { mobile: buyer.buyerMobile, email: buyer.buyerEmail });
 
     const orderId = await this.prisma.$transaction(async (tx) => {
       await this.tokens.checkSlotCapacity(tx, slot.id, w.validFrom, slot.capacity, dto.visitorCount);
@@ -211,6 +215,7 @@ export class PassesService {
           baseAmount: new Prisma.Decimal(g.basePaise).div(100), gstAmount: new Prisma.Decimal(g.gstPaise).div(100),
           gstRateBps: g.gstPaise > 0 ? rateBps : 0, gstBearer: g.gstPaise > 0 ? event.gstBearer : null,
           perPersonPasses: dto.perPersonPasses ?? true,
+          referralPromotionId: referral?.promotionId ?? null,
           accessKey: randomBytes(24).toString('base64url'),
           expiresAt: new Date(Date.now() + ORDER_HOLD_MINUTES * 60_000),
         },
@@ -235,7 +240,7 @@ export class PassesService {
       await this.prisma.passOrder.update({ where: { id: orderId }, data: { providerOrderId: payment.providerOrderId } });
     }
     const order = await this.prisma.passOrder.findUniqueOrThrow({ where: { id: orderId }, include: orderInclude });
-    return { ...(await this.presentWithSponsors(order)), accessKey: order.accessKey };
+    return { ...(await this.presentWithSponsors(order)), accessKey: order.accessKey, referral: referral ? { bloggerName: referral.bloggerName } : null };
   }
 
   /** The buyer's view. Unknown id and wrong key are indistinguishable (404). */
@@ -360,6 +365,8 @@ export class PassesService {
         gstPaise: Math.round(Number(order.gstAmount) * 100),
       });
     }
+    // Blogger commission: same transaction, order row locked, once per order (partial unique index).
+    await this.referrals.onOrderPaid(tx, order);
     await this.audit.log({
       organizationId: event.organizationId, eventId: event.id, action: 'pass.paid', entityType: 'PassOrder', entityId: order.id,
       after: { tokenCodes: codes, amount: order.amount.toFixed(2), visitorCount: order.visitorCount, provider: order.paymentProvider },
@@ -411,7 +418,10 @@ export class PassesService {
     const [rows, total, sum] = await Promise.all([
       this.prisma.passOrder.findMany({
         where, orderBy: { createdAt: 'desc' }, skip, take,
-        include: { timeSlot: { select: { label: true } }, tokens: { select: { id: true, tokenCode: true, status: true }, orderBy: { tokenCode: 'asc' } } },
+        include: {
+          timeSlot: { select: { label: true } }, tokens: { select: { id: true, tokenCode: true, status: true }, orderBy: { tokenCode: 'asc' } },
+          referralPromotion: { select: { code: true, blogger: { select: { name: true } } } },
+        },
       }),
       this.prisma.passOrder.count({ where }),
       this.prisma.passOrder.aggregate({ where: { eventId, status: 'PAID' }, _sum: { amount: true, visitorCount: true }, _count: { _all: true } }),
@@ -423,6 +433,7 @@ export class PassesService {
           amount: o.amount.toFixed(2), paymentProvider: o.paymentProvider, paymentReference: o.paymentReference,
           validFrom: o.validFrom, validUntil: o.validUntil, createdAt: o.createdAt, paidAt: o.paidAt,
           timeSlot: o.timeSlot, tokens: o.tokens, perPersonPasses: o.perPersonPasses,
+          referral: o.referralPromotion ? { code: o.referralPromotion.code, bloggerName: o.referralPromotion.blogger.name } : null,
         })),
         total, page, pageSize,
       ),

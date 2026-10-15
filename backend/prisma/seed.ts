@@ -178,12 +178,13 @@ async function seedDemo() {
   const donations = [
     ['Ravi Chatterjee', '5001.00', 'CASH', 1], ['Sunita Mukherjee', '2100.00', 'UPI', 1], ['Local Traders Assn.', '25000.00', 'BANK_TRANSFER', 1],
     ['Amit Banerjee', '1101.00', 'CASH', 0], ['Rina Saha', '501.00', 'UPI', 0], ['Salt Lake Residents Welfare', '15000.00', 'BANK_TRANSFER', 0],
-    ['Anonymous', '251.00', 'CASH', 0], ['Gupta Sweets', '3100.00', 'UPI', 0],
+    [null, '251.00', 'CASH', 0], ['Gupta Sweets', '3100.00', 'UPI', 0],
   ] as const;
   for (const [i, [donorName, amount, method, daysAgo]] of donations.entries()) {
     await prisma.donation.create({
       data: {
-        eventId: durga.id, donorName, amount, method, paymentStatus: 'SUCCESS', paymentProvider: 'manual',
+        // null = an anonymous donation (gupt daan): no name stored.
+        eventId: durga.id, donorName, isAnonymous: donorName === null, amount, method, paymentStatus: 'SUCCESS', paymentProvider: 'manual',
         receiptNo: `DUR-R-${today.year}-${String(i + 1).padStart(5, '0')}`, createdById: treasurer.id,
         donatedAt: today.minus({ days: daysAgo }).plus({ hours: 10 + i }).toJSDate(),
         paymentReference: method === 'UPI' ? `UPI${4100 + i}` : null,
@@ -612,6 +613,38 @@ async function seedStalls() {
   console.log(`Demo stall types added on ${ev.name} (stall booking open).`);
 }
 
+/**
+ * Blogger referral demo: Priya Festival Diaries (blogger@parvsetu.dev /
+ * 9000000050), approved, promoting one of Jan Utsav Samiti's live festivals
+ * with code PRIYAFEST, plus one request waiting for review. Also turns the
+ * seeded "Anonymous" cash donation of an older demo DB into a real anonymous
+ * one (demo mandal only). Existence-guarded, so reruns are no-ops.
+ */
+async function seedBloggers() {
+  const durga = await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } });
+  if (durga) {
+    await prisma.donation.updateMany({ where: { event: { organizationId: durga.id }, donorName: 'Anonymous', amount: '251.00', isAnonymous: false }, data: { donorName: null, isAnonymous: true } });
+  }
+  const password = process.env.DEMO_PASSWORD ?? (IS_PROD ? '' : LOCAL_DEMO_PASSWORD);
+  if (password.length < 10) return;
+  if ((await prisma.user.findUnique({ where: { mobile: '9000000050' } })) || (await prisma.user.findUnique({ where: { email: 'blogger@parvsetu.dev' } }))) return;
+  const jan = await prisma.organization.findUnique({ where: { slug: 'jan-utsav-samiti' } });
+  const events = jan ? await prisma.event.findMany({ where: { organizationId: jan.id, approvalStatus: 'LIVE', status: 'ACTIVE' }, orderBy: { startDate: 'asc' }, take: 2 }) : [];
+  const b = await prisma.blogger.create({ data: {
+    name: 'Priya Festival Diaries', email: 'blogger@parvsetu.dev', phone: '9000000050', city: 'Pune', status: 'ACTIVE', reviewedAt: new Date(),
+    instagramHandle: '@priyafestivaldiaries', youtubeUrl: 'https://youtube.com/@priyafestivaldiaries', audience: '48k Instagram followers, mostly Pune',
+    bio: 'Melas, pandals and food walks across Maharashtra.',
+  } });
+  await prisma.user.create({ data: { name: b.name, mobile: '9000000050', email: 'blogger@parvsetu.dev', passwordHash: await bcrypt.hash(password, 10), bloggerId: b.id, emailVerifiedAt: new Date() } });
+  for (const [i, ev] of events.entries()) {
+    await prisma.bloggerPromotion.create({ data: {
+      bloggerId: b.id, eventId: ev.id, organizationId: ev.organizationId,
+      ...(i === 0 ? { status: 'APPROVED' as const, code: 'PRIYAFEST', reviewedAt: new Date() } : {}),
+    } });
+  }
+  console.log('Demo blogger created (Priya Festival Diaries: 9000000050 / blogger@parvsetu.dev, code PRIYAFEST).');
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -627,6 +660,7 @@ async function main() {
     await seedRegistrationControl();
     await seedVisitorShowcase();
     await seedStalls();
+    await seedBloggers();
   }
 }
 

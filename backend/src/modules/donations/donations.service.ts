@@ -23,7 +23,7 @@ import { CreateDonationDto, DonationListQuery, UpdateDonationDto } from './donat
 import { ORG_BRAND_SELECT, presentOrgBrand } from '../../common/org-brand';
 
 const donationSelect = {
-  id: true, receiptNo: true, donorName: true, donorMobile: true, donorEmail: true, amount: true, currency: true,
+  id: true, receiptNo: true, donorName: true, isAnonymous: true, donorMobile: true, donorEmail: true, amount: true, currency: true,
   method: true, paymentStatus: true, paymentProvider: true, paymentReference: true, providerOrderId: true,
   donatedAt: true, notes: true, createdAt: true, createdBy: userRef,
 } as const;
@@ -102,13 +102,14 @@ export class DonationsService {
 
   async create(actor: RequestUser, event: EventRef, dto: CreateDonationDto, perms: Set<string> = new Set()) {
     const provider = this.provider(dto.provider ?? 'manual');
+    const donor = donorIdentity(dto);
     if (dto.passes) return this.createWithPasses(actor, event, dto, perms, provider);
     if (provider.online && dto.method !== 'ONLINE' && dto.method !== 'UPI' && dto.method !== 'CARD') {
       throw new BadRequestException('Online providers take UPI, CARD or ONLINE payments');
     }
     const draft = await this.prisma.donation.create({
       data: {
-        eventId: event.id, donorName: dto.donorName.trim(),
+        eventId: event.id, ...donor,
         donorMobile: dto.donorMobile ? normalizeMobile(dto.donorMobile) : null,
         donorEmail: normalizeEmail(dto.donorEmail),
         amount: new Prisma.Decimal(dto.amount), method: dto.method, paymentProvider: provider.key,
@@ -117,7 +118,7 @@ export class DonationsService {
       },
     });
     const payment = await provider.createPayment({
-      reference: draft.id, amount: draft.amount.toFixed(2), currency: draft.currency, payerName: draft.donorName,
+      reference: draft.id, amount: draft.amount.toFixed(2), currency: draft.currency, payerName: draft.donorName ?? 'Anonymous donor',
       description: `Donation — ${event.name}`,
     });
     await this.prisma.$transaction(async (tx) => {
@@ -131,7 +132,7 @@ export class DonationsService {
       });
       await this.audit.log({
         organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'donation.created',
-        entityType: 'Donation', entityId: draft.id, after: { amount: draft.amount.toFixed(2), method: draft.method, provider: provider.key, status: payment.status },
+        entityType: 'Donation', entityId: draft.id, after: { amount: draft.amount.toFixed(2), method: draft.method, provider: provider.key, status: payment.status, anonymous: draft.isAnonymous },
       }, tx);
     });
     const donation = await this.get(event.id, draft.id);
@@ -150,10 +151,11 @@ export class DonationsService {
       throw new ForbiddenException({ statusCode: 403, message: 'You need permission to issue tokens to give passes with a donation.', code: 'FORBIDDEN' });
     }
     if (provider.online) throw new BadRequestException('Passes can be issued with a donation only when the money is already received (manual).');
+    const donor = donorIdentity(dto);
     const id = await this.prisma.$transaction(async (tx) => {
       const d = await tx.donation.create({
         data: {
-          eventId: event.id, donorName: dto.donorName.trim(),
+          eventId: event.id, ...donor,
           donorMobile: dto.donorMobile ? normalizeMobile(dto.donorMobile) : null, donorEmail: normalizeEmail(dto.donorEmail),
           amount: new Prisma.Decimal(dto.amount), method: dto.method, paymentProvider: provider.key, paymentStatus: 'SUCCESS',
           paymentReference: dto.paymentReference ?? null, notes: dto.notes ?? null,
@@ -162,11 +164,11 @@ export class DonationsService {
         },
       });
       const passIds = await this.tokens.issueInTx(tx, actor, event, perms, {
-        ...dto.passes!, visitorName: dto.passes!.visitorName ?? dto.donorName.trim(), visitorMobile: dto.passes!.visitorMobile ?? dto.donorMobile,
+        ...dto.passes!, visitorName: dto.passes!.visitorName ?? donor.donorName ?? undefined, visitorMobile: dto.passes!.visitorMobile ?? dto.donorMobile,
       }, d.id);
       await this.audit.log({
         organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'donation.created',
-        entityType: 'Donation', entityId: d.id, after: { amount: d.amount.toFixed(2), method: d.method, provider: provider.key, status: 'SUCCESS', passes: passIds.length },
+        entityType: 'Donation', entityId: d.id, after: { amount: d.amount.toFixed(2), method: d.method, provider: provider.key, status: 'SUCCESS', passes: passIds.length, anonymous: d.isAnonymous },
       }, tx);
       return d.id;
     });
@@ -177,9 +179,18 @@ export class DonationsService {
     const before = await this.get(event.id, id);
     await this.prisma.$transaction(async (tx) => {
       const becomesPaid = dto.paymentStatus === 'SUCCESS' && before.paymentStatus !== 'SUCCESS';
+      const anonymize = dto.makeAnonymous === true && !before.isAnonymous;
+      if (anonymize) {
+        // The name on the donor's passes goes too (only where it is the donor's own name).
+        const visitorIds = before.passes.length
+          ? (await tx.token.findMany({ where: { donationId: id, visitorId: { not: null } }, select: { visitorId: true } })).map((t) => t.visitorId!)
+          : [];
+        if (visitorIds.length) await tx.visitor.updateMany({ where: { id: { in: visitorIds }, name: before.donorName }, data: { name: null } });
+      }
       await tx.donation.update({
         where: { id },
         data: {
+          ...(anonymize ? { isAnonymous: true, donorName: null } : {}),
           paymentStatus: dto.paymentStatus, paymentReference: dto.paymentReference, notes: dto.notes,
           receiptNo: becomesPaid && !before.receiptNo ? await this.nextReceipt(tx, event.id) : undefined,
         },
@@ -187,8 +198,9 @@ export class DonationsService {
       await this.audit.log({
         organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'donation.updated',
         entityType: 'Donation', entityId: id,
-        before: { paymentStatus: before.paymentStatus, paymentReference: before.paymentReference, notes: before.notes },
-        after: { paymentStatus: dto.paymentStatus ?? before.paymentStatus, paymentReference: dto.paymentReference ?? before.paymentReference, notes: dto.notes ?? before.notes },
+        // The erased name is deliberately not copied into the audit trail.
+        before: { paymentStatus: before.paymentStatus, paymentReference: before.paymentReference, notes: before.notes, anonymous: before.isAnonymous },
+        after: { paymentStatus: dto.paymentStatus ?? before.paymentStatus, paymentReference: dto.paymentReference ?? before.paymentReference, notes: dto.notes ?? before.notes, anonymous: before.isAnonymous || anonymize },
         reason: dto.reason,
       }, tx);
     });
@@ -207,6 +219,8 @@ export class DonationsService {
 
   async emailReceipt(actorId: string, event: EventRef, id: string) {
     const d = await this.prisma.donation.findFirst({ where: { id, eventId: event.id }, select: { donorEmail: true, donorName: true, amount: true, receiptNo: true } });
+    const greet = d?.donorName ? `Namaste ${d.donorName}` : 'Namaste';
+    const thanks = d?.donorName ? `Thank you, ${d.donorName.replace(/[<>&]/g, '')}` : 'Thank you for your gupt daan';
     if (!d) throw new NotFoundException('Donation not found');
     if (!d.donorEmail) throw new BadRequestException('This donation has no donor email.');
     const { url } = await this.share(event.id, id);
@@ -214,8 +228,8 @@ export class DonationsService {
     await this.mail.send({
       to: d.donorEmail,
       subject: `Your donation receipt ${d.receiptNo} — ${event.name}`,
-      text: `Namaste ${d.donorName},\n\nThank you for your donation of ${amount} to ${event.name}.\nYour receipt ${d.receiptNo}: ${url}\n\n— ${event.name}`,
-      html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;border:1px solid #fed7aa;border-radius:16px;overflow:hidden"><div style="background:linear-gradient(135deg,#f59e0b,#f97316,#e11d48);color:#fff;padding:18px 22px;font-size:18px;font-weight:bold">🙏 Thank you, ${d.donorName.replace(/[<>&]/g, '')}</div><div style="padding:22px;color:#0f172a"><p>Your donation of <b>${amount}</b> to <b>${event.name.replace(/[<>&]/g, '')}</b> has been received.</p><p style="text-align:center;margin:24px 0"><a href="${url}" style="background:#ea580c;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold">View / download receipt ${d.receiptNo}</a></p></div></div>`,
+      text: `${greet},\n\nThank you for your donation of ${amount} to ${event.name}.\nYour receipt ${d.receiptNo}: ${url}\n\n— ${event.name}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;border:1px solid #fed7aa;border-radius:16px;overflow:hidden"><div style="background:linear-gradient(135deg,#f59e0b,#f97316,#e11d48);color:#fff;padding:18px 22px;font-size:18px;font-weight:bold">🙏 ${thanks}</div><div style="padding:22px;color:#0f172a"><p>Your donation of <b>${amount}</b> to <b>${event.name.replace(/[<>&]/g, '')}</b> has been received.</p><p style="text-align:center;margin:24px 0"><a href="${url}" style="background:#ea580c;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold">View / download receipt ${d.receiptNo}</a></p></div></div>`,
     });
     await this.audit.log({ organizationId: event.organizationId, eventId: event.id, actorId, action: 'donation.receipt_emailed', entityType: 'Donation', entityId: id });
     return { sent: true };
@@ -244,7 +258,10 @@ export class DonationsService {
       receiptNo: d.receiptNo, organization: presentOrgBrand(d.event.organization), event: { name: d.event.name, festivalType: d.event.festivalType },
       issuer: identity,
       donorMobile: d.donorMobile, donorEmail: d.donorEmail,
-      donorName: d.donorName, amount: d.amount.toFixed(2), amountInWords: amountInWords(d.amount.toFixed(2)),
+      donorName: d.donorName, isAnonymous: d.isAnonymous,
+      /** An anonymous donation can't carry an 80G deduction (the donor's name and PAN are required). */
+      eligibleFor80G: !d.isAnonymous && !!identity?.reg80G,
+      amount: d.amount.toFixed(2), amountInWords: amountInWords(d.amount.toFixed(2)),
       currency: d.currency, method: d.method, paymentReference: d.paymentReference, donatedAt: d.donatedAt,
     };
   }
@@ -277,4 +294,12 @@ export class DonationsService {
     });
     return { received: true };
   }
+}
+
+/** Name fields for a new donation: an anonymous one never stores a name, a named one needs it. */
+function donorIdentity(dto: CreateDonationDto) {
+  if (dto.isAnonymous) return { donorName: null, isAnonymous: true };
+  const name = dto.donorName?.trim();
+  if (!name) throw new BadRequestException({ statusCode: 400, code: 'DONOR_NAME_REQUIRED', message: 'Enter the donor name, or mark the donation as anonymous.' });
+  return { donorName: name, isAnonymous: false };
 }

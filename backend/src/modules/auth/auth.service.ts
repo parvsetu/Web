@@ -199,7 +199,7 @@ export class AuthService {
   }
 
   async apply(actor: RequestUser, dto: ApplyDto) {
-    if (actor.partnerId || actor.agentId || actor.vendorId) throw new ForbiddenException({ statusCode: 403, message: 'Partner, agent and vendor accounts cannot volunteer.', code: 'FORBIDDEN' });
+    if (actor.partnerId || actor.agentId || actor.vendorId || actor.bloggerId) throw new ForbiddenException({ statusCode: 403, message: 'Partner, agent, vendor and blogger accounts cannot volunteer.', code: 'FORBIDDEN' });
     await this.assertCanApply(dto.organizationId, dto.eventId);
     const pending = await this.prisma.volunteerApplication.findFirst({
       where: { userId: actor.id, organizationId: dto.organizationId, status: 'PENDING' },
@@ -240,6 +240,7 @@ export class AuthService {
         partner: { select: { id: true, name: true, status: true } },
         agent: { select: { id: true, name: true, code: true, status: true } },
         vendor: { select: { id: true, businessName: true, status: true } },
+        blogger: { select: { id: true, name: true, status: true } },
         mandalRegistrations: {
           select: { id: true, status: true, orgName: true, organizationId: true, reviewNote: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
@@ -301,6 +302,8 @@ export class AuthService {
       agent: user.agent,
       // Stall-vendor account → the frontend routes it to /vendor.
       vendor: user.vendor,
+      // Blogger / influencer account → the frontend routes it to /blogger.
+      blogger: user.blogger,
       /** Mandal registrations this user applied for (status page at /registration). */
       mandalRegistrations: user.mandalRegistrations,
       organizations,
@@ -313,8 +316,8 @@ export class AuthService {
     return this.jwt.sign({ sub: userId, ver: tokenVersion });
   }
 
-  private toRequestUser(u: { id: string; name: string; isSuperAdmin: boolean; partnerId?: string | null; agentId?: string | null; vendorId?: string | null }): RequestUser {
-    return { id: u.id, name: u.name, isSuperAdmin: u.isSuperAdmin, partnerId: u.partnerId ?? null, agentId: u.agentId ?? null, vendorId: u.vendorId ?? null };
+  private toRequestUser(u: { id: string; name: string; isSuperAdmin: boolean; partnerId?: string | null; agentId?: string | null; vendorId?: string | null; bloggerId?: string | null }): RequestUser {
+    return { id: u.id, name: u.name, isSuperAdmin: u.isSuperAdmin, partnerId: u.partnerId ?? null, agentId: u.agentId ?? null, vendorId: u.vendorId ?? null, bloggerId: u.bloggerId ?? null };
   }
 }
 

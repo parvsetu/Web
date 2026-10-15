@@ -164,6 +164,8 @@ model User {
   agentId                   String?
   /// Set for stall-vendor accounts; such a user belongs to no Organization.
   vendorId                  String?
+  /// Set for blogger / influencer accounts; such a user belongs to no Organization.
+  bloggerId                 String?
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
@@ -181,6 +183,7 @@ model User {
   partner             Partner?               @relation(fields: [partnerId], references: [id], onDelete: SetNull)
   agent               Agent?                 @relation(fields: [agentId], references: [id], onDelete: SetNull)
   vendor              Vendor?                @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  blogger             Blogger?               @relation(fields: [bloggerId], references: [id], onDelete: SetNull)
   stallBookings       StallBooking[]         @relation("StallBookingCreatedBy")
   mandalRegistrations MandalRegistration[]   @relation("RegistrationApplicant")
   passwordSetupTokens PasswordSetupToken[]
@@ -188,6 +191,7 @@ model User {
   @@index([partnerId])
   @@index([agentId])
   @@index([vendorId])
+  @@index([bloggerId])
   @@map("users")
 }
 
@@ -378,26 +382,27 @@ model Event {
   createdAt                 DateTime            @default(now())
   updatedAt                 DateTime            @updatedAt
 
-  organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  feePayments      EventFeePayment[]
-  declarations     LegalDeclaration[]
-  timeSlots        TimeSlot[]
-  tokens           Token[]
-  visitors         Visitor[]
-  assignments      EventAssignment[]
-  applications     VolunteerApplication[]
-  scanLogs         ScanLog[]
-  donations        Donation[]
-  expenses         Expense[]
-  auditLogs        AuditLog[]
-  passOrders       PassOrder[]
-  sponsors         Sponsor[]
-  partnerCampaigns PartnerCampaign[]
-  photos           EventPhoto[]
-  priceRules       PriceRule[]
-  reviews          VisitorReview[]
-  stallTypes       StallType[]
-  stallBookings    StallBooking[]
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feePayments       EventFeePayment[]
+  declarations      LegalDeclaration[]
+  timeSlots         TimeSlot[]
+  tokens            Token[]
+  visitors          Visitor[]
+  assignments       EventAssignment[]
+  applications      VolunteerApplication[]
+  scanLogs          ScanLog[]
+  donations         Donation[]
+  expenses          Expense[]
+  auditLogs         AuditLog[]
+  passOrders        PassOrder[]
+  sponsors          Sponsor[]
+  partnerCampaigns  PartnerCampaign[]
+  photos            EventPhoto[]
+  priceRules        PriceRule[]
+  reviews           VisitorReview[]
+  stallTypes        StallType[]
+  stallBookings     StallBooking[]
+  bloggerPromotions BloggerPromotion[]
 
   @@index([organizationId])
   @@index([state, city])
@@ -574,7 +579,10 @@ model ScanLog {
 model Donation {
   id               String         @id @default(uuid())
   eventId          String
-  donorName        String
+  /// null only for an anonymous donation (gupt daan) — the name is never stored then.
+  donorName        String?
+  /// Anonymous donation: no name on the receipt, list or share link (CHECK keeps donorName null).
+  isAnonymous      Boolean        @default(false)
   donorMobile      String?
   donorEmail       String?
   amount           Decimal        @db.Decimal(12, 2)
@@ -657,47 +665,51 @@ model AuditLog {
 // group QR admitting visitorCount people.
 // The buyer reads the order with its random accessKey — no account needed.
 model PassOrder {
-  id               String          @id @default(uuid())
-  eventId          String
-  timeSlotId       String
-  validFrom        DateTime
-  validUntil       DateTime
-  visitorCount     Int
-  buyerName        String
-  buyerMobile      String
-  buyerEmail       String?
-  unitPrice        Decimal         @db.Decimal(10, 2)
+  id                  String          @id @default(uuid())
+  eventId             String
+  timeSlotId          String
+  validFrom           DateTime
+  validUntil          DateTime
+  visitorCount        Int
+  buyerName           String
+  buyerMobile         String
+  buyerEmail          String?
+  unitPrice           Decimal         @db.Decimal(10, 2)
   /// Peak-pricing rule that set unitPrice (null = the slot's base price).
-  priceRuleLabel   String?
+  priceRuleLabel      String?
   /// Taxable value (price × people, ex-GST).
-  baseAmount       Decimal         @default(0) @db.Decimal(12, 2)
-  gstRateBps       Int             @default(0)
-  gstAmount        Decimal         @default(0) @db.Decimal(12, 2)
-  gstBearer        String?
-  invoiceNo        String?
+  baseAmount          Decimal         @default(0) @db.Decimal(12, 2)
+  gstRateBps          Int             @default(0)
+  gstAmount           Decimal         @default(0) @db.Decimal(12, 2)
+  gstBearer           String?
+  invoiceNo           String?
   /// Total charged to the visitor (base + GST).
-  amount           Decimal         @db.Decimal(12, 2)
-  currency         String          @default("INR")
-  status           PassOrderStatus @default(PENDING)
-  paymentProvider  String
-  providerOrderId  String?
-  paymentReference String?
-  accessKey        String          @unique
-  perPersonPasses  Boolean         @default(true)
-  expiresAt        DateTime
-  paidAt           DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  amount              Decimal         @db.Decimal(12, 2)
+  currency            String          @default("INR")
+  status              PassOrderStatus @default(PENDING)
+  paymentProvider     String
+  providerOrderId     String?
+  paymentReference    String?
+  accessKey           String          @unique
+  perPersonPasses     Boolean         @default(true)
+  /// Blogger promotion whose referral code/link brought this booking (commission on payment).
+  referralPromotionId String?
+  expiresAt           DateTime
+  paidAt              DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
-  event    Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  timeSlot TimeSlot       @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
-  tokens   Token[]
-  review   VisitorReview?
+  event             Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  timeSlot          TimeSlot          @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
+  tokens            Token[]
+  review            VisitorReview?
+  referralPromotion BloggerPromotion? @relation(fields: [referralPromotionId], references: [id], onDelete: SetNull)
 
   @@unique([paymentProvider, providerOrderId])
   @@unique([eventId, invoiceNo], map: "pass_orders_event_invoice_key")
   @@index([eventId, status])
   @@index([timeSlotId, validFrom, status])
+  @@index([referralPromotionId])
   @@map("pass_orders")
 }
 
@@ -778,6 +790,9 @@ model PlatformSettings {
   agentCommissionBps          Int      @default(0)
   /// Platform fee on every paid stall booking (bps of the stall rent, before GST).
   stallCommissionBps          Int      @default(500)
+  /// Blogger referral commission on a paid pass booking: PERCENT (bps of the ex-GST ticket value) or FIXED (paise per booking).
+  referralCommissionMode      String   @default("PERCENT")
+  referralCommissionValue     Int      @default(500)
   updatedAt                   DateTime @updatedAt
   updatedById                 String?
 
@@ -1701,4 +1716,133 @@ model StallBooking {
   @@index([eventId, status, createdAt])
   @@index([status, expiresAt])
   @@map("stall_bookings")
+}
+
+// ─── Blogger / influencer referrals ─────────────────────────────────────
+//
+// Bloggers sign themselves up (User.bloggerId → Blogger, no memberships) and
+// pick festivals to promote. The super admin approves the blogger and each
+// promotion; an approved promotion gets its own referral code. A pass order
+// placed with that code (link /f/<event>?ref=CODE) carries referralPromotionId,
+// and the commission is credited in the payment transaction — once per order
+// (partial unique index), reversed when every pass of the booking is cancelled
+// or by the super admin for an off-platform refund. Commissions are paid by the
+// platform, not deducted from the mandal's settlement.
+
+enum BloggerStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
+enum PromotionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+enum ReferralLedgerType {
+  EARNED
+  PAID
+  REVERSED
+}
+
+model Blogger {
+  id              String        @id @default(uuid())
+  name            String
+  email           String
+  phone           String
+  city            String?
+  bio             String?
+  youtubeUrl      String?
+  instagramHandle String?
+  blogUrl         String?
+  /// Self-declared audience size, e.g. "45k Instagram followers".
+  audience        String?
+  status          BloggerStatus @default(PENDING)
+  reviewNote      String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  users      User[]
+  promotions BloggerPromotion[]
+  ledger     ReferralLedgerEntry[]
+  payouts    BloggerPayout[]
+
+  @@index([status, createdAt])
+  @@map("bloggers")
+}
+
+model BloggerPromotion {
+  id              String          @id @default(uuid())
+  bloggerId       String
+  eventId         String
+  organizationId  String
+  /// Referral code, unique platform-wide; assigned when the promotion is approved.
+  code            String?         @unique
+  status          PromotionStatus @default(PENDING)
+  /// Commission override for this promotion (null = platform default): PERCENT (bps) | FIXED (paise per booking).
+  commissionMode  String?
+  commissionValue Int?
+  reviewNote      String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  blogger Blogger               @relation(fields: [bloggerId], references: [id], onDelete: Cascade)
+  event   Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orders  PassOrder[]
+  ledger  ReferralLedgerEntry[]
+
+  @@unique([bloggerId, eventId])
+  @@index([eventId, status])
+  @@index([status, createdAt])
+  @@map("blogger_promotions")
+}
+
+model ReferralLedgerEntry {
+  id          String             @id @default(uuid())
+  bloggerId   String
+  type        ReferralLedgerType
+  /// COMMISSION | PAYOUT
+  kind        String
+  amountPaise Int
+  promotionId String?
+  eventId     String?
+  passOrderId String?
+  payoutId    String?
+  reversedAt  DateTime?
+  reversesId  String?
+  note        String?
+  createdById String?
+  createdAt   DateTime           @default(now())
+
+  blogger   Blogger           @relation(fields: [bloggerId], references: [id], onDelete: Cascade)
+  promotion BloggerPromotion? @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+
+  @@index([bloggerId, createdAt])
+  @@index([promotionId])
+  @@index([passOrderId])
+  @@map("referral_ledger_entries")
+}
+
+model BloggerPayout {
+  id          String   @id @default(uuid())
+  bloggerId   String
+  amountPaise Int
+  paidOn      DateTime @db.Date
+  reference   String
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  blogger Blogger @relation(fields: [bloggerId], references: [id], onDelete: Cascade)
+
+  @@index([bloggerId, paidOn])
+  @@map("blogger_payouts")
 }

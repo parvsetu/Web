@@ -248,6 +248,30 @@ two simultaneous payments of one mandal serialize; inserts use `ON CONFLICT DO N
 aborts the payment. The referral is earned on the mandal's first *paid* fee; a refund reverses that payment's entries (the
 referral can then be earned again by a later payment). Payouts lock the agent row and can't exceed what is due.
 
+## Blogger referrals
+
+Bloggers are a user type without memberships (`User.bloggerId → Blogger`), like partners, agents and vendors: `AccessService`
+gives them nothing (404) and `/blogger/*` goes through `BloggerGuard`. The blogger and each `BloggerPromotion` (blogger ×
+festival) are approved separately by the super admin; approval assigns the promotion's referral code (unique platform-wide).
+
+A pass order stores `referralPromotionId` when its code is valid for that festival and the buyer isn't the blogger. Money lives
+in `ReferralEarningsService` (append-only `referral_ledger_entries`: EARNED / REVERSED / PAID, platform-paid like agent
+earnings, never deducted from the mandal's settlement):
+- `onOrderPaid` runs inside `markPaid` (order row locked) and inserts with `ON CONFLICT DO NOTHING` against a partial unique
+  index (one EARNED row per `passOrderId`, ever), so replayed or concurrent confirmations can't double-credit and a conflict
+  never aborts the payment. The promotion and blogger are re-checked at payment time.
+- `onPassCancelled` runs inside the token-cancel transaction: it locks the order row and reverses the commission when no pass
+  of the booking is left uncancelled (the lock makes two concurrent "last pass" cancellations serialize). Reversal is a
+  conditional update plus a partial unique index on `reversesId`, so it happens once. The super admin can also reverse an
+  entry for an off-platform refund.
+- Payouts lock the blogger row and can't exceed what is due.
+
+## Anonymous donations
+
+`Donation.isAnonymous` with `donorName` NULL (CHECK: anonymous ⇔ no name). The name is dropped at the API boundary, never
+stored, never audited; receipts say "Anonymous donor" and are never 80G-eligible. `makeAnonymous` is one-way and also clears
+the visitor name on the donor's passes.
+
 ## Hardening checklist
 
 - Input validation: global `ValidationPipe` with `whitelist` +

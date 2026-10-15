@@ -367,7 +367,7 @@ export class BillingService {
 
   // ─── Super admin ───────────────────────────────────────────────────
 
-  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerRate?: string; gatewayFeePercent?: string; defaultPassPrintFormat?: PassPrintSetting; landingPageYearlyPrice?: string; defaultEventFee?: string; agentReferralFee?: string; agentCommissionPercent?: string; stallCommissionPercent?: string }) {
+  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerRate?: string; gatewayFeePercent?: string; defaultPassPrintFormat?: PassPrintSetting; landingPageYearlyPrice?: string; defaultEventFee?: string; agentReferralFee?: string; agentCommissionPercent?: string; stallCommissionPercent?: string; referralCommissionMode?: 'PERCENT' | 'FIXED'; referralCommissionValue?: string }) {
     const before = await this.settings();
     const data: Prisma.PlatformSettingsUpdateInput = { updatedById: actorId };
     if (dto.defaultTokenPrice !== undefined) data.defaultTokenPricePaise = toPaise(dto.defaultTokenPrice);
@@ -382,12 +382,20 @@ export class BillingService {
     if (dto.agentReferralFee !== undefined) data.agentReferralFeePaise = toPaise(dto.agentReferralFee);
     if (dto.agentCommissionPercent !== undefined) data.agentCommissionBps = Math.round(Number(dto.agentCommissionPercent) * 100);
     if (dto.stallCommissionPercent !== undefined) data.stallCommissionBps = Math.round(Number(dto.stallCommissionPercent) * 100);
+    if (dto.referralCommissionMode !== undefined || dto.referralCommissionValue !== undefined) {
+      const mode = dto.referralCommissionMode ?? before.referralCommissionMode;
+      const raw = dto.referralCommissionValue ?? '';
+      const ok = mode === 'PERCENT' ? /^(100(\.0{1,2})?|\d{1,2}(\.\d{1,2})?)$/.test(raw) : /^\d{1,8}(\.\d{1,2})?$/.test(raw);
+      if (!ok) throw new BadRequestException({ statusCode: 400, code: 'BAD_COMMISSION', message: mode === 'PERCENT' ? 'Blogger commission must be a % between 0 and 100.' : 'Blogger commission must be an amount like 25.' });
+      data.referralCommissionMode = mode;
+      data.referralCommissionValue = Math.round(Number(raw) * 100);
+    }
     const after = await this.prisma.platformSettings.update({ where: { id: 'default' }, data });
     await this.audit.log({ actorId, action: 'billing.settings_updated', entityType: 'PlatformSettings', entityId: 'default', before, after });
     return this.presentSettings(after);
   }
 
-  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; defaultPassPrintFormat: string; landingPageYearlyPricePaise: number; defaultEventFeePaise: number; agentReferralFeePaise: number; agentCommissionBps: number; stallCommissionBps: number; updatedAt: Date }) {
+  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; defaultPassPrintFormat: string; landingPageYearlyPricePaise: number; defaultEventFeePaise: number; agentReferralFeePaise: number; agentCommissionBps: number; stallCommissionBps: number; referralCommissionMode: string; referralCommissionValue: number; updatedAt: Date }) {
     return {
       defaultTokenPrice: rupees(s.defaultTokenPricePaise), defaultCommissionPercent: (s.defaultCommissionBps / 100).toFixed(2),
       lowCreditThreshold: rupees(s.lowCreditThresholdPaise), welcomeCredit: rupees(s.welcomeCreditPaise),
@@ -395,6 +403,8 @@ export class BillingService {
       landingPageYearlyPrice: rupees(s.landingPageYearlyPricePaise),
       defaultEventFee: rupees(s.defaultEventFeePaise), agentReferralFee: rupees(s.agentReferralFeePaise), agentCommissionPercent: (s.agentCommissionBps / 100).toFixed(2),
       stallCommissionPercent: (s.stallCommissionBps / 100).toFixed(2),
+      /** Blogger referral commission: PERCENT → value is %, FIXED → value is ₹ per paid booking. */
+      referralCommissionMode: s.referralCommissionMode, referralCommissionValue: (s.referralCommissionValue / 100).toFixed(2),
       updatedAt: s.updatedAt,
     };
   }
@@ -439,6 +449,8 @@ export class BillingService {
     const eventFeePaise = eventFees._sum.amountPaise ?? 0;
     const agentLedger = await this.prisma.agentLedgerEntry.groupBy({ by: ['type'], _sum: { amountPaise: true } });
     const agentSum = (t: string) => agentLedger.find((a) => a.type === t)?._sum.amountPaise ?? 0;
+    const refLedger = await this.prisma.referralLedgerEntry.groupBy({ by: ['type'], _sum: { amountPaise: true } });
+    const refSum = (t: string) => refLedger.find((a) => a.type === t)?._sum.amountPaise ?? 0;
     const [agg, recharges, byType, accounts, partnerNet, wallets] = await Promise.all([
       this.prisma.orgBilling.aggregate({ _sum: { totalSponsorFeesPaise: true, totalFeesPaise: true, totalTokens: true, totalPersons: true, creditBalancePaise: true, totalRechargedPaise: true } }),
       this.prisma.creditRecharge.count({ where: { status: 'PAID' } }),
@@ -471,6 +483,10 @@ export class BillingService {
       /** Field-agent referral earnings: what the platform owes agents (not deducted from totalEarned). */
       agentEarningsDue: rupees(agentSum('EARNED') - agentSum('REVERSED') - agentSum('PAID')),
       agentPayoutsMade: rupees(agentSum('PAID')),
+      /** Blogger referral commissions (platform-paid, not deducted from totalEarned). */
+      bloggerCommissionEarned: rupees(refSum('EARNED') - refSum('REVERSED')),
+      bloggerCommissionDue: rupees(refSum('EARNED') - refSum('REVERSED') - refSum('PAID')),
+      bloggerPayoutsMade: rupees(refSum('PAID')),
       totalEarned: rupees((agg._sum.totalFeesPaise ?? 0) + (agg._sum.totalSponsorFeesPaise ?? 0) + (split._sum.commissionPaise ?? 0) + partnerEarned + landingPaise + eventFeePaise),
       tokensGenerated: agg._sum.totalTokens ?? 0,
       personsAdmitted: agg._sum.totalPersons ?? 0,
