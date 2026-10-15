@@ -284,6 +284,16 @@ Donor IDs: AES-GCM (`field-crypto`), masked in responses and audits, full only i
 Note: don't `upsert` rows guarded by such CHECKs — Prisma issues `INSERT … ON CONFLICT`, and Postgres checks the INSERT candidate too.
 All legal figures (cash limit, due date) are platform settings, flagged for CA review.
 
+## Instagram photo import
+
+`InstagramProvider` (like `PaymentProvider`): the real "Instagram API with Instagram Login" (`MetaInstagramProvider`, on when
+`INSTAGRAM_APP_ID`/`SECRET` are set), a simulated one for dev/tests (`INSTAGRAM_DEMO`, refused in production), or none (feature
+off). A mandal connects its own Business/Creator account (signed OAuth state bound to org + user; token AES-GCM encrypted);
+syncs add `InstagramMedia` rows as PENDING (metadata only); approving downloads a fresh copy (Instagram/Facebook CDN hosts
+only — no SSRF), checks it like any upload and stores it under the org quota lock. CHECKs keep "approved ⇔ stored copy" and
+"active ⇔ token". Housekeeping every 3 h refreshes tokens and syncs. Meta's deauthorize / data-deletion callbacks verify
+`signed_request`. Setup: `docs/INSTAGRAM.md`.
+
 ## Hardening checklist
 
 - Input validation: global `ValidationPipe` with `whitelist` +

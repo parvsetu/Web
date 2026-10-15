@@ -902,3 +902,23 @@ donor IDs, Form 10BD export/filing, Form 10BE issue). Treasurer: both; Report vi
 - `POST /organizations/:orgId/tax/years/:fy/form-10be` (TAX_MANAGE) `{ donorKey, certificateNumber, issuedOn }` — only after a current
   `FILED` 10BD that includes all the donor's donations (409 `FILE_10BD_FIRST` / `NOT_IN_FILED_10BD`); re-issue = new version.
 - Platform settings: `tax80GCashLimit` (₹), `tax10BDDueMonthDay` (MM-DD).
+
+## Instagram photo import (landing pages)
+
+Setup and behaviour: `docs/INSTAGRAM.md`. Off (503 `INSTAGRAM_NOT_CONFIGURED`) until `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET` are set.
+
+- `GET /organizations/:orgId/instagram` (SETTINGS_VIEW) → `{ configured, simulated, connection: { username, profileUrl, accountType, status ACTIVE|EXPIRED, connectedAt, tokenExpiresAt, lastSyncAt, lastSyncError } | null, counts { pending, approved, rejected }, usage }`.
+- `POST /organizations/:orgId/instagram/connect` (SETTINGS_UPDATE) → `{ url }` — send the browser there (Instagram login).
+- `POST /instagram/callback` (logged in) `{ code, state }` → `{ organizationId, username, added, skippedVideos, pending }`. The state is HMAC-signed
+  (org, user, 10 min); 400 `INSTAGRAM_BAD_STATE` / `INSTAGRAM_STATE_EXPIRED`, 403 `INSTAGRAM_WRONG_USER`, 409 `INSTAGRAM_IN_USE` (account connected to another mandal).
+- `POST /organizations/:orgId/instagram/sync` (SETTINGS_UPDATE) → `{ added, skippedVideos, pending }`; 409 `INSTAGRAM_NOT_CONNECTED` / `INSTAGRAM_EXPIRED`.
+- `POST /organizations/:orgId/instagram/disconnect` (SETTINGS_UPDATE) `{ removePhotos? }`.
+- `GET /organizations/:orgId/instagram/media?status=PENDING|APPROVED|REJECTED` (SETTINGS_VIEW), paged.
+- `GET /organizations/:orgId/instagram/media/:id/image` (SETTINGS_VIEW) — the stored copy, or for a pending photo a fresh copy from Instagram (not kept).
+- `POST /organizations/:orgId/instagram/media/approve` (SETTINGS_UPDATE) `{ ids[≤30] }` → `{ results: [{ id, ok, error?, code? }], status }` — per photo
+  (`NOT_PENDING`, `INSTAGRAM_POST_GONE`, `PHOTO_TOO_LARGE`, `GALLERY_QUOTA_EXCEEDED`).
+- `POST …/media/reject` (pending → not shown; approved → removed from the page, stored copy deleted), `POST …/media/restore` (back to the queue).
+- Public: `GET /public/instagram/:id/image` (approved only, cached a day); the landing payload has `instagram: { username, profileUrl, photos[≤24] } | null`
+  and a layout section `instagram` (GRID | CAROUSEL).
+- Meta: `POST /public/instagram/deauthorize`, `POST /public/instagram/data-deletion` (form field `signed_request`, HMAC-SHA256 with the app secret).
+- Approved photos count toward the mandal's 300 MB (`usage.breakdown.instagramBytes`).

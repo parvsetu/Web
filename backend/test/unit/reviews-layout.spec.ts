@@ -52,22 +52,34 @@ describe('landing layout', () => {
     expect(l.map((s) => s.id)).toEqual(DEFAULT_LAYOUT_ORDER);
     expect(l[0]).toEqual({ id: 'hero', visible: true, variant: 'DEFAULT' });
   });
-  it('normalizes stored data leniently: unknown/duplicate ids dropped, bad variants defaulted, missing appended, hero forced first + visible', () => {
+  it('normalizes stored data leniently: unknown/duplicate ids dropped, bad variants defaulted, hero forced first + visible', () => {
     const l = normalizeLayout([
       { id: 'gallery', visible: false, variant: 'CAROUSEL' }, { id: 'oldThing', visible: true }, { id: 'gallery', visible: true },
       { id: 'reviews', visible: true, variant: 'NOPE' }, { id: 'hero', visible: false },
     ]);
+    const ids = l.map((s) => s.id);
     expect(l[0]).toEqual({ id: 'hero', visible: true, variant: 'DEFAULT' });
-    expect(l[1]).toEqual({ id: 'gallery', visible: false, variant: 'CAROUSEL' });
-    expect(l[2]).toEqual({ id: 'reviews', visible: true, variant: 'CARDS' });
+    expect(l.find((s) => s.id === 'gallery')).toEqual({ id: 'gallery', visible: false, variant: 'CAROUSEL' });
+    expect(l.find((s) => s.id === 'reviews')).toEqual({ id: 'reviews', visible: true, variant: 'CARDS' });
+    // The saved sections keep the mandal's order (gallery before reviews) …
+    expect(ids.indexOf('gallery')).toBeLessThan(ids.indexOf('reviews'));
     expect(l).toHaveLength(DEFAULT_LAYOUT_ORDER.length);
-    expect(new Set(l.map((s) => s.id)).size).toBe(l.length);
+    expect(new Set(ids).size).toBe(l.length);
+  });
+  it('a section added after the layout was saved goes next to its default neighbour, not to the bottom', () => {
+    const saved = DEFAULT_LAYOUT_ORDER.filter((id) => id !== 'instagram').reverse().map((id) => ({ id, visible: true }));
+    const ids = normalizeLayout(saved).map((s) => s.id);
+    // … the mandal's (reversed) order is untouched, and "instagram" lands right after "gallery".
+    expect(ids.filter((id) => id !== 'instagram')).toEqual(['hero', ...saved.map((s) => s.id).filter((id) => id !== 'hero')]);
+    expect(ids[ids.indexOf('gallery') + 1]).toBe('instagram');
   });
   it('validates saves strictly: duplicate or invalid variant → 400, unknown id dropped', () => {
     expect(() => validateLayout([{ id: 'gallery', visible: true }, { id: 'gallery', visible: false }])).toThrow(/more than once/);
     expect(() => validateLayout([{ id: 'trophies', visible: true, variant: 'CAROUSEL' }])).toThrow(/not a layout/);
     const l = validateLayout([{ id: 'future', visible: true }, { id: 'trophies', visible: true, variant: 'GRID' }]);
+    // On save the client's order comes first; sections it left out are appended.
     expect(l.map((s) => s.id).slice(0, 2)).toEqual(['hero', 'trophies']);
+    expect(l.find((s) => s.id === 'trophies')?.variant).toBe('GRID');
     expect(l.find((s) => s.id === 'future' as never)).toBeUndefined();
   });
 });

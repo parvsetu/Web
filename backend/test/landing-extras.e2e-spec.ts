@@ -101,7 +101,7 @@ describe('Landing achievements & layout (e2e)', () => {
     expect(ids.slice(0, 5)).toEqual(['hero', 'trophies', 'reviews', 'gallery', 'upcoming']);
     expect(ids).not.toContain('mysteryWidget');
     expect(saved.body.sections[0].visible).toBe(true);
-    expect(new Set(ids).size).toBe(10); // missing sections appended
+    expect(new Set(ids).size).toBe(11); // missing sections appended
     expect(saved.body.customized).toBe(true);
 
     const pub = (await ctx.http().get(api(`/public/landing/${m.org.slug}`))).body;

@@ -36,8 +36,8 @@ for doc, kind, name, body in blocks:
 GROUPS = [
   ('access', 'People, roles & access', 'Who can do what. A user belongs to mandals (OrganizationMember) and festivals (EventAssignment) through roles; every sensitive change lands in AuditLog in the same transaction.',
    ['User','Organization','Role','Permission','RolePermission','OrganizationMember','EventAssignment','VolunteerApplication','EmailOtp','PasswordSetupToken','AuditLog','LegalDeclaration']),
-  ('festival', 'Festivals, passes & the gate', 'A festival (Event) has daily time slots and peak-day price rules. Every pass is a single-use Token with a signed QR; ScanLog records every gate attempt.',
-   ['Event','TimeSlot','PriceRule','Visitor','Token','ScanLog','PassOrder','Sponsor','EventPhoto','StoredImage','LandingPage','LandingPurchase','VisitorReview','ReviewPhoto','ReviewReport','Achievement']),
+  ('festival', 'Festivals, passes & the gate', 'A festival (Event) has daily time slots and peak-day price rules. Every pass is a single-use Token with a signed QR; ScanLog records every gate attempt. A mandal’s landing page shows its photos, reviews and the Instagram photos it approved.',
+   ['Event','TimeSlot','PriceRule','Visitor','Token','ScanLog','PassOrder','Sponsor','EventPhoto','StoredImage','LandingPage','LandingPurchase','InstagramConnection','InstagramMedia','VisitorReview','ReviewPhoto','ReviewReport','Achievement']),
   ('money', 'Mandal money: donations, 80G, settlements', 'Donations and expenses per festival; the 80G tax record and versioned receipts per donation; online money split into PaymentSettlement rows and paid out to the mandal’s verified account.',
    ['Donation','DonationTaxRecord','DonationDocument','Form10BDFiling','OrgTaxProfile','Expense','PayoutAccount','PaymentSettlement','Payout']),
   ('billing', 'Platform billing', 'Platform-wide defaults and each mandal’s prepaid pass credit (a hard limit enforced atomically).',

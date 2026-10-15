@@ -39,6 +39,10 @@ services:
         value: "1"
       - key: PAYMENTS_MOCK_ENABLED
         value: "false"
+      - key: INSTAGRAM_APP_ID      # Meta app → Instagram → Instagram app ID (see docs/INSTAGRAM.md); empty = Instagram import off
+        sync: false
+      - key: INSTAGRAM_APP_SECRET  # Instagram app secret — dashboard only, never in the repo
+        sync: false
       - key: SEED_DEMO            # set "true" (plus DEMO_PASSWORD) to load demo mandals/events/tokens once
         value: "false"
       - key: DEMO_PASSWORD        # password for the demo accounts on this deployment (min 10 chars)

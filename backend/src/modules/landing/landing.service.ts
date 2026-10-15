@@ -15,6 +15,7 @@ import { extendPaidUntil, landingState, socialUrl, whatsappNumber } from './land
 import { LAYOUT_CATALOG, defaultLayout, normalizeLayout, validateLayout } from './landing-layout';
 import { AchievementsService } from './achievements.service';
 import { ReviewsService } from '../reviews/reviews.service';
+import { InstagramService } from '../instagram/instagram.service';
 
 type Db = Prisma.TransactionClient | PrismaService;
 
@@ -52,6 +53,7 @@ export class LandingService {
   constructor(
     private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly sponsors: SponsorsService,
     private readonly billing: BillingService, private readonly achievements: AchievementsService, private readonly reviews: ReviewsService,
+    private readonly instagram: InstagramService,
   ) {}
 
   async yearlyPricePaise(organizationId: string, db: Db = this.prisma) {
@@ -300,6 +302,8 @@ export class LandingService {
       sponsors: await this.sponsors.forOrg(org.id),
       achievements: await this.achievements.publicFor(org.id),
       ...(await this.reviews.landingBlock(org.id)),
+      /** Photos the mandal approved from its connected Instagram (null = none). */
+      instagram: await this.instagram.landingBlock(org.id),
       /** Section order / visibility / variant, exactly as the mandal saved it (normalized). */
       layout: lp.layout,
     };

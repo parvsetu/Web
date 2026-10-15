@@ -225,6 +225,8 @@ model Organization {
   expenses           Expense[]
   sponsors           Sponsor[]
   billing            OrgBilling?
+  instagram          InstagramConnection?
+  instagramMedia     InstagramMedia[]
   taxProfile         OrgTaxProfile?
   payoutAccount      PayoutAccount?
   settlements        PaymentSettlement[]
@@ -1983,4 +1985,77 @@ model Form10BDFiling {
 
   @@index([organizationId, financialYear])
   @@map("form_10bd_filings")
+}
+
+// ─── Instagram photo import ─────────────────────────────────────────────
+//
+// A mandal admin connects the mandal's OWN Instagram (Instagram Login, Business
+// or Creator account — this proves ownership). Syncs list recent posts as
+// PENDING media; nothing is shown anywhere until an admin approves a photo, at
+// which point its bytes are copied into the ImageStore (Instagram's media URLs
+// expire) and it appears in the landing page's Instagram section. Rejected
+// posts are remembered so a later sync never offers them again.
+
+enum InstagramConnectionStatus {
+  ACTIVE
+  EXPIRED
+  DISCONNECTED
+}
+
+enum InstagramMediaStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model InstagramConnection {
+  organizationId String                    @id
+  igUserId       String
+  username       String
+  accountType    String?
+  /// Long-lived token, AES-GCM encrypted; null once disconnected.
+  accessTokenEnc String?
+  tokenExpiresAt DateTime?
+  status         InstagramConnectionStatus @default(ACTIVE)
+  connectedById  String
+  connectedAt    DateTime                  @default(now())
+  lastSyncAt     DateTime?
+  lastSyncError  String?
+  updatedAt      DateTime                  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, tokenExpiresAt])
+  @@index([igUserId])
+  @@map("instagram_connections")
+}
+
+model InstagramMedia {
+  id             String               @id @default(uuid())
+  organizationId String
+  /// Instagram's media id (a carousel's children each get their own row).
+  igMediaId      String
+  /// The post a carousel image belongs to (null for a single-image post).
+  parentIgId     String?
+  caption        String?
+  permalink      String?
+  postedAt       DateTime?
+  status         InstagramMediaStatus @default(PENDING)
+  /// Set once approved (bytes copied into the ImageStore).
+  imageKey       String?
+  mimeType       String?
+  width          Int?
+  height         Int?
+  sizeBytes      Int                  @default(0)
+  sortOrder      Int                  @default(0)
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, igMediaId])
+  @@index([organizationId, status, postedAt])
+  @@map("instagram_media")
 }

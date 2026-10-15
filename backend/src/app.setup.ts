@@ -31,6 +31,8 @@ export function assertConfig() {
       }
     }
     if (process.env.PAYMENTS_MOCK_ENABLED === 'true') throw new Error('PAYMENTS_MOCK_ENABLED must not be on in production');
+    // The simulated Instagram serves sample photos — never on a real mandal's page.
+    if (process.env.INSTAGRAM_DEMO === 'true') throw new Error('INSTAGRAM_DEMO must not be on in production');
   }
 }
 
