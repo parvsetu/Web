@@ -3,10 +3,10 @@
  * always come fresh from the server. Any request to another origin (the API
  * runs on its own origin) or to a path containing /api/ bypasses this worker.
  */
-const VERSION = 'parvsetu-shell-v5';
+const VERSION = 'parvsetu-shell-v6';
 // '/launch' is the home-screen start_url (routes to dashboard / My passes / explore);
 // '/book/my-passes' lists the passes saved on this phone, which open offline.
-const SHELL = ['/', '/launch', '/book/my-passes', '/dashboard', '/login', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'];
+const SHELL = ['/', '/launch', '/book/my-passes', '/dashboard', '/login', '/manifest.webmanifest', '/icons/diya-192.png', '/icons/diya-512.png', '/icons/icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -105,8 +105,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Parvsetu', {
       body: data.body || '',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: '/icons/diya-192.png',
+      badge: '/icons/diya-192.png',
       tag: data.tag,
       data: { url: data.url || '/' },
     }),

@@ -19,12 +19,14 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     title: 'Parvsetu — Festival passes & mandal management',
     description: 'Discover festivals near you and book QR entry passes. Mandals run passes, gate scanning, volunteers and donations on Parvsetu.',
-    images: [{ url: '/icons/icon-512.png', width: 512, height: 512, alt: 'Parvsetu' }],
+    images: [{ url: '/icons/diya-512.png', width: 512, height: 512, alt: 'Parvsetu' }],
   },
   twitter: { card: 'summary', title: 'Parvsetu', description: 'Festival passes & mandal management' },
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, title: 'Parvsetu', statusBarStyle: 'default' },
-  icons: { apple: '/icons/apple-touch-icon.png' },
+  // New file names (not apple-touch-icon.png): iPhones and the old service worker cache icons by URL,
+  // so the first, broken icons kept showing as a letter "P" until the address changed.
+  icons: { apple: [{ url: '/icons/diya-180.png', sizes: '180x180', type: 'image/png' }] },
 };
 
 export const viewport: Viewport = {
