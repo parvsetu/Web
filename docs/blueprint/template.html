@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parvsetu Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --paper:#f4f5f9; --surface:#ffffff; --ink:#172036; --muted:#566079; --line:#dce0ea;
+  --accent:#b9560a; --accent-soft:#fdecd9; --teal:#0d7a6f; --teal-soft:#dff3ef; --code:#eef0f6;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#0e1322; --surface:#161d31; --ink:#e6e9f2; --muted:#9aa3b8; --line:#283149;
+    --accent:#f29a45; --accent-soft:#3a2614; --teal:#4cc7b6; --teal-soft:#123532; --code:#1d253c;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#0e1322; --surface:#161d31; --ink:#e6e9f2; --muted:#9aa3b8; --line:#283149;
+  --accent:#f29a45; --accent-soft:#3a2614; --teal:#4cc7b6; --teal-soft:#123532; --code:#1d253c;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:17px/1.6 var(--body);padding-inline:16px;padding-block:0 64px}
+.wrap{max-width:1040px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.2rem,5vw,3.4rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.75rem;font-weight:800;margin-bottom:.4rem}
+h3{font-size:1.2rem;font-weight:600}
+p{margin:.5rem 0;max-width:68ch}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.84em;background:var(--code);padding:.05em .35em;border-radius:4px}
+.eyebrow{font:600 .75rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+header.top{padding-block:48px 24px;display:grid;gap:14px}
+header.top .lede{font-size:1.15rem;color:var(--muted);max-width:62ch}
+.stack{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.stack span{font:600 .8rem/1 var(--mono);padding:.45rem .6rem;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px;display:flex;gap:6px;overflow-x:auto}
+nav.toc a{flex:none;text-decoration:none;color:var(--ink);font-weight:600;font-size:.92rem;padding:.35rem .7rem;border-radius:999px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+section.block{padding-block:40px 8px;border-bottom:1px solid var(--line);scroll-margin-top:56px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.fact b{display:block;font-family:var(--display);font-size:1.6rem;font-variant-numeric:tabular-nums}
+.fact span{color:var(--muted);font-size:.95rem}
+.diagram{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0;overflow-x:auto}
+.diagram pre.mermaid{margin:0;background:none;text-align:center}
+.flow{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;margin-top:28px}
+.flow .steps{margin:.25rem 0 0;padding-left:1.25rem}
+.flow .steps li{margin:.2rem 0;max-width:72ch}
+.rule{border-left:3px solid var(--teal);background:var(--teal-soft);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;max-width:72ch}
+.rule b{color:var(--teal)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;vertical-align:top;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{font:600 .75rem/1.2 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+td code{white-space:nowrap}
+.roles td:first-child{font-weight:700;white-space:nowrap}
+.domain{margin-top:36px}
+.domain h3 .count{font:600 .8rem var(--body);color:var(--muted);margin-left:.4rem}
+.models{display:grid;gap:8px}
+details.model{background:var(--surface);border:1px solid var(--line);border-radius:8px}
+details.model summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;padding:10px 14px;list-style:none}
+details.model summary::-webkit-details-marker{display:none}
+details.model summary::before{content:"▸";color:var(--accent);font-size:.8rem}
+details.model[open] summary::before{content:"▾"}
+details.model summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.mname{font:600 .98rem var(--mono)}
+.mtable{font:.82rem var(--mono);color:var(--muted)}
+.mcount{margin-left:auto;font-size:.82rem;color:var(--muted)}
+details.model .tablewrap{padding:0 14px 6px}
+.rels{font-size:.85rem;color:var(--muted);padding:0 14px 12px;margin:0}
+.legend{font-size:.9rem;color:var(--muted)}
+footer{padding-top:32px;color:var(--muted);font-size:.9rem}
+@media (max-width:560px){body{font-size:16px}.mcount{margin-left:0}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+<script type="module">
+  // Diagrams: Mermaid from the jsDelivr CDN (needs internet when the file is opened).
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
+  const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  mermaid.initialize({ startOnLoad: true, theme: dark ? 'dark' : 'default', securityLevel: 'strict' });
+</script>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <span class="eyebrow">Technical blueprint · October 2026</span>
+  <h1>Parvsetu</h1>
+  <p class="lede">A platform for festival committees (mandals) in India: festival registration, online and desk passes with single-use QR entry, volunteers at the gate, donations with 80G receipts, stall bookings for vendors, and promotion through brands, field agents and bloggers. This page explains how it is built, how each flow works and what the database holds.</p>
+  <div class="stack"><span>Next.js 14 · React 18 PWA</span><span>NestJS 10 API</span><span>PostgreSQL 16</span><span>Prisma 5</span><span>TypeScript</span></div>
+</header>
+<nav class="toc" aria-label="Sections">
+  <a href="#glance">At a glance</a><a href="#architecture">Architecture</a><a href="#people">Who uses it</a><a href="#flows">Business flows</a><a href="#money">Money flow</a><a href="#guarantees">Guarantees</a><a href="#data">Data model</a>
+</nav>
+
+<section class="block" id="glance">
+  <h2>At a glance</h2>
+  <div class="facts">
+    <div class="fact"><b>{{MODELS}}</b><span>database tables, {{ENUMS}} enums, every change migrated with hand-written integrity rules</span></div>
+    <div class="fact"><b>9</b><span>kinds of user: platform admin, mandal roles, volunteers, visitors, brands, field agents, stall vendors, bloggers, donors</span></div>
+    <div class="fact"><b>6</b><span>languages on the public site: English, Hindi, Bengali, Marathi, Odia, Kannada</span></div>
+    <div class="fact"><b>1</b><span>successful entry per pass, guaranteed by the database even when 20 devices scan the same QR at once</span></div>
+  </div>
+</section>
+
+<section class="block" id="architecture">
+  <h2>Architecture</h2>
+  <p>All business rules live in one API. The web app, and future Android and iOS apps, only render state and send requests; they never decide a scan result, a price or a permission.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph Clients
+    PWA["Next.js PWA on Vercel - public site, mandal app, scanner, portals"]
+    Native["Android / iOS apps (planned) - same API"]
+  end
+  subgraph Render["Render, Singapore"]
+    API["NestJS API /api/v1 - auth, permissions, all rules"]
+  end
+  DB[("PostgreSQL 16 via Prisma - data, image bytes, audit log")]
+  Pay["Payment gateway - pluggable, demo today"]
+  Mail["SMTP email - codes, receipts, links"]
+  Ping["GitHub Action - health ping every 10 min"]
+  PWA -- "HTTPS + bearer token" --> API
+  Native -.-> API
+  API --> DB
+  API --> Pay
+  Pay -- "signed webhook" --> API
+  API --> Mail
+  Ping --> API
+  </pre></div>
+  <div class="rule"><b>Authorization.</b> Every request re-reads the user, their roles and status; a disabled user's sessions stop at once. A permission is granted by a mandal-wide role or a festival-only assignment. Someone with no access to a mandal gets "not found", so other mandals' festivals are never disclosed.</div>
+  <div class="rule"><b>Images.</b> Logos, banners and festival photos go through one storage interface. Today the bytes sit in Postgres with a per-mandal quota; moving to object storage is a new implementation, not a change for callers.</div>
+  <div class="rule"><b>Payments.</b> One provider interface: create a payment, then verify the gateway's signed webhook. Adding Razorpay or PhonePe is one class. Receipt and invoice numbers come from atomic counters and are assigned only once money is confirmed.</div>
+</section>
+
+<section class="block" id="people">
+  <h2>Who uses it</h2>
+  <div class="tablewrap"><table class="roles">
+    <thead><tr><th>User</th><th>Where</th><th>What they do</th></tr></thead>
+    <tbody>
+      <tr><td>Platform admin</td><td>Platform console</td><td>Reviews mandals and festivals, sets fees and commissions, verifies payout accounts and 80G registrations, approves brands and bloggers, records payouts.</td></tr>
+      <tr><td>Mandal admin, treasurer, report viewer</td><td>Mandal and festival dashboards</td><td>Run festivals: time slots, prices, passes, volunteers, donations, expenses, stalls, reports, 80G filings. Custom roles are possible.</td></tr>
+      <tr><td>Volunteers</td><td>Scanner and token desk</td><td>Scan QR passes at the gate, issue passes at the desk.</td></tr>
+      <tr><td>Visitors</td><td>Public site, no login</td><td>Explore festivals, book and pay for passes, keep passes on the phone, leave reviews.</td></tr>
+      <tr><td>Promotional partners (brands)</td><td>Partner portal</td><td>Prepay a wallet; campaigns print on passes and are charged per printed pass.</td></tr>
+      <tr><td>Field agents</td><td>Agent portal</td><td>Register mandals in person; earn a referral and commission when those mandals pay festival fees.</td></tr>
+      <tr><td>Stall vendors</td><td>Vendor portal</td><td>Book and pay for stalls at festivals; see the stall numbers the mandal assigns.</td></tr>
+      <tr><td>Bloggers and influencers</td><td>Blogger portal</td><td>Promote approved festivals with their own referral link; earn on every paid booking it brings.</td></tr>
+      <tr><td>Donors</td><td>Shared receipt link</td><td>Receive a receipt (anonymous if they choose) and, for 80G, a Form 10BE certificate.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+<section class="block" id="flows">
+  <h2>Business flows</h2>
+  <p>Each flow below is enforced on the server; the diagrams show the order of events and where money and state change.</p>
+
+  <div class="flow" id="flow-onboarding">
+    <h3>Mandal onboarding and festival go-live</h3>
+    <div class="diagram"><pre class="mermaid">
+flowchart LR
+  A["Registration - self, logged-in user or field agent"] --> B["Email verified"]
+  B --> C{"Platform review"}
+  C -- "changes requested" --> A
+  C -- "rejected" --> X["Closed"]
+  C -- "approved" --> D["Mandal, admin login and festivals created"]
+  D --> E["Festival fee pay link, one per festival, 14 days"]
+  E -- "paid or waived" --> F["Festival LIVE - public, bookable, scannable"]
+  E -- "paid" --> G["Field agent earns referral and commission"]
+    </pre></div>
+    <ul class="steps">
+      <li>Each festival goes <code>DRAFT → SUBMITTED → APPROVED_AWAITING_PAYMENT → LIVE</code>, separate from its day-to-day status. Every public query, the booking page and the gate check it.</li>
+      <li>The fee is quoted at submission (mandal override, festival type, catalogue group, then default) and locked at approval.</li>
+      <li>A refund takes a festival back off-line only while it has no passes.</li>
+    </ul>
+  </div>
+
+  <div class="flow" id="flow-booking">
+    <h3>Visitor booking, payment and gate entry</h3>
+    <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+  participant V as Visitor
+  participant API as API
+  participant G as Payment gateway
+  participant S as Gate scanner
+  V->>API: Choose festival, date, slot, people (optional referral code)
+  API->>API: Price from slot and peak-day rules, GST, hold places for 15 min
+  API-->>V: Order PENDING with checkout
+  V->>G: Pay
+  G->>API: Signed confirmation
+  API->>API: Lock order, mint QR passes, invoice number, settlement split
+  API-->>V: Passes (one per person or one group QR)
+  S->>API: Scan QR
+  API->>API: One conditional update ACTIVE to USED
+  API-->>S: Entry allowed, or already used / expired / not yet valid
+    </pre></div>
+    <ul class="steps">
+      <li>Free passes skip the gateway. Unpaid orders expire after 15 minutes and give their places and held credit back.</li>
+      <li>Desk volunteers can also issue passes against the mandal's prepaid credit; the per-pass commission is debited atomically and a pass is refused if credit runs out.</li>
+      <li>QR codes carry only a random token and an HMAC signature, so forged codes are rejected before any database lookup and no personal data is in the QR.</li>
+    </ul>
+  </div>
+
+  <div class="flow" id="flow-referrals">
+    <h3>Blogger referrals</h3>
+    <div class="diagram"><pre class="mermaid">
+flowchart LR
+  A["Blogger signs up with channels and festivals"] --> B{"Platform approves blogger"}
+  B --> C{"Platform approves each festival"}
+  C --> D["Referral code and link /f/festival?ref=CODE"]
+  D --> E["Visitor books through the link"]
+  E -- "payment succeeds" --> F["Commission credited once"]
+  F -- "every pass in the booking cancelled, or refund" --> H["Commission reversed once"]
+  F --> P["Platform pays the blogger"]
+    </pre></div>
+    <ul class="steps">
+      <li>Commission is a percentage of the ticket value before GST or a fixed amount per booking: a platform default, with an override per festival.</li>
+      <li>Free bookings, self-referrals (the blogger's own mobile or email), suspended bloggers and switched-off links earn nothing.</li>
+      <li>The platform pays commissions; mandal settlements are never reduced by them.</li>
+    </ul>
+  </div>
+
+  <div class="flow" id="flow-donations">
+    <h3>Donations, anonymous gifts and 80G</h3>
+    <div class="diagram"><pre class="mermaid">
+flowchart TD
+  A["Treasurer records a donation - cash, UPI, card, bank or online"] --> B{"Anonymous?"}
+  B -- "yes" --> C["No name stored; receipt says Anonymous donor; never 80G"]
+  B -- "no" --> D["Name, optional PAN or other ID, encrypted"]
+  C --> E["Receipt number when payment is confirmed"]
+  D --> E
+  E --> F{"80G eligible? decided by the server"}
+  F -- "yes" --> G["Receipt shows 80G URN and deduction"]
+  F -- "no" --> H["Receipt makes no 80G claim, reason shown to staff"]
+  G --> I["Form 10BD sheet per financial year"]
+  I --> J["Mandal files on the income-tax portal and records the acknowledgement"]
+  J --> K["Form 10BE per donor from the portal, issue recorded"]
+    </pre></div>
+    <ul class="steps">
+      <li>80G eligibility needs: payment confirmed, not anonymous, the mandal's 80G registration verified by the platform, the donation inside its validity, cash within the limit (₹2,000), and the donor's ID.</li>
+      <li>Receipts are versioned: a change to what a receipt says issues a new version; a refund cancels it. Nothing is deleted.</li>
+      <li>A change to a donation already in a filed Form 10BD flags that filing for correction.</li>
+      <li>Anonymous totals per year are shown against the section 115BBC threshold for the mandal's CA. Parvsetu never computes tax.</li>
+    </ul>
+  </div>
+
+  <div class="flow" id="flow-stalls">
+    <h3>Stall booking for vendors</h3>
+    <div class="diagram"><pre class="mermaid">
+flowchart LR
+  A["Mandal sets stall types: count, size, price, GST"] --> B["Vendor books N stalls"]
+  B --> C["Held 15 min under a row lock - never oversold"]
+  C -- "paid" --> D["Invoice and platform fee in settlement"]
+  C -- "failed or expired" --> R["Stalls released"]
+  D --> E["Mandal assigns stall numbers"]
+  D -- "mandal cancels" --> F["Refund, fee returned pro rata, credit note, stalls released"]
+    </pre></div>
+  </div>
+
+  <div class="flow" id="flow-brands">
+    <h3>Promotional partners (brands)</h3>
+    <ul class="steps">
+      <li>A brand prepays a wallet and runs campaigns that the platform approves.</li>
+      <li>When a pass is issued, up to two eligible campaigns print on it and the brand's wallet is charged in the same transaction. A brand short of funds is skipped; a pass is never refused because of a brand.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="money">
+  <h2>Money flow</h2>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  V["Visitor or vendor payment"] --> GW["Gateway"]
+  GW --> ST["Settlement row per payment"]
+  ST --> F1["Gateway fee"]
+  ST --> F2["Platform commission"]
+  ST --> N["Mandal net"]
+  N --> PO["Payout to the mandal's verified bank account"]
+  RF["Stall refund"] -. "negative settlement row" .-> ST
+  M["Mandal"] -- "prepays" --> CR["Pass credit for desk passes"]
+  M -- "festival fees" --> PL["Platform"]
+  B["Brand"] -- "prepays wallet, charged per printed pass" --> PL
+  PL -- "referral and commission" --> AG["Field agents"]
+  PL -- "commission" --> BL["Bloggers"]
+  </pre></div>
+  <p class="legend">Mandal payouts settle everything pending in one bank transfer with its reference. Agent and blogger payouts can never exceed what they are owed.</p>
+</section>
+
+<section class="block" id="guarantees">
+  <h2>Guarantees</h2>
+  <p>Concurrency and integrity are enforced by the database, not only by application checks.</p>
+  <div class="rule"><b>Single-use passes.</b> One conditional <code>UPDATE … WHERE status = 'ACTIVE'</code> decides each scan; a partial unique index allows one successful scan per pass. Retried scans replay the stored verdict.</div>
+  <div class="rule"><b>No overselling.</b> Time-slot places and stalls are counted under a row lock that includes unexpired holds, and re-checked at payment.</div>
+  <div class="rule"><b>Money credited once.</b> Commissions and settlements are written in the payment's own transaction behind unique indexes, so a replayed gateway confirmation cannot pay twice.</div>
+  <div class="rule"><b>Hard limits.</b> CHECK constraints keep balances non-negative, anonymous donations nameless, and an 80G-eligible donation tied to a verified deduction and a donor ID.</div>
+  <div class="rule"><b>Audit.</b> Roles, members, festivals, passes, money and tax changes write an audit row in the same transaction. Sensitive values (PANs, bank accounts) are encrypted at rest and only ever logged masked.</div>
+</section>
+
+<section class="block" id="data">
+  <h2>Data model</h2>
+  <p>Generated from the current Prisma schema. Each group shows how its tables relate (one-to-many lines point from the parent to the child) and lists every column; open a table to see it. Columns that only link to another table are listed as relations.</p>
+<!-- SCHEMA -->
+</section>
+<footer>Parvsetu technical blueprint. Generated from the codebase ({{DATE}}). Regulatory figures (80G cash limit, filing dates) are configurable settings and should be confirmed by a chartered accountant.</footer>
+</div>
+</body>
+</html>

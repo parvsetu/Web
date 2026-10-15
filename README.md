@@ -10,7 +10,9 @@ Navratri, Janmashtami, Ram Navami, Dussehra, …). It covers:
 ```
 backend/   NestJS + Prisma + PostgreSQL API (/api/v1) — all business rules
 frontend/  Next.js mobile-first PWA (scanner, volunteer home, admin)
-docs/      API.md (contract for web/Android/iOS), ARCHITECTURE.md (security model)
+docs/      API.md (contract for web/Android/iOS), ARCHITECTURE.md (security model),
+           BLUEPRINT.html (architecture, flows, full data model — open in a browser;
+           rebuild after schema changes: python3 docs/blueprint/build.py)
 ```
 
 ## Run locally
