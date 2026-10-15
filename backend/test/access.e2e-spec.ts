@@ -352,7 +352,7 @@ describe('Access control, volunteers, configuration, reports (e2e)', () => {
       const auth = bearer(ctx, sup);
       const summary = await ctx.http().get(api(`/events/${event.id}/reports/summary`)).set('Authorization', auth);
       expect(summary.status).toBe(200);
-      expect(summary.body).toMatchObject({ donations: null, expenses: null, balance: null, restricted: ['donations', 'passSales', 'expenses', 'balance'] });
+      expect(summary.body).toMatchObject({ donations: null, stallRent: null, expenses: null, balance: null, restricted: ['donations', 'passSales', 'stallRent', 'expenses', 'balance'] });
       expect((await ctx.http().get(api(`/events/${event.id}/reports/finance`)).set('Authorization', auth)).status).toBe(403);
       expect((await ctx.http().get(api(`/events/${event.id}/reports/tokens?format=csv`)).set('Authorization', auth)).status).toBe(403);
       const dash = await ctx.http().get(api(`/events/${event.id}/dashboard`)).set('Authorization', auth);

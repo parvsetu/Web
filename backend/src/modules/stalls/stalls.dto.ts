@@ -72,7 +72,7 @@ export class StallPayDto {
   @IsIn(['success', 'fail']) outcome: 'success' | 'fail';
 }
 
-export const BOOKING_STATUSES = ['PENDING', 'PAID', 'FAILED', 'EXPIRED'] as const;
+export const BOOKING_STATUSES = ['PENDING', 'PAID', 'FAILED', 'EXPIRED', 'CANCELLED'] as const;
 
 export class StallBookingListQuery extends SearchPageQuery {
   @IsOptional() @IsIn(BOOKING_STATUSES) status?: (typeof BOOKING_STATUSES)[number];
@@ -82,6 +82,14 @@ export class StallBookingListQuery extends SearchPageQuery {
 export class UpdateStallBookingDto {
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @MaxLength(200) stallNumbers?: string | null;
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @MaxLength(500) mandalNote?: string | null;
+}
+
+export class CancelStallBookingDto {
+  @IsString() @Length(5, 500) reason: string;
+  /** ₹ to refund to the vendor (0 … amount paid). Omit for a full refund. */
+  @IsOptional() @Matches(/^\d{1,8}(\.\d{1,2})?$/, { message: 'refund must be an amount like 2500' }) refund?: string;
+  /** Gateway refund id / UPI / UTR, if already refunded. */
+  @IsOptional() @IsString() @MaxLength(200) refundReference?: string;
 }
 
 export class VendorFestivalQuery extends SearchPageQuery {

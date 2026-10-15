@@ -24,7 +24,7 @@ export function yearRange(year: number, basis: Basis) {
 
 /**
  * Mandal profit & loss for a year: income (confirmed donations + paid online
- * passes) against every expense — festival and general — with monthly,
+ * passes + stall rent net of refunds) against every expense — festival and general — with monthly,
  * per-festival and per-category breakdowns. All figures come straight from
  * rows; nothing is cached.
  */
@@ -35,7 +35,7 @@ export class AnnualReportService {
   async report(orgId: string, year: number, basis: Basis = 'calendar') {
     const r = yearRange(year, basis);
     const at = { gte: r.start.toUTC().toJSDate(), lt: r.end.toUTC().toJSDate() };
-    const [donations, passes, expenses, events] = await Promise.all([
+    const [donations, passes, stalls, expenses, events] = await Promise.all([
       this.prisma.donation.findMany({
         where: { event: { organizationId: orgId }, paymentStatus: 'SUCCESS', donatedAt: at },
         select: { amount: true, donatedAt: true, eventId: true },
@@ -43,6 +43,10 @@ export class AnnualReportService {
       this.prisma.passOrder.findMany({
         where: { event: { organizationId: orgId }, status: 'PAID', paidAt: at },
         select: { amount: true, paidAt: true, eventId: true },
+      }),
+      this.prisma.stallBooking.findMany({
+        where: { organizationId: orgId, status: { in: ['PAID', 'CANCELLED'] }, paidAt: at },
+        select: { amountPaise: true, refundPaise: true, paidAt: true, eventId: true },
       }),
       this.prisma.expense.findMany({
         where: { organizationId: orgId, expenseDate: { gte: r.dateGte, lt: r.dateLt } },
@@ -54,23 +58,23 @@ export class AnnualReportService {
     // 12 months in order from the start of the period.
     const months = Array.from({ length: 12 }, (_, i) => {
       const d = r.start.plus({ months: i });
-      return { key: d.toFormat('yyyy-MM'), label: d.toFormat('LLL yyyy'), donations: zero(), passSales: zero(), expenses: zero() };
+      return { key: d.toFormat('yyyy-MM'), label: d.toFormat('LLL yyyy'), donations: zero(), passSales: zero(), stallRent: zero(), expenses: zero() };
     });
     const monthOf = (d: Date) => months.find((x) => x.key === DateTime.fromJSDate(d, { zone: TZ }).toFormat('yyyy-MM'));
     const monthOfDate = (d: Date) => months.find((x) => x.key === d.toISOString().slice(0, 7));
 
-    const byEvent = new Map<string, { eventId: string | null; name: string; festivalType: string | null; donations: Prisma.Decimal; passSales: Prisma.Decimal; expenses: Prisma.Decimal }>();
+    const byEvent = new Map<string, { eventId: string | null; name: string; festivalType: string | null; donations: Prisma.Decimal; passSales: Prisma.Decimal; stallRent: Prisma.Decimal; expenses: Prisma.Decimal }>();
     const eventRow = (id: string | null) => {
       const k = id ?? 'general';
       if (!byEvent.has(k)) {
         const ev = id ? events.find((e) => e.id === id) : null;
-        byEvent.set(k, { eventId: id, name: ev?.name ?? 'General (mandal-wide)', festivalType: ev?.festivalType ?? null, donations: zero(), passSales: zero(), expenses: zero() });
+        byEvent.set(k, { eventId: id, name: ev?.name ?? 'General (mandal-wide)', festivalType: ev?.festivalType ?? null, donations: zero(), passSales: zero(), stallRent: zero(), expenses: zero() });
       }
       return byEvent.get(k)!;
     };
     const byCategory = new Map<string, Prisma.Decimal>();
 
-    let totalDonations = zero(), totalPasses = zero(), totalExpenses = zero();
+    let totalDonations = zero(), totalPasses = zero(), totalStalls = zero(), totalExpenses = zero();
     for (const d of donations) {
       totalDonations = totalDonations.plus(d.amount);
       const mo = monthOf(d.donatedAt); if (mo) mo.donations = mo.donations.plus(d.amount);
@@ -81,6 +85,12 @@ export class AnnualReportService {
       const mo = monthOf(p.paidAt!); if (mo) mo.passSales = mo.passSales.plus(p.amount);
       const e = eventRow(p.eventId); e.passSales = e.passSales.plus(p.amount);
     }
+    for (const s of stalls) {
+      const v = new Prisma.Decimal(s.amountPaise - s.refundPaise).div(100);
+      totalStalls = totalStalls.plus(v);
+      const mo = monthOf(s.paidAt!); if (mo) mo.stallRent = mo.stallRent.plus(v);
+      const e = eventRow(s.eventId); e.stallRent = e.stallRent.plus(v);
+    }
     for (const x of expenses) {
       totalExpenses = totalExpenses.plus(x.amount);
       const mo = monthOfDate(x.expenseDate); if (mo) mo.expenses = mo.expenses.plus(x.amount);
@@ -88,20 +98,20 @@ export class AnnualReportService {
       byCategory.set(x.category, (byCategory.get(x.category) ?? zero()).plus(x.amount));
     }
 
-    const income = totalDonations.plus(totalPasses);
+    const income = totalDonations.plus(totalPasses).plus(totalStalls);
     const net = income.minus(totalExpenses);
     return {
       year, basis, label: r.label, from: r.start.toISODate(), to: r.end.minus({ days: 1 }).toISODate(),
-      income: { total: m(income), donations: m(totalDonations), passSales: m(totalPasses), donationCount: donations.length, passOrderCount: passes.length },
+      income: { total: m(income), donations: m(totalDonations), passSales: m(totalPasses), stallRent: m(totalStalls), donationCount: donations.length, passOrderCount: passes.length, stallBookingCount: stalls.length },
       expenses: { total: m(totalExpenses), count: expenses.length },
       net: m(net),
       result: net.gt(0) ? 'PROFIT' : net.lt(0) ? 'LOSS' : 'BREAK_EVEN',
       byMonth: months.map((x) => ({
-        month: x.key, label: x.label, donations: m(x.donations), passSales: m(x.passSales),
-        income: m(x.donations.plus(x.passSales)), expenses: m(x.expenses), net: m(x.donations.plus(x.passSales).minus(x.expenses)),
+        month: x.key, label: x.label, donations: m(x.donations), passSales: m(x.passSales), stallRent: m(x.stallRent),
+        income: m(x.donations.plus(x.passSales).plus(x.stallRent)), expenses: m(x.expenses), net: m(x.donations.plus(x.passSales).plus(x.stallRent).minus(x.expenses)),
       })),
       byEvent: [...byEvent.values()]
-        .map((e) => ({ ...e, donations: m(e.donations), passSales: m(e.passSales), expenses: m(e.expenses), net: m(e.donations.plus(e.passSales).minus(e.expenses)) }))
+        .map((e) => ({ ...e, donations: m(e.donations), passSales: m(e.passSales), stallRent: m(e.stallRent), expenses: m(e.expenses), net: m(e.donations.plus(e.passSales).plus(e.stallRent).minus(e.expenses)) }))
         .sort((a, b) => (a.eventId === null ? 1 : b.eventId === null ? -1 : a.name.localeCompare(b.name))),
       byCategory: [...byCategory.entries()].map(([category, total]) => ({ category, total: m(total) })).sort((a, b) => Number(b.total) - Number(a.total)),
     };

@@ -16,7 +16,7 @@ import { PayoutsService } from '../payouts/payouts.service';
 import { PaymentProvider } from '../donations/payment-provider';
 import { PASS_GATEWAYS, demoPaymentsEnabled } from '../passes/pass-gateways';
 import {
-  CreateStallBookingDto, CreateStallTypeDto, StallBookingListQuery, StallSettingsDto, UpdateStallBookingDto, UpdateStallTypeDto, VendorBookingQuery, VendorFestivalQuery,
+  CancelStallBookingDto, CreateStallBookingDto, CreateStallTypeDto, StallBookingListQuery, StallSettingsDto, UpdateStallBookingDto, UpdateStallTypeDto, VendorBookingQuery, VendorFestivalQuery,
 } from './stalls.dto';
 import { MAX_OPEN_BOOKINGS_PER_VENDOR, STALL_HOLD_MINUTES, quoteStalls } from './stalls.rules';
 import { VendorCtx } from './vendor.guard';
@@ -235,6 +235,54 @@ export class StallsService implements OnModuleInit, OnModuleDestroy {
         before: { stallNumbers: b.stallNumbers, mandalNote: b.mandalNote }, after: { stallNumbers: a.stallNumbers, mandalNote: a.mandalNote },
       }, tx);
       return a;
+    });
+    return this.presentForMandal(after);
+  }
+
+  /**
+   * Cancels a PAID booking (mandal decision, e.g. the vendor withdrew). The
+   * stalls are freed at once. The refund (default: everything paid) goes back
+   * to the vendor through the gateway; the platform returns its fee pro rata
+   * and the mandal's share is reduced by the rest — one negative STALL_REFUND
+   * settlement row, so the mandal's next payout nets it off. A refund on a tax
+   * invoice gets a GST credit note number from the event's own counter.
+   * Conditional PAID → CANCELLED update: a second cancel gets 409.
+   */
+  async cancelBooking(actorId: string, organizationId: string, eventId: string, id: string, dto: CancelStallBookingDto) {
+    const b = await this.prisma.stallBooking.findFirst({ where: { id, eventId } }).catch(() => null);
+    if (!b) throw new NotFoundException('Booking not found');
+    const refundPaise = dto.refund === undefined ? b.amountPaise : toPaise(dto.refund);
+    if (refundPaise > b.amountPaise) {
+      throw new BadRequestException({ statusCode: 400, code: 'REFUND_TOO_HIGH', message: `The refund can't be more than the ₹${rupees(b.amountPaise)} paid.` });
+    }
+    const after = await this.prisma.$transaction(async (tx) => {
+      const moved = await tx.stallBooking.updateMany({
+        where: { id, eventId, status: 'PAID' },
+        data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledById: actorId, cancelReason: dto.reason.trim(), refundPaise, refundReference: dto.refundReference?.trim() || null },
+      });
+      if (moved.count !== 1) throw new ConflictException({ statusCode: 409, code: 'BOOKING_NOT_PAID', message: 'Only a paid booking can be cancelled.' });
+      let creditNoteNo: string | null = null;
+      if (refundPaise > 0) {
+        const share = (x: number) => Math.round((x * refundPaise) / b.amountPaise);
+        const feeBack = share(b.platformFeePaise);
+        await tx.paymentSettlement.create({
+          data: {
+            organizationId: b.organizationId, eventId: b.eventId, sourceType: 'STALL_REFUND', sourceId: `refund:${b.id}`,
+            grossPaise: -refundPaise, gatewayFeePaise: 0, commissionPaise: -feeBack, netPaise: -(refundPaise - feeBack), gstPaise: -share(b.gstPaise),
+          },
+        });
+        if (b.invoiceNo && b.gstPaise > 0) {
+          const [row] = await tx.$queryRaw<{ stallCreditNoteSeq: number; tokenPrefix: string; startDate: Date }[]>`
+            UPDATE events SET "stallCreditNoteSeq" = "stallCreditNoteSeq" + 1 WHERE id = ${b.eventId} RETURNING "stallCreditNoteSeq", "tokenPrefix", "startDate"`;
+          creditNoteNo = `${row.tokenPrefix}-SCN-${row.startDate.getUTCFullYear()}-${String(row.stallCreditNoteSeq).padStart(5, '0')}`;
+          await tx.stallBooking.update({ where: { id }, data: { creditNoteNo } });
+        }
+      }
+      await this.audit.log({
+        organizationId, eventId, actorId, action: 'stall_booking.cancelled', entityType: 'StallBooking', entityId: id,
+        before: { status: 'PAID' }, after: { status: 'CANCELLED', refund: rupees(refundPaise), refundReference: dto.refundReference ?? null, creditNoteNo }, reason: dto.reason,
+      }, tx);
+      return tx.stallBooking.findUniqueOrThrow({ where: { id }, include: bookingInclude });
     });
     return this.presentForMandal(after);
   }
@@ -464,6 +512,7 @@ export class StallsService implements OnModuleInit, OnModuleDestroy {
       businessName: b.businessName, contactName: b.contactName, contactPhone: b.contactPhone, contactEmail: b.contactEmail, products: b.products,
       invoiceNo: b.invoiceNo, stallNumbers: b.stallNumbers, paymentProvider: b.paymentProvider, paymentReference: b.paymentReference,
       expiresAt: b.expiresAt, paidAt: b.paidAt, createdAt: b.createdAt,
+      cancelledAt: b.cancelledAt, cancelReason: b.cancelReason, refund: rupees(b.refundPaise), refundReference: b.refundReference, creditNoteNo: b.creditNoteNo,
     };
   }
 

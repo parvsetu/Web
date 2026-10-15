@@ -8,7 +8,7 @@ import { StallsService } from './stalls.service';
 import { VendorsService } from './vendors.service';
 import { CurrentVendor, VendorCtx, VendorRoute } from './vendor.guard';
 import {
-  AdminVendorQuery, CreateStallBookingDto, CreateStallTypeDto, StallBookingListQuery, StallPayDto, StallSettingsDto, UpdateStallBookingDto,
+  AdminVendorQuery, CancelStallBookingDto, CreateStallBookingDto, CreateStallTypeDto, StallBookingListQuery, StallPayDto, StallSettingsDto, UpdateStallBookingDto,
   UpdateStallTypeDto, UpdateVendorDto, VendorBookingQuery, VendorFestivalQuery, VendorSignupDto, VendorStatusDto,
 } from './stalls.dto';
 
@@ -132,6 +132,13 @@ export class EventStallsController {
   @Patch('stall-bookings/:id')
   updateBooking(@CurrentUser() u: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Param('id') id: string, @Body() dto: UpdateStallBookingDto) {
     return this.stalls.updateBooking(u.id, a.organizationId, eventId, id, dto);
+  }
+
+  @RequireEventPermission('STALL_MANAGE')
+  @Post('stall-bookings/:id/cancel')
+  @HttpCode(200)
+  cancelBooking(@CurrentUser() u: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Param('id') id: string, @Body() dto: CancelStallBookingDto) {
+    return this.stalls.cancelBooking(u.id, a.organizationId, eventId, id, dto);
   }
 }
 

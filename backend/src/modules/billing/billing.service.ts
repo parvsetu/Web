@@ -441,7 +441,9 @@ export class BillingService {
 
   async summary() {
     const split = await this.prisma.paymentSettlement.aggregate({ _sum: { commissionPaise: true, grossPaise: true, gatewayFeePaise: true } });
-    const stalls = await this.prisma.paymentSettlement.aggregate({ where: { sourceType: 'STALL_BOOKING' }, _sum: { commissionPaise: true, grossPaise: true }, _count: { _all: true } });
+    // Stall bookings net of refunds (STALL_REFUND rows are negative and hand back the fee pro rata).
+    const stalls = await this.prisma.paymentSettlement.aggregate({ where: { sourceType: { in: ['STALL_BOOKING', 'STALL_REFUND'] } }, _sum: { commissionPaise: true, grossPaise: true } });
+    const stallCount = await this.prisma.paymentSettlement.count({ where: { sourceType: 'STALL_BOOKING' } });
     const landing = await this.prisma.landingPurchase.aggregate({ where: { status: 'PAID' }, _sum: { amountPaise: true }, _count: { _all: true } });
     const landingPaise = landing._sum.amountPaise ?? 0;
     // Per-event registration fees actually collected (waived / refunded / open links excluded).
@@ -472,7 +474,7 @@ export class BillingService {
       onlineGross: rupees(split._sum.grossPaise ?? 0),
       /** Platform fee on vendor stall bookings — already inside splitCommissionEarned. */
       stallFeesEarned: rupees(stalls._sum.commissionPaise ?? 0),
-      stallBookingsPaid: stalls._count._all,
+      stallBookingsPaid: stallCount,
       stallGross: rupees(stalls._sum.grossPaise ?? 0),
       /** Paid mandal landing pages (yearly fees; manual super-admin grants are free and not counted). */
       landingPageEarned: rupees(landingPaise),

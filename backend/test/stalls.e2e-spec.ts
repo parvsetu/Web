@@ -159,4 +159,33 @@ describe('Stall booking (e2e)', () => {
     const sus = await ctx.http().post(api(`/platform/vendors/${v.vendor.id}/status`)).set('Authorization', sa).send({ status: 'SUSPENDED', note: 'Test' });
     expect(sus.body.status).toBe('SUSPENDED');
   });
+  it('mandal cancels a paid booking: partial refund, fee back pro rata, credit note, stalls freed, once', async () => {
+    const f = await festival({ price: '4000', gst: true, count: 2 });
+    await ctx.prisma.orgBilling.update({ where: { organizationId: f.org.id }, data: { stallCommissionBps: 1000 } });
+    const v = await vendor();
+    const b = await book(v.auth, f.typeId, 2);
+    await pay(v.auth, b.body.id).expect(200);
+    const cancel = (body: Record<string, unknown>) => ctx.http().post(api(`/events/${f.event.id}/stall-bookings/${b.body.id}/cancel`)).set('Authorization', f.admin).send(body);
+    expect((await cancel({ reason: 'Vendor withdrew', refund: '9440.01' })).body.code).toBe('REFUND_TOO_HIGH');
+    // Half refunded (₹4720 of ₹9440): platform hands back half its ₹800 fee.
+    const ok = await cancel({ reason: 'Vendor withdrew', refund: '4720', refundReference: 'RFND-1' });
+    expect(ok.status).toBe(200);
+    expect((await cancel({ reason: 'Vendor withdrew' })).body.code).toBe('BOOKING_NOT_PAID');
+    expect(ok.body).toMatchObject({ status: 'CANCELLED', creditNoteNo: expect.stringMatching(/^TST-SCN-\d{4}-00001$/) });
+    const refund = await ctx.prisma.paymentSettlement.findUniqueOrThrow({ where: { sourceId: `refund:${b.body.id}` } });
+    expect(refund).toMatchObject({ sourceType: 'STALL_REFUND', commissionPaise: -40000, gstPaise: -72000 });
+    expect(refund.grossPaise).toBe(refund.commissionPaise + refund.netPaise);
+    // Stalls are free again.
+    expect((await book((await vendor()).auth, f.typeId, 2)).status).toBe(201);
+    // Reports: stall rent net of the refund; GST register has the invoice and the credit note.
+    const fin = await ctx.http().get(api(`/events/${f.event.id}/reports/finance`)).set('Authorization', f.admin);
+    expect(fin.body.stallRent).toMatchObject({ total: '4720.00', refunds: '4720.00', bookings: 1 });
+    const gst = await ctx.http().get(api(`/events/${f.event.id}/reports/gst`)).set('Authorization', f.admin);
+    expect(gst.body.stallRent.totals).toMatchObject({ invoices: 1, creditNotes: 1, gst: '720.00' });
+    const year = new Date().getFullYear();
+    const pl = await ctx.http().get(api(`/organizations/${f.org.id}/reports/annual?year=${year}`)).set('Authorization', f.admin);
+    expect(pl.body.income.stallRent).toBe('4720.00');
+    // The vendor sees it.
+    expect((await ctx.http().get(api(`/vendor/bookings/${b.body.id}`)).set('Authorization', v.auth)).body).toMatchObject({ status: 'CANCELLED', refund: '4720.00' });
+  });
 });

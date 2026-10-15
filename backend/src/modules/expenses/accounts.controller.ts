@@ -43,9 +43,9 @@ export class AccountsController {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="profit-loss-${data.label.replace(/\s+/g, '-')}.csv"`);
     return res.send(toCsv([
-      ...data.byMonth.map((x) => ({ section: 'Month', name: x.label, donations: x.donations, passSales: x.passSales, income: x.income, expenses: x.expenses, net: x.net })),
-      ...data.byEvent.map((x) => ({ section: 'Festival', name: x.name, donations: x.donations, passSales: x.passSales, income: '', expenses: x.expenses, net: x.net })),
-      { section: 'Total', name: data.label, donations: data.income.donations, passSales: data.income.passSales, income: data.income.total, expenses: data.expenses.total, net: data.net },
+      ...data.byMonth.map((x) => ({ section: 'Month', name: x.label, donations: x.donations, passSales: x.passSales, stallRent: x.stallRent, income: x.income, expenses: x.expenses, net: x.net })),
+      ...data.byEvent.map((x) => ({ section: 'Festival', name: x.name, donations: x.donations, passSales: x.passSales, stallRent: x.stallRent, income: '', expenses: x.expenses, net: x.net })),
+      { section: 'Total', name: data.label, donations: data.income.donations, passSales: data.income.passSales, stallRent: data.income.stallRent, income: data.income.total, expenses: data.expenses.total, net: data.net },
     ]));
   }
 }

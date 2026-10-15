@@ -841,3 +841,21 @@ memberships: every org/event route answers 404, `/blogger/*` answers 403
 - Receipts (staff and public `/public/receipts/:id`) carry `isAnonymous` and `eligibleFor80G` (false for anonymous — no name/PAN).
 - `PATCH …/donations/:id` takes `makeAnonymous: true` (one-way): erases the name from the donation and from the visitor
   record of its passes. The erased name is not copied into the audit log.
+
+## Stall booking cancellation & refunds; stall rent in reports
+
+- `POST /events/:eventId/stall-bookings/:id/cancel` (STALL_MANAGE) `{ reason (5–500), refund?: "2500" (default: everything paid), refundReference? }`
+  → the booking (status `CANCELLED`, `cancelledAt`, `cancelReason`, `refund`, `refundReference`, `creditNoteNo`).
+  Only a PAID booking (409 `BOOKING_NOT_PAID`; conditional update, so a double cancel gets 409). Refund > paid → 400 `REFUND_TOO_HIGH`.
+  - Stalls are freed immediately.
+  - Money: one negative settlement row (`sourceType STALL_REFUND`, `sourceId refund:<bookingId>`): the platform returns its fee
+    on the refunded share, the rest comes off the mandal's next payout. The refund itself goes back to the vendor through the gateway
+    (demo: recorded only — `refundReference` holds the gateway/UPI reference).
+  - A refund on a booking with a GST tax invoice gets a credit note `PREFIX-SCN-YYYY-NNNNN` (per-event counter).
+- Vendor booking views show `status: CANCELLED`, the refund and the credit note.
+- `GET /events/:eventId/reports/finance` adds `stallRent { total, bookings, stalls, refunds }` (paid + cancelled bookings by payment
+  date, net of refunds) and includes it in `balance`; `reports/summary` adds `stallRent` (DONATION_VIEW, like pass sales).
+- `GET /events/:eventId/reports/gst` adds `stallRent { totals, invoices, creditNotes }` and `allTotals` (passes + stall rent − credit notes);
+  the CSV keeps its columns and adds a leading `type` (`pass` | `stall` | `stall_credit_note`, credit notes negative).
+- `GET /organizations/:orgId/reports/annual` adds `stallRent` to income, months and festivals (CSV gets a `stallRent` column).
+- Platform billing summary: `stallFeesEarned` / `stallGross` are net of refunds.

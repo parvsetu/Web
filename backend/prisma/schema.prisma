@@ -61,6 +61,8 @@ enum PassOrderStatus {
   PAID
   FAILED
   EXPIRED
+  /// Stall bookings only: a paid booking the mandal cancelled (refund in refundPaise).
+  CANCELLED
 }
 
 enum OtpPurpose {
@@ -354,6 +356,7 @@ model Event {
   passInvoiceSeq            Int                 @default(0)
   /// Stall booking (vendors book stalls online). Invoice numbers use their own counter.
   stallBookingEnabled       Boolean             @default(false)
+  stallCreditNoteSeq        Int                 @default(0)
   stallInvoiceSeq           Int                 @default(0)
   /// GST on stall rent when the festival has GST on (added on top; CA review — see stalls.rules.ts).
   stallGstRateBps           Int                 @default(1800)
@@ -1698,6 +1701,15 @@ model StallBooking {
   /// Assigned by the mandal after payment, e.g. "F-04, F-05".
   stallNumbers     String?
   mandalNote       String?
+  /// Cancellation of a PAID booking by the mandal: refund (0..amountPaise) goes back to the vendor;
+  /// the platform fee is returned pro rata and the mandal's share is reduced (STALL_REFUND settlement).
+  cancelledAt      DateTime?
+  cancelledById    String?
+  cancelReason     String?
+  refundPaise      Int             @default(0)
+  refundReference  String?
+  /// GST credit note for the refunded part (only when the booking had a tax invoice and a refund).
+  creditNoteNo     String?
   expiresAt        DateTime
   paidAt           DateTime?
   createdAt        DateTime        @default(now())

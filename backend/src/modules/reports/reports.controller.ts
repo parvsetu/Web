@@ -57,6 +57,8 @@ export class ReportsController {
     const data = await this.reports.finance(a.event!, q);
     return this.send(res, a, q.format, 'finance', data, () => [
       ...data.donations.byMethod.map((m) => ({ type: 'donation', key: m.method, total: m.total, count: m.count })),
+      { type: 'pass_sales', key: 'online passes', total: data.passSales.total, count: data.passSales.count },
+      { type: 'stall_rent', key: 'stall bookings (net of refunds)', total: data.stallRent.total, count: data.stallRent.bookings },
       ...data.expenses.byCategory.map((c) => ({ type: 'expense', key: c.category, total: c.total, count: c.count })),
     ]);
   }
@@ -65,7 +67,12 @@ export class ReportsController {
   @Get('events/:eventId/reports/gst')
   async gst(@Access() a: AccessContext, @Query() q: ReportQuery, @Res() res: Response) {
     const data = await this.reports.gst(a.event!, q);
-    return this.send(res, a, q.format, 'gst-invoices', data, () => data.invoices);
+    // One register (same columns as before): pass invoices, then stall-rent invoices and stall credit notes (negative).
+    return this.send(res, a, q.format, 'gst-invoices', data, () => [
+      ...data.invoices.map((i) => ({ type: 'pass', ...i })),
+      ...data.stallRent.invoices.map((i) => ({ type: 'stall', invoiceNo: i.invoiceNo, date: i.date, buyer: i.vendor, people: '', ratePercent: i.ratePercent, bearer: 'CUSTOMER', taxable: i.taxable, gst: i.gst, total: i.total })),
+      ...data.stallRent.creditNotes.map((n) => ({ type: 'stall_credit_note', invoiceNo: `${n.creditNoteNo} (against ${n.againstInvoice})`, date: n.date, buyer: n.vendor, people: '', ratePercent: n.ratePercent, bearer: 'CUSTOMER', taxable: `-${n.taxable}`, gst: `-${n.gst}`, total: `-${n.total}` })),
+    ]);
   }
 
   @RequireEventPermission('REPORT_VIEW')
@@ -75,7 +82,7 @@ export class ReportsController {
     return this.send(res, a, q.format, 'summary', data, () => [{
       event: data.event.name, totalTokens: data.tokens.total, usedTokens: data.tokens.used, unusedTokens: data.tokens.unused,
       expiredTokens: data.tokens.expired, cancelledTokens: data.tokens.cancelled, visitors: data.visitors.total,
-      donations: data.donations?.total ?? '', expenses: data.expenses?.total ?? '', balance: data.balance ?? '',
+      donations: data.donations?.total ?? '', passSales: data.passSales?.total ?? '', stallRent: data.stallRent?.total ?? '', expenses: data.expenses?.total ?? '', balance: data.balance ?? '',
     }]);
   }
 
