@@ -272,6 +272,18 @@ earnings, never deducted from the mandal's settlement):
 stored, never audited; receipts say "Anonymous donor" and are never 80G-eligible. `makeAnonymous` is one-way and also clears
 the visitor name on the donor's passes.
 
+## 80G donation tax
+
+`OrgTaxProfile` (mandal-entered, super-admin VERIFIED with the deduction %), `DonationTaxRecord` (1:1 donation), versioned
+`DonationDocument` (RECEIPT per donation, FORM_10BE per donor-year) and `Form10BDFiling`. One pure function decides eligibility
+(`modules/tax/tax-rules.ts → evaluate80G`); `TaxService.sync` stores it and keeps the receipt version in step, and every donation write
+calls it inside its own transaction (create, update, webhook, make-anonymous, donor ID change); profile changes re-sync the mandal.
+Integrity is in the database too: CHECKs (eligible ⇒ deduction 50/100 and a donor ID; ID columns all-or-nothing; anonymous ⇔ no name),
+partial unique indexes (one ISSUED receipt per donation, one ISSUED 10BE per donor-year, one current 10BD filing per year).
+Donor IDs: AES-GCM (`field-crypto`), masked in responses and audits, full only in the audited Form 10BD export; an HMAC groups donors.
+Note: don't `upsert` rows guarded by such CHECKs — Prisma issues `INSERT … ON CONFLICT`, and Postgres checks the INSERT candidate too.
+All legal figures (cash limit, due date) are platform settings, flagged for CA review.
+
 ## Hardening checklist
 
 - Input validation: global `ValidationPipe` with `whitelist` +

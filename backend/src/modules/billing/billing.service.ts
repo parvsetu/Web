@@ -367,7 +367,7 @@ export class BillingService {
 
   // ─── Super admin ───────────────────────────────────────────────────
 
-  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerRate?: string; gatewayFeePercent?: string; defaultPassPrintFormat?: PassPrintSetting; landingPageYearlyPrice?: string; defaultEventFee?: string; agentReferralFee?: string; agentCommissionPercent?: string; stallCommissionPercent?: string; referralCommissionMode?: 'PERCENT' | 'FIXED'; referralCommissionValue?: string }) {
+  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerRate?: string; gatewayFeePercent?: string; defaultPassPrintFormat?: PassPrintSetting; landingPageYearlyPrice?: string; defaultEventFee?: string; agentReferralFee?: string; agentCommissionPercent?: string; stallCommissionPercent?: string; referralCommissionMode?: 'PERCENT' | 'FIXED'; referralCommissionValue?: string; tax80GCashLimit?: string; tax10BDDueMonthDay?: string }) {
     const before = await this.settings();
     const data: Prisma.PlatformSettingsUpdateInput = { updatedById: actorId };
     if (dto.defaultTokenPrice !== undefined) data.defaultTokenPricePaise = toPaise(dto.defaultTokenPrice);
@@ -390,12 +390,14 @@ export class BillingService {
       data.referralCommissionMode = mode;
       data.referralCommissionValue = Math.round(Number(raw) * 100);
     }
+    if (dto.tax80GCashLimit !== undefined) data.tax80GCashLimitPaise = toPaise(dto.tax80GCashLimit);
+    if (dto.tax10BDDueMonthDay !== undefined) data.tax10BDDueMonthDay = dto.tax10BDDueMonthDay;
     const after = await this.prisma.platformSettings.update({ where: { id: 'default' }, data });
     await this.audit.log({ actorId, action: 'billing.settings_updated', entityType: 'PlatformSettings', entityId: 'default', before, after });
     return this.presentSettings(after);
   }
 
-  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; defaultPassPrintFormat: string; landingPageYearlyPricePaise: number; defaultEventFeePaise: number; agentReferralFeePaise: number; agentCommissionBps: number; stallCommissionBps: number; referralCommissionMode: string; referralCommissionValue: number; updatedAt: Date }) {
+  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; defaultPassPrintFormat: string; landingPageYearlyPricePaise: number; defaultEventFeePaise: number; agentReferralFeePaise: number; agentCommissionBps: number; stallCommissionBps: number; referralCommissionMode: string; referralCommissionValue: number; tax80GCashLimitPaise: number; tax10BDDueMonthDay: string; updatedAt: Date }) {
     return {
       defaultTokenPrice: rupees(s.defaultTokenPricePaise), defaultCommissionPercent: (s.defaultCommissionBps / 100).toFixed(2),
       lowCreditThreshold: rupees(s.lowCreditThresholdPaise), welcomeCredit: rupees(s.welcomeCreditPaise),
@@ -405,6 +407,8 @@ export class BillingService {
       stallCommissionPercent: (s.stallCommissionBps / 100).toFixed(2),
       /** Blogger referral commission: PERCENT → value is %, FIXED → value is ₹ per paid booking. */
       referralCommissionMode: s.referralCommissionMode, referralCommissionValue: (s.referralCommissionValue / 100).toFixed(2),
+      /** 80G rules (CA review): cash limit (₹) and the Form 10BD / 10BE due date (MM-DD after the year ends). */
+      tax80GCashLimit: rupees(s.tax80GCashLimitPaise), tax10BDDueMonthDay: s.tax10BDDueMonthDay,
       updatedAt: s.updatedAt,
     };
   }

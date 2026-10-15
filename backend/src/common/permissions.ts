@@ -30,6 +30,8 @@ export const PERMISSIONS = {
   DONATION_VIEW: 'View donations',
   DONATION_CREATE: 'Record donations',
   DONATION_UPDATE: 'Update donation payment status',
+  DONATION_TAX_VIEW: 'View 80G status, Form 10BD / 10BE summaries (donor IDs masked)',
+  DONATION_TAX_MANAGE: 'Edit the 80G registration and donor PAN / IDs, export Form 10BD, record 10BD filing and 10BE issue',
 
   EXPENSE_VIEW: 'View expenses',
   EXPENSE_CREATE: 'Record expenses',
@@ -104,7 +106,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     name: 'Treasurer',
     description: 'Donations and expenses',
     permissions: [
-      'EVENT_VIEW', 'DONATION_VIEW', 'DONATION_CREATE', 'DONATION_UPDATE',
+      'EVENT_VIEW', 'DONATION_VIEW', 'DONATION_CREATE', 'DONATION_UPDATE', 'DONATION_TAX_VIEW', 'DONATION_TAX_MANAGE',
       'EXPENSE_VIEW', 'EXPENSE_CREATE', 'EXPENSE_UPDATE', 'REPORT_VIEW', 'REPORT_EXPORT', 'GALLERY_VIEW', 'STALL_VIEW',
     ],
   },
@@ -114,7 +116,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     description: 'Read-only access to reports and statistics',
     permissions: [
       'EVENT_VIEW', 'TOKEN_VIEW', 'VOLUNTEER_VIEW', 'REPORT_VIEW', 'REPORT_EXPORT',
-      'DONATION_VIEW', 'EXPENSE_VIEW', 'GALLERY_VIEW', 'REVIEW_VIEW', 'STALL_VIEW',
+      'DONATION_VIEW', 'DONATION_TAX_VIEW', 'EXPENSE_VIEW', 'GALLERY_VIEW', 'REVIEW_VIEW', 'STALL_VIEW',
     ],
   },
 ];

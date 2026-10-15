@@ -1,6 +1,7 @@
 import { IsBoolean, IsEmail, IsIn, IsISO8601, IsOptional, IsString, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IssueTokenDto } from '../tokens/tokens.dto';
+import { DonorIdDto } from '../tax/tax.dto';
 import { MoneyField } from '../../common/money';
 import { PageQuery } from '../../common/http';
 
@@ -22,6 +23,8 @@ export class CreateDonationDto {
   @IsOptional() @IsISO8601() donatedAt?: string;
   /** Issue entry passes to the donor with this donation (validity + people + perPerson). */
   @IsOptional() @ValidateNested() @Type(() => IssueTokenDto) passes?: IssueTokenDto;
+  /** Donor PAN / ID for 80G (named donations only). Eligibility is decided by the server. */
+  @IsOptional() @ValidateNested() @Type(() => DonorIdDto) taxId?: DonorIdDto;
 }
 
 export class UpdateDonationDto {

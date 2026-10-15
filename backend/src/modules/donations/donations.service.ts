@@ -21,11 +21,14 @@ import { dayRange } from '../../common/time/validity';
 import { PAYMENT_PROVIDERS, PaymentProvider } from './payment-provider';
 import { CreateDonationDto, DonationListQuery, UpdateDonationDto } from './donations.dto';
 import { ORG_BRAND_SELECT, presentOrgBrand } from '../../common/org-brand';
+import { TaxService } from '../tax/tax.service';
+import { maskId } from '../tax/tax-rules';
 
 const donationSelect = {
   id: true, receiptNo: true, donorName: true, isAnonymous: true, donorMobile: true, donorEmail: true, amount: true, currency: true,
   method: true, paymentStatus: true, paymentProvider: true, paymentReference: true, providerOrderId: true,
   donatedAt: true, notes: true, createdAt: true, createdBy: userRef,
+  taxRecord: { select: { eligible: true, ineligibleReason: true, deductionPercent: true, idType: true, idLast4: true, donorAddress: true, financialYear: true } },
 } as const;
 
 @Injectable()
@@ -40,6 +43,7 @@ export class DonationsService {
     private readonly sponsors: SponsorsService,
     private readonly partners: PartnerBillingService,
     private readonly billing: BillingService,
+    private readonly tax: TaxService,
     @Inject(PAYMENT_PROVIDERS) private readonly providers: PaymentProvider[],
   ) {}
 
@@ -62,7 +66,7 @@ export class DonationsService {
     return `${r.tokenPrefix}-R-${r.startDate.getUTCFullYear()}-${String(r.donationReceiptSeq).padStart(5, '0')}`;
   }
 
-  async list(event: EventRef, q: DonationListQuery) {
+  async list(event: EventRef, q: DonationListQuery, perms: Set<string> = new Set()) {
     const { page, pageSize, skip, take } = paging(q);
     const where: Prisma.DonationWhereInput = {
       eventId: event.id, paymentStatus: q.status, method: q.method,
@@ -74,18 +78,19 @@ export class DonationsService {
       this.prisma.donation.count({ where }),
       this.prisma.donation.aggregate({ where: { ...where, paymentStatus: 'SUCCESS' }, _sum: { amount: true } }),
     ]);
-    return { ...paged(items, total, page, pageSize), totalReceived: (sum._sum.amount ?? new Prisma.Decimal(0)).toFixed(2) };
+    const canTax = perms.has('DONATION_TAX_VIEW');
+    return { ...paged(items.map(({ taxRecord, ...d }) => ({ ...d, tax: this.tax.present(taxRecord, canTax) })), total, page, pageSize), totalReceived: (sum._sum.amount ?? new Prisma.Decimal(0)).toFixed(2) };
   }
 
-  async get(eventId: string, id: string) {
+  async get(eventId: string, id: string, perms: Set<string> = new Set()) {
     const d = await this.prisma.donation.findFirst({
       where: { id, eventId },
       select: { ...donationSelect, passes: { select: { id: true, tokenCode: true, secureToken: true, visitorCount: true, status: true, validFrom: true, validUntil: true, sponsorIds: true, partnerCampaignIds: true }, orderBy: { tokenCode: 'asc' } } },
     });
     if (!d) throw new NotFoundException('Donation not found');
-    const { passes, ...rest } = d;
+    const { passes, taxRecord, ...rest } = d;
     return {
-      ...rest,
+      ...rest, tax: this.tax.present(taxRecord, perms.has('DONATION_TAX_VIEW')),
       passes: passes.map(({ secureToken, sponsorIds: _s, partnerCampaignIds: _p, ...p }) => ({ ...p, qrPayload: this.qr.payloadFor(secureToken) })),
       // What is printed on the donor's passes: the mandal's sponsors + platform partners.
       printedSponsors: await this.sponsors.byIds([...new Set(passes.flatMap((p) => p.sponsorIds))]),
@@ -130,12 +135,14 @@ export class DonationsService {
           receiptNo: payment.status === 'SUCCESS' ? await this.nextReceipt(tx, event.id) : null,
         },
       });
+      if (dto.taxId && !dto.isAnonymous) await this.tax.setDonorId(tx, draft.id, dto.taxId, actor.id);
+      else await this.tax.sync(tx, draft.id, actor.id);
       await this.audit.log({
         organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'donation.created',
         entityType: 'Donation', entityId: draft.id, after: { amount: draft.amount.toFixed(2), method: draft.method, provider: provider.key, status: payment.status, anonymous: draft.isAnonymous },
       }, tx);
     });
-    const donation = await this.get(event.id, draft.id);
+    const donation = await this.get(event.id, draft.id, perms);
     return provider.online
       ? { ...donation, payment: { provider: provider.key, providerOrderId: payment.providerOrderId, checkoutUrl: payment.checkoutUrl, upiUri: payment.upiUri } }
       : donation;
@@ -166,16 +173,18 @@ export class DonationsService {
       const passIds = await this.tokens.issueInTx(tx, actor, event, perms, {
         ...dto.passes!, visitorName: dto.passes!.visitorName ?? donor.donorName ?? undefined, visitorMobile: dto.passes!.visitorMobile ?? dto.donorMobile,
       }, d.id);
+      if (dto.taxId && !dto.isAnonymous) await this.tax.setDonorId(tx, d.id, dto.taxId, actor.id);
+      else await this.tax.sync(tx, d.id, actor.id);
       await this.audit.log({
         organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'donation.created',
         entityType: 'Donation', entityId: d.id, after: { amount: d.amount.toFixed(2), method: d.method, provider: provider.key, status: 'SUCCESS', passes: passIds.length, anonymous: d.isAnonymous },
       }, tx);
       return d.id;
     });
-    return this.get(event.id, id);
+    return this.get(event.id, id, perms);
   }
 
-  async update(actor: RequestUser, event: EventRef, id: string, dto: UpdateDonationDto) {
+  async update(actor: RequestUser, event: EventRef, id: string, dto: UpdateDonationDto, perms: Set<string> = new Set()) {
     const before = await this.get(event.id, id);
     await this.prisma.$transaction(async (tx) => {
       const becomesPaid = dto.paymentStatus === 'SUCCESS' && before.paymentStatus !== 'SUCCESS';
@@ -195,6 +204,9 @@ export class DonationsService {
           receiptNo: becomesPaid && !before.receiptNo ? await this.nextReceipt(tx, event.id) : undefined,
         },
       });
+      // An anonymous donation keeps no donor ID; either way 80G and the receipt version are re-evaluated.
+      if (anonymize) await this.tax.setDonorId(tx, id, null, actor.id);
+      else await this.tax.sync(tx, id, actor.id);
       await this.audit.log({
         organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'donation.updated',
         entityType: 'Donation', entityId: id,
@@ -204,7 +216,7 @@ export class DonationsService {
         reason: dto.reason,
       }, tx);
     });
-    return this.get(event.id, id);
+    return this.get(event.id, id, perms);
   }
 
   /** Creates (once) the secret link the donor can open without logging in. */
@@ -254,13 +266,22 @@ export class DonationsService {
       throw new ConflictException({ message: 'A receipt is only available once the payment is confirmed.', code: 'NOT_PAID' });
     }
     const identity = await this.payouts.receiptIdentity(d.event.organizationId);
+    const [taxRecord, taxProfile] = await Promise.all([
+      this.prisma.donationTaxRecord.findUnique({ where: { donationId: id } }),
+      this.prisma.orgTaxProfile.findUnique({ where: { organizationId: d.event.organizationId } }),
+    ]);
+    const eligible = !!taxRecord?.eligible;
     return {
       receiptNo: d.receiptNo, organization: presentOrgBrand(d.event.organization), event: { name: d.event.name, festivalType: d.event.festivalType },
       issuer: identity,
       donorMobile: d.donorMobile, donorEmail: d.donorEmail,
       donorName: d.donorName, isAnonymous: d.isAnonymous,
       /** An anonymous donation can't carry an 80G deduction (the donor's name and PAN are required). */
-      eligibleFor80G: !d.isAnonymous && !!identity?.reg80G,
+      // Server-decided (verified 80G profile, validity, cash limit, donor ID…) — never inferred from the payout account.
+      eligibleFor80G: eligible,
+      tax80G: eligible && taxProfile
+        ? { urn: taxProfile.urn, urnIssuedOn: taxProfile.urnIssuedOn.toISOString().slice(0, 10), deductionPercent: taxRecord!.deductionPercent, donorId: maskId(taxRecord!.idType, taxRecord!.idLast4), donorAddress: taxRecord!.donorAddress, financialYear: taxRecord!.financialYear }
+        : null,
       amount: d.amount.toFixed(2), amountInWords: amountInWords(d.amount.toFixed(2)),
       currency: d.currency, method: d.method, paymentReference: d.paymentReference, donatedAt: d.donatedAt,
     };
@@ -286,6 +307,7 @@ export class DonationsService {
         },
       });
       if (moved.count === 1) {
+        await this.tax.sync(tx, d.id);
         await this.audit.log({
           organizationId: d.event.organizationId, eventId: d.eventId, action: 'donation.payment_webhook',
           entityType: 'Donation', entityId: d.id, before: { paymentStatus: d.paymentStatus }, after: { paymentStatus: evt.status, provider: provider.key },

@@ -41,7 +41,9 @@ describe('Anonymous donations (e2e)', () => {
     expect((await ctx.http().post(api(`/events/${event.id}/donations/${r.body.id}/email-receipt`)).set('Authorization', auth)).status).toBe(200);
 
     const named = await donate({ donorName: 'Ravi', amount: 100, method: 'CASH' });
-    expect((await ctx.http().get(api(`/events/${event.id}/donations/${named.body.id}/receipt`)).set('Authorization', auth)).body.eligibleFor80G).toBe(true);
+    // An 80G number on the payout account alone no longer makes a receipt claim 80G — that needs a verified
+    // 80G profile and the donor's PAN / ID (see tax.e2e-spec.ts).
+    expect((await ctx.http().get(api(`/events/${event.id}/donations/${named.body.id}/receipt`)).set('Authorization', auth)).body.eligibleFor80G).toBe(false);
     // The database itself refuses a half-anonymous row.
     await expect(ctx.prisma.donation.update({ where: { id: named.body.id }, data: { isAnonymous: true } })).rejects.toThrow();
   });

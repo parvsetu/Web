@@ -28,7 +28,7 @@ export class DonationsController {
   @RequireEventPermission('DONATION_VIEW')
   @Get('events/:eventId/donations')
   list(@Access() a: AccessContext, @Query() q: DonationListQuery) {
-    return this.donations.list(a.event!, q);
+    return this.donations.list(a.event!, q, a.perms);
   }
 
   @RequireEventPermission('DONATION_CREATE')
@@ -39,14 +39,14 @@ export class DonationsController {
 
   @RequireEventPermission('DONATION_VIEW')
   @Get('events/:eventId/donations/:id')
-  get(@Param('eventId') eventId: string, @Param('id') id: string) {
-    return this.donations.get(eventId, id);
+  get(@Access() a: AccessContext, @Param('eventId') eventId: string, @Param('id') id: string) {
+    return this.donations.get(eventId, id, a.perms);
   }
 
   @RequireEventPermission('DONATION_UPDATE')
   @Patch('events/:eventId/donations/:id')
   update(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Param('id') id: string, @Body() dto: UpdateDonationDto) {
-    return this.donations.update(user, a.event!, id, dto);
+    return this.donations.update(user, a.event!, id, dto, a.perms);
   }
 
   @RequireEventPermission('DONATION_VIEW')

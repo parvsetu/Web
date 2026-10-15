@@ -31,6 +31,7 @@ import { AgentsModule } from './modules/agents/agents.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { StallsModule } from './modules/stalls/stalls.module';
 import { ReferralsModule } from './modules/referrals/referrals.module';
+import { TaxModule } from './modules/tax/tax.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { ReferralsModule } from './modules/referrals/referrals.module';
     ReviewsModule,
     StallsModule,
     ReferralsModule,
+    TaxModule,
   ],
   providers: [
     // Order matters: authenticate → rate-limit (per user) → authorize.

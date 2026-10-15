@@ -5,6 +5,7 @@ import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { DateTime } from 'luxon';
 import { encryptField } from '../src/common/crypto/field-crypto';
+import { donorIdHash, financialYearOf } from '../src/modules/tax/tax-rules';
 import { ALL_PERMISSIONS, PERMISSIONS, SYSTEM_ROLES, permissionGroup } from '../src/common/permissions';
 import { DECLARATION_VERSION } from '../src/common/legal';
 
@@ -645,6 +646,28 @@ async function seedBloggers() {
   console.log('Demo blogger created (Priya Festival Diaries: 9000000050 / blogger@parvsetu.dev, code PRIYAFEST).');
 }
 
+/**
+ * 80G demo: Shree Durga Mandal has submitted its 80G registration (waiting
+ * for the super admin under Platform → 80G verification) and one demo
+ * donation carries a donor PAN, so verifying shows a receipt turn 80G-eligible.
+ * Tax records come from TaxService at runtime; here only the inputs are set.
+ */
+async function seedTaxDemo() {
+  const durga = await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } });
+  if (!durga || (await prisma.orgTaxProfile.findUnique({ where: { organizationId: durga.id } }))) return;
+  await prisma.orgTaxProfile.create({ data: {
+    organizationId: durga.id, urn: 'AAATS1234AF20214', urnIssuedOn: new Date('2024-06-01T00:00:00Z'), validFrom: new Date('2024-04-01T00:00:00Z'),
+    validTo: new Date('2029-03-31T00:00:00Z'), orgPanEnc: encryptField('AAATS1234F'), orgPanLast4: '234F', status: 'SUBMITTED', submittedAt: new Date(),
+  } });
+  const d = await prisma.donation.findFirst({ where: { event: { organizationId: durga.id }, donorName: 'Sunita Mukherjee', paymentStatus: 'SUCCESS' }, include: { taxRecord: true } });
+  if (d && !d.taxRecord?.idType) {
+    const id = { idType: 'PAN', idNumberEnc: encryptField('BXQPM4821K'), idLast4: '821K', donorIdHash: donorIdHash('PAN', 'BXQPM4821K'), donorAddress: 'Salt Lake, Kolkata' };
+    if (d.taxRecord) await prisma.donationTaxRecord.update({ where: { donationId: d.id }, data: id });
+    else await prisma.donationTaxRecord.create({ data: { donationId: d.id, organizationId: durga.id, eventId: d.eventId, financialYear: financialYearOf(d.donatedAt), ineligibleReason: 'NO_VERIFIED_80G', ...id } });
+  }
+  console.log('Demo 80G registration submitted for Shree Durga Mandal (verify it under Platform → 80G verification).');
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -661,6 +684,7 @@ async function main() {
     await seedVisitorShowcase();
     await seedStalls();
     await seedBloggers();
+    await seedTaxDemo();
   }
 }
 

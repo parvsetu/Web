@@ -30,6 +30,10 @@ export class PlatformSettingsDto {
   @IsOptional() @IsIn(['PERCENT', 'FIXED']) referralCommissionMode?: 'PERCENT' | 'FIXED';
   /** % (0–100) for PERCENT, ₹ for FIXED. */
   @IsOptional() @IsString() @Length(1, 12) referralCommissionValue?: string;
+  /** 80G: cash donations above this (₹) get no deduction. CA review. */
+  @IsOptional() @Matches(RUPEES) tax80GCashLimit?: string;
+  /** Form 10BD / 10BE due date after the financial year, MM-DD. CA review. */
+  @IsOptional() @Matches(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, { message: 'due date looks like 05-31' }) tax10BDDueMonthDay?: string;
 }
 
 /** Per-mandal overrides; send null to fall back to the platform default. */
