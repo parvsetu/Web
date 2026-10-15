@@ -68,6 +68,12 @@ export interface LandingEventCard {
   fromPrice: string | null;
 }
 
+export interface LandingInstagram {
+  username: string | null;
+  profileUrl: string | null;
+  photos: { id: string; url: string; width: number | null; height: number | null; caption: string | null; permalink: string | null; postedAt: string | null }[];
+}
+
 export interface LandingPublic {
   slug: string;
   preview: boolean;
@@ -85,6 +91,8 @@ export interface LandingPublic {
   achievements: PublicAchievement[];
   reviews: ReviewSummary & { items: PublicReview[]; total: number };
   visitorPhotos: { items: VisitorPhoto[]; total: number };
+  /** Photos the mandal approved from its connected Instagram (null = none). */
+  instagram?: LandingInstagram | null;
   /** Section order / visibility / variant as the mandal saved it (normalized by the server). */
   layout: LayoutSection[];
 }

@@ -17,6 +17,7 @@ const SECTION_LABEL: Record<LayoutSectionId, { title: string; hint: string }> = 
   reviews: { title: 'Visitor reviews', hint: 'Approved reviews, featured first' },
   visitorPhotos: { title: 'Visitor photos & selfies', hint: 'Photos you approved on reviews' },
   gallery: { title: 'Festival photos', hint: 'Your public photos' },
+  instagram: { title: 'From our Instagram', hint: 'Photos you approved from Instagram' },
   past: { title: 'Past festivals', hint: 'By year' },
   sponsors: { title: 'Sponsors', hint: '' },
   contact: { title: 'Contact', hint: 'Phone, email and social links' },

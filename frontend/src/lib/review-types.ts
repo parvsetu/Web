@@ -162,7 +162,7 @@ export interface AchievementList {
 
 // ─── Layout ─────────────────────────────────────────────────────────────
 
-export type LayoutSectionId = 'hero' | 'about' | 'upcoming' | 'trophies' | 'reviews' | 'visitorPhotos' | 'gallery' | 'past' | 'sponsors' | 'contact';
+export type LayoutSectionId = 'hero' | 'about' | 'upcoming' | 'trophies' | 'reviews' | 'visitorPhotos' | 'gallery' | 'instagram' | 'past' | 'sponsors' | 'contact';
 
 export interface LayoutSection {
   id: LayoutSectionId;

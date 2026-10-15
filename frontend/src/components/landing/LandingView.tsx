@@ -9,6 +9,7 @@ import { SponsorStrip } from '../SponsorStrip';
 import { PublicGallery } from '../gallery/PublicGallery';
 import { ReviewsSection, VisitorPhotosSection } from '../reviews/PublicReviews';
 import { Trophies } from './Trophies';
+import { InstagramSection } from './InstagramSection';
 import type { LayoutSection, LayoutSectionId } from '@/lib/review-types';
 import { apiImageSrc } from '@/lib/media';
 import { fmtRangeL } from '@/lib/i18n/format';
@@ -138,6 +139,8 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
 
     gallery: (variant) => <PublicGallery photos={p.photos} title={t('landing.moments')} grid={variant !== 'CAROUSEL'} accent={th.ink} />,
 
+    instagram: (variant) => (p.instagram ? <InstagramSection ig={p.instagram} grid={variant !== 'CAROUSEL'} accent={th.ink} /> : null),
+
     past: () =>
       p.past.length > 0 ? (
         <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
@@ -202,7 +205,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
   );
 }
 
-const DEFAULT_LAYOUT: LayoutSection[] = (['hero', 'about', 'upcoming', 'trophies', 'reviews', 'gallery', 'visitorPhotos', 'past', 'sponsors', 'contact'] as LayoutSectionId[]).map((id) => ({ id, visible: true, variant: '' }));
+const DEFAULT_LAYOUT: LayoutSection[] = (['hero', 'about', 'upcoming', 'trophies', 'reviews', 'gallery', 'instagram', 'visitorPhotos', 'past', 'sponsors', 'contact'] as LayoutSectionId[]).map((id) => ({ id, visible: true, variant: '' }));
 
 function EventRow({ e, ink }: { e: LandingEventCard; ink: string }) {
   const i18n = useT();
