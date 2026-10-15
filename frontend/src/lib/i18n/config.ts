@@ -24,8 +24,6 @@ export const LANG_COOKIE = 'parvsetu_lang';
 export const LANG_STORAGE_KEY = 'parvsetu.lang';
 /** `?lang=hi` on any public URL switches the language (handy for sharing). */
 export const LANG_PARAM = 'lang';
-/** Set by middleware so the root layout knows the path (for `<html lang>`). */
-export const PATH_HEADER = 'x-parvsetu-path';
 
 export function isLang(v: unknown): v is Lang {
   return typeof v === 'string' && LANGUAGES.some((l) => l.code === v);

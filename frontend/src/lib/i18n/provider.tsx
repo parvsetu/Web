@@ -23,12 +23,20 @@ function readStored(): Lang | null {
   }
 }
 
-function hasCookie(): boolean {
+function readCookie(): Lang | null {
   try {
-    return document.cookie.split(';').some((c) => c.trim().startsWith(`${LANG_COOKIE}=`));
+    const v = document.cookie.split(';').map((c) => c.trim()).find((c) => c.startsWith(`${LANG_COOKIE}=`))?.slice(LANG_COOKIE.length + 1);
+    return isLang(v) ? v : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** `/hi/faq` → `/faq`: the server may see the internal app/[lang] path. */
+function withoutLang(pathname: string | null): string | null {
+  if (!pathname) return pathname;
+  const first = pathname.split('/')[1];
+  return isLang(first) ? pathname.slice(first.length + 1) || '/' : pathname;
 }
 
 function persist(lang: Lang) {
@@ -45,8 +53,10 @@ function persist(lang: Lang) {
 }
 
 /**
- * Holds the visitor's language. The server passes the cookie's language and
- * its dictionary, so the first render already matches (no hydration flash).
+ * Holds the visitor's language. The server passes the page's language (the
+ * app/[lang] segment) and its dictionary, so the first render already matches
+ * (no hydration flash). On organiser pages that is always `en`, so the
+ * visitor's real choice is picked up from the cookie after mount.
  * Only public pages (see isPublicPath) follow it; the organiser app stays English.
  */
 export function LanguageProvider({ initialLang, initialMessages, children }: { initialLang: Lang; initialMessages: Messages | null; children: ReactNode }) {
@@ -56,7 +66,7 @@ export function LanguageProvider({ initialLang, initialMessages, children }: { i
   const [dicts, setDicts] = useState<Partial<Record<Lang, Messages>>>(() => (initialMessages && initialLang !== 'en' ? { [initialLang]: initialMessages } : {}));
   const loading = useRef(new Set<Lang>());
 
-  const effective: Lang = isPublicPath(pathname) ? lang : 'en';
+  const effective: Lang = isPublicPath(withoutLang(pathname)) ? lang : 'en';
 
   const ensure = useCallback(async (l: Lang) => {
     if (l === 'en' || loading.current.has(l)) return;
@@ -97,11 +107,16 @@ export function LanguageProvider({ initialLang, initialMessages, children }: { i
   );
 
   // First visit on this browser with a stored choice but no cookie (e.g. cookie
-  // cleared): restore it. Otherwise keep localStorage in step with the cookie.
+  // cleared): restore it. Otherwise follow the cookie (an organiser page was
+  // rendered in `en` whatever it says) and keep localStorage in step with it.
   useEffect(() => {
     const stored = readStored();
-    if (!hasCookie() && stored && stored !== initialLang) setLang(stored);
-    else if (hasCookie() && stored !== initialLang) persist(initialLang);
+    const cookie = readCookie();
+    if (!cookie && stored && stored !== initialLang) setLang(stored);
+    else if (cookie) {
+      if (cookie !== initialLang) setLangState(cookie);
+      if (stored !== cookie) persist(cookie);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

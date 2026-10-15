@@ -22,14 +22,18 @@ The public website (explore `/`, `/book/*`, `/pass/*`, `/pay/demo/*`, `/f/*`,
 - `t.festivalType(KEY)` gives a festival-type name (`ft.*` keys), and
   `t.city(name)` gives a popular city's name (`city.*`). Anything unknown
   falls back to the English text.
-- The language is stored in the `parvsetu_lang` cookie (so server components
-  can read it) and in `localStorage`. `?lang=hi` on any URL sets it; that is
-  handled in `src/middleware.ts`, so the very first render is already in the
-  new language.
-- The root layout reads the cookie, sets `<html lang>` and passes the active
+- The language is stored in the `parvsetu_lang` cookie and in `localStorage`.
+  `?lang=hi` on any URL sets it.
+- Every page lives under `app/[lang]/`. `src/middleware.ts` picks the
+  language (public pages: `?lang=`, else the cookie, else `en`; the organiser
+  app: always `en`) and rewrites `/faq` to `/hi/faq` internally — the browser
+  URL never shows it. Pages must take the language from `params`, never from
+  `cookies()`/`headers()`/`searchParams`: that is what lets Vercel cache each
+  language's page instead of rendering it on every visit.
+- The root layout (`app/[lang]/layout.tsx`) sets `<html lang>` and passes the
   dictionary to `LanguageProvider`. Client components call
   `const { t, tp, locale } = useT()`. Server components call
-  `await getServerT()` from `server.ts`.
+  `await getServerT(params)` from `server.ts`.
 - Only English is bundled into client code. Other dictionaries load on demand
   (`locales/index.ts`).
 - Dates use `format.ts` (`fmtDateL`, `fmtPassWindowL`, …) with `locale`.

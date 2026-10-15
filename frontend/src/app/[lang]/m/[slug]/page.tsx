@@ -5,13 +5,18 @@ import { LandingView } from '@/components/landing/LandingView';
 import { getLandingPage } from '@/lib/landing';
 import { siteUrl } from '@/lib/public-festival';
 import { getServerT } from '@/lib/i18n/server';
-import { LandingPreview } from './preview';
 
-type Props = { params: { slug: string }; searchParams: { preview?: string } };
+type Props = { params: { lang: string; slug: string } };
+
+export const revalidate = 300;
+
+export function generateStaticParams() {
+  return [];
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const p = await getLandingPage(params.slug);
-  const { t } = await getServerT();
+  const { t } = await getServerT(params);
   if (!p) return { title: `${t('landing.unavailable')} · Parvsetu`, robots: { index: false } };
   const place = [p.organization.city, p.organization.state].filter(Boolean).join(', ');
   const description = p.headline ?? t('landing.metaDefault', { org: `${p.organization.name}${place ? ` · ${place}` : ''}` });
@@ -25,12 +30,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-/** Paid mandal landing page. Only served while paid & enabled; `?preview=1` lets the mandal's admins see it before that. */
-export default async function LandingPage({ params, searchParams }: Props) {
+/**
+ * Paid mandal landing page. Only served while paid & enabled; `?preview=1` lets the
+ * mandal's admins see it before that — the middleware routes that to ./preview so
+ * this page never reads searchParams and stays cached.
+ */
+export default async function LandingPage({ params }: Props) {
   const p = await getLandingPage(params.slug);
   if (!p) {
-    if (searchParams.preview) return <LandingPreview slug={params.slug} />;
-    const { t } = await getServerT();
+    const { t } = await getServerT(params);
     return (
       <PublicShell>
         <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-orange-200 bg-white px-4 py-14 text-center">

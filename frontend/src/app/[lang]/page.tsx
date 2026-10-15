@@ -2,13 +2,15 @@ import type { Metadata } from 'next';
 import BookPage from './book/page';
 import { getServerT } from '@/lib/i18n/server';
 
+type LangParams = { params: { lang: string } };
+
 /**
  * The main domain is the public explore page (festivals, melas, exhibitions
  * near you). /book stays as an alias so existing links and printed QRs keep
  * working. The signed-in organiser home lives at /dashboard.
  */
-export async function generateMetadata(): Promise<Metadata> {
-  const { t, lang } = await getServerT();
+export async function generateMetadata({ params }: LangParams): Promise<Metadata> {
+  const { t, lang } = await getServerT(params);
   return {
     title: { absolute: t('meta.homeTitle') },
     description: t('meta.homeDescription'),

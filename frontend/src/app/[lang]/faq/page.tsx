@@ -2,11 +2,13 @@ import type { Metadata } from 'next';
 import { PublicShell } from '@/components/booking/PublicShell';
 import { siteUrl } from '@/lib/public-festival';
 import { getFaq } from '@/lib/i18n/faq';
-import { getRequestLang, getServerT } from '@/lib/i18n/server';
+import { getServerT, pageLang } from '@/lib/i18n/server';
 import { FaqBrowser } from './FaqBrowser';
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getServerT();
+type LangParams = { params: { lang: string } };
+
+export async function generateMetadata({ params }: LangParams): Promise<Metadata> {
+  const { t } = await getServerT(params);
   return {
     metadataBase: new URL(siteUrl()),
     title: `${t('faq.title')} · Parvsetu`,
@@ -15,8 +17,8 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function FaqPage() {
-  const faq = await getFaq(getRequestLang());
+export default async function FaqPage({ params }: LangParams) {
+  const faq = await getFaq(pageLang(params));
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',

@@ -4,14 +4,16 @@ import { Ban, CheckCircle2, FileCheck2, ShieldAlert } from 'lucide-react';
 import { PublicShell } from '@/components/booking/PublicShell';
 import { getServerT } from '@/lib/i18n/server';
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getServerT();
+type LangParams = { params: { lang: string } };
+
+export async function generateMetadata({ params }: LangParams): Promise<Metadata> {
+  const { t } = await getServerT(params);
   return { title: `${t('policy.title')} · Parvsetu`, description: t('policy.metaDescription') };
 }
 
 // The wording mirrors lib/legal.ts (what registrants agree to, in English); this page shows it in the visitor's language.
-export default async function ContentPolicyPage() {
-  const { t, tn } = await getServerT();
+export default async function ContentPolicyPage({ params }: LangParams) {
+  const { t, tn } = await getServerT(params);
   const notAllowed = [t('policy.na1'), t('policy.na2'), t('policy.na3'), t('policy.na4')];
   const permissions = [t('policy.perm1'), t('policy.perm2'), t('policy.perm3'), t('policy.perm4'), t('policy.perm5'), t('policy.perm6')];
   const note = t('policy.translationNote');

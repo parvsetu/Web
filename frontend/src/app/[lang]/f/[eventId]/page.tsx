@@ -13,12 +13,21 @@ import { fmtRangeL } from '@/lib/i18n/format';
 import { getServerT } from '@/lib/i18n/server';
 import { PublicGallery } from '@/components/gallery/PublicGallery';
 import { ReviewsSection } from '@/components/reviews/PublicReviews';
+import { BookLink } from './book-link';
 
-type Props = { params: { eventId: string }; searchParams?: { ref?: string } };
+type Props = { params: { lang: string; eventId: string } };
+
+// Cached and rebuilt in the background at most once a minute (stall availability is the
+// freshest data on it). Never read searchParams/cookies here — that makes it dynamic.
+export const revalidate = 60;
+
+export function generateStaticParams() {
+  return [];
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const f = await getPublicFestival(params.eventId);
-  const { t, locale, lang } = await getServerT();
+  const { t, locale, lang } = await getServerT(params);
   if (!f) return { title: `${t('festival.notFound')} · Parvsetu` };
   const place = [f.city, f.state].filter(Boolean).join(', ');
   const description = `${f.organization.name}${place ? ` · ${place}` : ''} · ${fmtRangeL(f.startDate, f.endDate, locale)}${f.publicBookingEnabled ? ` · ${t('festival.bookOnline')}` : ''}`;
@@ -31,14 +40,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function FestivalPage({ params, searchParams }: Props) {
+export default async function FestivalPage({ params }: Props) {
   const f = await getPublicFestival(params.eventId);
   if (!f) notFound();
   const [photos, stalls] = await Promise.all([getPublicPhotos(f.id), getPublicStalls(f.id)]);
   const stallsLeft = stalls.types.reduce((n, s) => n + s.available, 0);
   const stallFrom = stalls.types.length ? Math.min(...stalls.types.map((s) => Number(s.price))) : 0;
   const th = festivalTheme(f.festivalType);
-  const { t, tp, locale } = await getServerT();
+  const { t, tp, locale } = await getServerT(params);
   const range = fmtRangeL(f.startDate, f.endDate, locale);
   const url = `${siteUrl()}/f/${f.id}`;
   const place = [f.location, f.city, f.state].filter(Boolean).join(', ');
@@ -77,12 +86,12 @@ export default async function FestivalPage({ params, searchParams }: Props) {
         <VenueCard venue={f.venue} accent={th.ink} />
 
         {f.status === 'ACTIVE' && f.publicBookingEnabled && (
-          <Link
-            href={`/book/${f.id}${refQuery(searchParams?.ref)}`}
+          <BookLink
+            eventId={f.id}
             className="flex min-h-[64px] items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-xl font-extrabold text-white shadow-lg shadow-orange-500/30"
           >
             <Ticket aria-hidden className="h-7 w-7" /> {allFree ? t('festival.bookFree') : prices.includes(0) ? t('festival.bookFreePaid') : t('festival.bookFrom', { price: minPaid })}
-          </Link>
+          </BookLink>
         )}
 
         {f.timings.length > 0 && (
@@ -142,8 +151,3 @@ export default async function FestivalPage({ params, searchParams }: Props) {
   );
 }
 
-/** A blogger's referral link (/f/<id>?ref=CODE) carries the code on into booking. */
-function refQuery(ref?: string) {
-  const code = (ref ?? '').trim();
-  return /^[A-Za-z0-9]{4,20}$/.test(code) ? `?ref=${encodeURIComponent(code.toUpperCase())}` : '';
-}
