@@ -3,7 +3,7 @@
  * always come fresh from the server. Any request to another origin (the API
  * runs on its own origin) or to a path containing /api/ bypasses this worker.
  */
-const VERSION = 'parvsetu-shell-v4';
+const VERSION = 'parvsetu-shell-v5';
 // '/launch' is the home-screen start_url (routes to dashboard / My passes / explore);
 // '/book/my-passes' lists the passes saved on this phone, which open offline.
 const SHELL = ['/', '/launch', '/book/my-passes', '/dashboard', '/login', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'];
