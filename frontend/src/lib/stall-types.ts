@@ -6,7 +6,7 @@ export const STALL_CATEGORIES: StallCategory[] = ['FOOD', 'SHOPPING', 'SERVICES'
 export const STALL_CATEGORY_LABEL: Record<StallCategory, string> = {
   FOOD: 'Food', SHOPPING: 'Shopping', SERVICES: 'Services', EXHIBITOR: 'Exhibitor', OTHER: 'Other',
 };
-export type StallBookingStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
+export type StallBookingStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
 
 export interface StallTypeInfo {
   id: string;
@@ -66,6 +66,12 @@ export interface StallBooking {
   expiresAt: string;
   paidAt: string | null;
   createdAt: string;
+  /** Set when the mandal cancelled a paid booking. */
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  refund?: string;
+  refundReference?: string | null;
+  creditNoteNo?: string | null;
   /** Mandal view only. */
   vendorId?: string;
   platformFee?: string;

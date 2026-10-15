@@ -657,6 +657,8 @@ export interface VolunteerActivity {
 export interface FinanceReport {
   donations: { total: string; count: number; byMethod: { method: string; total: string; count: number }[]; pending: { total: string; count: number } };
   passSales?: { total: string; count: number; visitors: number };
+  /** Vendor stall rent (incl. GST), net of refunds. */
+  stallRent?: { total: string; bookings: number; stalls: number; refunds: string };
   expenses: { total: string; count: number; byCategory: { category: string; total: string; count: number }[] };
   balance: string;
 }
@@ -668,6 +670,7 @@ export interface SummaryReport {
   scans: { total: number; success: number; failed: number };
   donations: { total: string; count: number } | null;
   passSales?: { total: string; count: number; visitors: number } | null;
+  stallRent?: { total: string; bookings: number; stalls: number; refunds: string } | null;
   expenses: { total: string; count: number } | null;
   balance: string | null;
   restricted: string[];

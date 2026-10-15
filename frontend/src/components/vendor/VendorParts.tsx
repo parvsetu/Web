@@ -14,6 +14,7 @@ export const BOOKING_STATUS: Record<StallBookingStatus, { label: string; tone: s
   PAID: { label: 'Confirmed', tone: 'ACTIVE' },
   FAILED: { label: 'Payment failed', tone: 'CANCELLED' },
   EXPIRED: { label: 'Expired', tone: 'EXPIRED' },
+  CANCELLED: { label: 'Cancelled by mandal', tone: 'CANCELLED' },
 };
 
 export function BookingStatusBadge({ status }: { status: StallBookingStatus }) {
@@ -78,6 +79,12 @@ export function BookingCard({ b, onPay }: { b: StallBooking; onPay?: () => void 
           <MapPin aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           {b.event.venue.mapUrl ? <a href={b.event.venue.mapUrl} target="_blank" rel="noopener noreferrer" className="underline">{b.event.venue.fullAddress}</a> : b.event.venue.fullAddress}
         </p>
+      )}
+      {b.status === 'CANCELLED' && (
+        <Alert kind="warning">
+          The mandal cancelled this booking{b.cancelReason ? ` — ${b.cancelReason}` : ''}.{' '}
+          {Number(b.refund ?? 0) > 0 ? `Refund of ${fmtMoney(b.refund!)} to your payment method${b.refundReference ? ` (ref ${b.refundReference})` : ''}${b.creditNoteNo ? `; credit note ${b.creditNoteNo}` : ''}.` : 'No refund.'}
+        </Alert>
       )}
       {b.mandalNote && <Alert kind="info">Note from the mandal: {b.mandalNote}</Alert>}
       {open && onPay && (

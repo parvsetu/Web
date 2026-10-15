@@ -172,11 +172,13 @@ function TypeModal({ base, t, onClose, onSaved }: { base: string; t: StallTypeIn
 const STATUS_FILTERS: { key: StallBookingStatus | ''; label: string }[] = [
   { key: 'PAID', label: 'Confirmed' },
   { key: 'PENDING', label: 'Awaiting payment' },
+  { key: 'CANCELLED', label: 'Cancelled' },
   { key: '', label: 'All' },
 ];
 
 function Bookings({ base, manage, types }: { base: string; manage: boolean; types: StallTypeInfo[] }) {
   const [status, setStatus] = useState<StallBookingStatus | ''>('PAID');
+  const [cancelling, setCancelling] = useState<StallBooking | null>(null);
   const [typeId, setTypeId] = useState('');
   const q = usePagedList<StallBooking>(`${base}/stall-bookings`, { status: status || undefined, stallTypeId: typeId || undefined }, { pageSize: 20 });
   const [assigning, setAssigning] = useState<StallBooking | null>(null);
@@ -222,10 +224,19 @@ function Bookings({ base, manage, types }: { base: string; manage: boolean; type
               </dl>
               {b.products && <p className="text-sm text-slate-600">Selling: {b.products}</p>}
               {b.mandalNote && <p className="text-xs text-slate-500">Note to vendor: {b.mandalNote}</p>}
+              {b.status === 'CANCELLED' && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-900">
+                  Cancelled {b.cancelledAt ? fmtDateTime(b.cancelledAt) : ''}{b.cancelReason ? ` — ${b.cancelReason}` : ''} · refund {fmtMoney(b.refund ?? '0')}
+                  {b.refundReference ? ` (ref ${b.refundReference})` : ''}{b.creditNoteNo ? ` · credit note ${b.creditNoteNo}` : ''}
+                </p>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                 <span>{b.paidAt ? `Paid ${fmtDateTime(b.paidAt)}` : `Booked ${fmtDateTime(b.createdAt)}`}</span>
                 {manage && b.status === 'PAID' && (
-                  <Button size="sm" variant="secondary" onClick={() => setAssigning(b)}>{b.stallNumbers ? 'Change stall no.' : 'Assign stall no.'}</Button>
+                  <span className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => setAssigning(b)}>{b.stallNumbers ? 'Change stall no.' : 'Assign stall no.'}</Button>
+                    <Button size="sm" variant="danger" onClick={() => setCancelling(b)}>Cancel &amp; refund</Button>
+                  </span>
                 )}
               </div>
             </li>
@@ -233,6 +244,7 @@ function Bookings({ base, manage, types }: { base: string; manage: boolean; type
         </ul>
       )}
       <Pager page={q.page} pageSize={q.pageSize} total={q.total} onPage={q.setPage} />
+      {cancelling && <CancelModal base={base} b={cancelling} onClose={() => setCancelling(null)} onSaved={() => { setCancelling(null); q.reload(); }} />}
       {assigning && <AssignModal base={base} b={assigning} onClose={() => setAssigning(null)} onSaved={() => { setAssigning(null); q.reload(); }} />}
     </Card>
   );
@@ -265,6 +277,48 @@ function AssignModal({ base, b, onClose, onSaved }: { base: string; b: StallBook
         </Field>
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>Save</Button>
+      </form>
+    </Modal>
+  );
+}
+
+/** Cancel a paid booking: refund (default all of it) back to the vendor; platform fee returned pro rata. */
+function CancelModal({ base, b, onClose, onSaved }: { base: string; b: StallBooking; onClose: () => void; onSaved: () => void }) {
+  const [reason, setReason] = useState('');
+  const [refund, setRefund] = useState(b.amount);
+  const [ref, setRef] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (reason.trim().length < 5) return setError('Give a reason (at least 5 characters) — the vendor sees it.');
+    if (!/^\d+(\.\d{1,2})?$/.test(refund) || Number(refund) > Number(b.amount)) return setError(`Refund must be between ₹0 and ${fmtMoney(b.amount)}.`);
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post(`${base}/stall-bookings/${b.id}/cancel`, { reason: reason.trim(), refund, ...(ref.trim() ? { refundReference: ref.trim() } : {}) });
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal open onClose={onClose} title={`Cancel booking · ${b.businessName}`}>
+      <form onSubmit={save} className="flex flex-col gap-3">
+        <p className="text-sm text-slate-600">
+          {b.quantity} × {b.stallType.name}, paid {fmtMoney(b.amount)}. The stalls become free at once. The refund goes back to the vendor; Parvsetu returns its fee on the refunded part and the rest is taken from your next payout.
+          {b.invoiceNo && Number(b.gst) > 0 ? ' A GST credit note is issued for the refunded part.' : ''}
+        </p>
+        <Field label="Reason (shown to the vendor)">
+          <Textarea rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+        <LabeledInput label="Refund to vendor (₹)" inputMode="decimal" value={refund} onChange={(e) => setRefund(e.target.value.replace(/[^\d.]/g, ''))} hint={`Up to ${fmtMoney(b.amount)}. Enter 0 for no refund.`} />
+        <LabeledInput label="Refund reference (optional)" value={ref} onChange={(e) => setRef(e.target.value)} maxLength={200} placeholder="UPI / UTR / gateway refund id" />
+        {error && <Alert>{error}</Alert>}
+        <Button type="submit" variant="danger" loading={busy}>Cancel booking</Button>
+        <p className="text-xs text-slate-500">This can’t be undone.</p>
       </form>
     </Modal>
   );

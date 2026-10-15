@@ -23,12 +23,12 @@ interface AnnualReport {
   label: string;
   from: string;
   to: string;
-  income: { total: string; donations: string; passSales: string; donationCount: number; passOrderCount: number };
+  income: { total: string; donations: string; passSales: string; stallRent?: string; donationCount: number; passOrderCount: number; stallBookingCount?: number };
   expenses: { total: string; count: number };
   net: string;
   result: 'PROFIT' | 'LOSS' | 'BREAK_EVEN';
   byMonth: { month: string; label: string; income: string; expenses: string; net: string }[];
-  byEvent: { eventId: string | null; name: string; festivalType: string | null; donations: string; passSales: string; expenses: string; net: string }[];
+  byEvent: { eventId: string | null; name: string; festivalType: string | null; donations: string; passSales: string; stallRent?: string; expenses: string; net: string }[];
   byCategory: { category: string; total: string }[];
 }
 
@@ -131,6 +131,9 @@ function ProfitLoss({ r }: { r: AnnualReport }) {
         <Stat label={`Donations (${r.income.donationCount})`} value={fmtMoney(r.income.donations)} tone="brand" icon={HandCoins} />
         <Stat label={`Pass sales (${r.income.passOrderCount})`} value={fmtMoney(r.income.passSales)} tone="purple" icon={Ticket} />
       </div>
+      {Number(r.income.stallRent ?? 0) !== 0 && (
+        <p className="text-sm text-slate-600">Income also includes <strong>{fmtMoney(r.income.stallRent!)}</strong> stall rent from {r.income.stallBookingCount} vendor booking{r.income.stallBookingCount === 1 ? '' : 's'} (net of refunds).</p>
+      )}
 
       <SectionTitle icon={Landmark}>Month by month</SectionTitle>
       <Card>
@@ -156,7 +159,7 @@ function ProfitLoss({ r }: { r: AnnualReport }) {
         <Empty title="No income or expenses in this period" />
       ) : (
         <Card>
-          <Table head={['Festival', 'Donations', 'Pass sales', 'Expenses', 'Net']}>
+          <Table head={['Festival', 'Donations', 'Pass sales', 'Stall rent', 'Expenses', 'Net']}>
             {r.byEvent.map((e) => (
               <tr key={e.eventId ?? 'general'}>
                 <Td>
@@ -167,6 +170,7 @@ function ProfitLoss({ r }: { r: AnnualReport }) {
                 </Td>
                 <Td>{fmtMoney(e.donations)}</Td>
                 <Td>{fmtMoney(e.passSales)}</Td>
+                <Td>{fmtMoney(e.stallRent ?? '0')}</Td>
                 <Td className="text-red-700">{fmtMoney(e.expenses)}</Td>
                 <Td className={cx('font-bold', Number(e.net) < 0 ? 'text-red-700' : 'text-green-700')}>{fmtMoney(e.net)}</Td>
               </tr>

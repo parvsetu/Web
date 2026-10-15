@@ -110,6 +110,7 @@ function SummaryView({ range }: { range: Range }) {
             <Stat label="Scans (ok / failed)" value={`${fmtNum(d.scans.success)} / ${fmtNum(d.scans.failed)}`} />
             {d.donations && <Stat label={`Donations (${d.donations.count})`} value={fmtMoney(d.donations.total)} tone="green" />}
             {d.passSales && <Stat label={`Pass sales (${d.passSales.count})`} value={fmtMoney(d.passSales.total)} tone="purple" />}
+            {d.stallRent && Number(d.stallRent.total) > 0 && <Stat label={`Stall rent (${d.stallRent.bookings})`} value={fmtMoney(d.stallRent.total)} tone="blue" />}
             {d.expenses && <Stat label={`Expenses (${d.expenses.count})`} value={fmtMoney(d.expenses.total)} tone="red" />}
             {d.balance !== null && <Stat label="Balance" value={fmtMoney(d.balance)} />}
           </div>
@@ -256,6 +257,13 @@ interface GstReport {
   totals: { orders: number; taxable: string; gst: string; cgst: string; sgst: string; total: string };
   byMonth: { month: string; orders: number; taxable: string; gst: string; total: string }[];
   invoices: { invoiceNo: string | null; date: string; buyer: string; people: number; ratePercent: number; bearer: string | null; taxable: string; gst: string; total: string }[];
+  /** All output GST: passes + stall rent − stall credit notes. */
+  allTotals?: { gst: string; cgst: string; sgst: string };
+  stallRent?: {
+    totals: { invoices: number; creditNotes: number; taxable: string; gst: string; total: string };
+    invoices: { invoiceNo: string | null; date: string; vendor: string; stalls: number; ratePercent: number; taxable: string; gst: string; total: string }[];
+    creditNotes: { creditNoteNo: string | null; againstInvoice: string | null; date: string; vendor: string; ratePercent: number; taxable: string; gst: string; total: string }[];
+  };
 }
 
 /** GST on online pass sales — taxable value, CGST/SGST and every invoice. */
@@ -271,7 +279,38 @@ function GstView({ range }: { range: Range }) {
             <Stat label="CGST + SGST" value={`${fmtMoney(d.totals.cgst)} + ${fmtMoney(d.totals.sgst)}`} tone="purple" />
             <Stat label="Total collected" value={fmtMoney(d.totals.total)} tone="green" />
           </div>
-          <p className="text-xs text-slate-500">Only paid pass sales are taxable. Donations (and passes given free with a donation) carry 0% GST and are not included here.</p>
+          <p className="text-xs text-slate-500">Paid pass sales and stall rent are taxable. Donations (and passes given free with a donation) carry 0% GST and are not included here.</p>
+          {d.stallRent && d.stallRent.totals.invoices + d.stallRent.totals.creditNotes > 0 && (
+            <Card className="flex flex-col gap-2">
+              <p className="font-bold">Stall rent</p>
+              <p className="text-sm text-slate-600">{d.stallRent.totals.invoices} invoice{d.stallRent.totals.invoices === 1 ? '' : 's'}, {d.stallRent.totals.creditNotes} credit note{d.stallRent.totals.creditNotes === 1 ? '' : 's'} · taxable {fmtMoney(d.stallRent.totals.taxable)} · GST {fmtMoney(d.stallRent.totals.gst)} (net of credit notes)</p>
+              <Table head={['Document', 'Date', 'Vendor', 'Rate', 'Taxable', 'GST', 'Total']}>
+                {d.stallRent.invoices.map((i) => (
+                  <tr key={i.invoiceNo ?? i.date}>
+                    <Td className="font-mono text-xs">{i.invoiceNo}</Td>
+                    <Td className="whitespace-nowrap text-xs">{fmtDateTime(i.date)}</Td>
+                    <Td>{i.vendor} ({i.stalls})</Td>
+                    <Td>{i.ratePercent}%</Td>
+                    <Td>{fmtMoney(i.taxable)}</Td>
+                    <Td>{fmtMoney(i.gst)}</Td>
+                    <Td className="font-semibold">{fmtMoney(i.total)}</Td>
+                  </tr>
+                ))}
+                {d.stallRent.creditNotes.map((n) => (
+                  <tr key={n.creditNoteNo ?? n.date} className="text-red-800">
+                    <Td className="font-mono text-xs">{n.creditNoteNo}<span className="block font-sans text-[11px] text-slate-500">credit note vs {n.againstInvoice}</span></Td>
+                    <Td className="whitespace-nowrap text-xs">{fmtDateTime(n.date)}</Td>
+                    <Td>{n.vendor}</Td>
+                    <Td>{n.ratePercent}%</Td>
+                    <Td>−{fmtMoney(n.taxable)}</Td>
+                    <Td>−{fmtMoney(n.gst)}</Td>
+                    <Td className="font-semibold">−{fmtMoney(n.total)}</Td>
+                  </tr>
+                ))}
+              </Table>
+              {d.allTotals && <p className="text-sm font-semibold">All output GST this period: {fmtMoney(d.allTotals.gst)} (CGST {fmtMoney(d.allTotals.cgst)} + SGST {fmtMoney(d.allTotals.sgst)})</p>}
+            </Card>
+          )}
           {d.invoices.length === 0 ? (
             <Empty title="No paid online orders in this period" />
           ) : (
@@ -306,6 +345,9 @@ function FinanceView({ range }: { range: Range }) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label={`Donations (${d.donations.count})`} value={fmtMoney(d.donations.total)} tone="green" />
             {d.passSales && <Stat label={`Pass sales (${d.passSales.count})`} value={fmtMoney(d.passSales.total)} tone="purple" />}
+            {d.stallRent && Number(d.stallRent.total) + Number(d.stallRent.refunds) > 0 && (
+              <Stat label={`Stall rent (${d.stallRent.bookings})${Number(d.stallRent.refunds) > 0 ? ` · ${fmtMoney(d.stallRent.refunds)} refunded` : ''}`} value={fmtMoney(d.stallRent.total)} tone="blue" />
+            )}
             <Stat label={`Expenses (${d.expenses.count})`} value={fmtMoney(d.expenses.total)} tone="red" />
             <Stat label="Balance" value={fmtMoney(d.balance)} />
             <Stat label={`Pending donations (${d.donations.pending.count})`} value={fmtMoney(d.donations.pending.total)} tone="amber" />
