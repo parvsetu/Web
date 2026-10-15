@@ -1,13 +1,7 @@
-# Render Blueprint — API + Postgres (Singapore). Frontend lives on Vercel.
-# Secrets marked `generateValue` are created once by Render and then kept;
-# `sync: false` values are entered by you in the dashboard.
-databases:
-  - name: parvsetu-db
-    plan: free            # free Postgres expires after 30 days — upgrade before real use
-    region: singapore
-    databaseName: parvsetu
-    user: parvsetu
-    postgresMajorVersion: "16"
+# Render Blueprint — API (Singapore). Frontend lives on Vercel; the database is
+# Neon Postgres 16 in Singapore (moved off Render's free Postgres, which expires
+# after 30 days). Secrets marked `generateValue` are created once by Render and
+# then kept; `sync: false` values are entered by you in the dashboard.
 
 services:
   - type: web
@@ -25,10 +19,8 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: parvsetu-db
-          property: connectionString
+      - key: DATABASE_URL        # Neon direct (non-pooled) connection string, ending ?sslmode=require
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: QR_SIGNING_SECRET    # never rotate after printing QRs — it invalidates them all
@@ -43,8 +35,8 @@ services:
         sync: false
       - key: INSTAGRAM_APP_SECRET  # Instagram app secret — dashboard only, never in the repo
         sync: false
-      - key: SEED_DEMO            # set "true" (plus DEMO_PASSWORD) to load demo mandals/events/tokens once
-        value: "false"
+      - key: SEED_DEMO            # "true" (plus DEMO_PASSWORD) loads demo mandals/events/logins; skips itself once they exist
+        sync: false
       - key: DEMO_PASSWORD        # password for the demo accounts on this deployment (min 10 chars)
         sync: false
       - key: CORS_ORIGINS          # your Vercel URL(s), comma separated; * = one label, e.g. https://parvsetu-*.vercel.app
