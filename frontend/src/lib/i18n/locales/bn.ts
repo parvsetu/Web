@@ -341,6 +341,11 @@ const bn: Messages = {
   'install.iosSteps': 'শেয়ার বোতামে ট্যাপ করুন, তারপর “Add to Home Screen” বেছে নিন।',
   'install.button': 'ইনস্টল করুন',
   'install.later': 'এখন নয়',
+  'remind.button': 'আমার স্লটের আগে মনে করিয়ে দিন',
+  'remind.on': 'রিমাইন্ডার চালু — আপনার স্লটের প্রায় 3 ঘণ্টা আগে এই ফোনে জানানো হবে।',
+  'remind.needsInstall': 'iPhone-এ রিমাইন্ডার পেতে আগে Parvsetu হোম স্ক্রিনে যোগ করুন, তারপর সেখান থেকে পাস খুলুন।',
+  'remind.denied': 'আপনার ফোনের সেটিংসে এই সাইটের নোটিফিকেশন বন্ধ আছে।',
+  'remind.error': 'রিমাইন্ডার চালু করা গেল না। আবার চেষ্টা করুন।',
   'myPasses.retry': '{event}-এর পাস আবার লোড করুন',
   'myPasses.remove': '{event}-এর পাস এই ফোন থেকে সরান',
 

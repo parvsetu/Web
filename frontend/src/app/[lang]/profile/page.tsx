@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { BadgeCheck, Briefcase, Building2, CalendarDays, ChevronRight, KeyRound, LogOut, Mail, MonitorSmartphone, Phone, Save, ShieldCheck, User, UserCog } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
+import { NotificationsCard } from '@/components/NotificationsCard';
 import { OtpInput } from '@/components/OtpInput';
 import { Alert, Badge, Button, Card, LabeledInput, PasswordInput } from '@/components/ui';
 import { api, errorMessage, setToken } from '@/lib/api';
@@ -55,6 +56,7 @@ function Profile() {
         </div>
         <div className="flex flex-col gap-4">
           <SecurityCard />
+          <NotificationsCard />
           {me.agent ? <AgentCard me={me} /> : !me.partner && !me.vendor && !me.blogger && <AccessCard me={me} />}
         </div>
       </div>

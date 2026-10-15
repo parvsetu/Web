@@ -341,6 +341,11 @@ const mr: Messages = {
   'install.iosSteps': 'शेअर बटण दाबा, मग “Add to Home Screen” निवडा.',
   'install.button': 'इन्स्टॉल करा',
   'install.later': 'आत्ता नको',
+  'remind.button': 'माझ्या स्लॉटआधी आठवण करा',
+  'remind.on': 'आठवण चालू — तुमच्या स्लॉटच्या सुमारे 3 तास आधी या फोनवर सूचना येईल.',
+  'remind.needsInstall': 'iPhone वर आठवणीसाठी आधी Parvsetu होम स्क्रीनवर जोडा, मग तिथूनच तुमचा पास उघडा.',
+  'remind.denied': 'तुमच्या फोनच्या सेटिंगमध्ये या साइटच्या सूचना बंद आहेत.',
+  'remind.error': 'आठवण चालू करता आली नाही. कृपया पुन्हा प्रयत्न करा.',
   'myPasses.retry': '{event} चा पास पुन्हा लोड करा',
   'myPasses.remove': '{event} चा पास या फोनवरून काढा',
 

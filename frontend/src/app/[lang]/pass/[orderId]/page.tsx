@@ -11,6 +11,7 @@ import { PassCarousel } from '@/components/booking/PassCarousel';
 import { SponsorStrip, type SponsorPublic } from '@/components/SponsorStrip';
 import { ReviewPanel } from '@/components/reviews/ReviewForm';
 import { InstallPrompt } from '@/components/InstallPrompt';
+import { RemindButton } from '@/components/booking/RemindButton';
 import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '@/components/PrintFormat';
 import { Alert, Button, Empty, Skeleton, Spinner } from '@/components/ui';
 import { fmtMoney } from '@/lib/format';
@@ -132,6 +133,7 @@ function PassView() {
           </div>
         )}
         <InstallPrompt />
+        <RemindButton orderId={order.id} accessKey={k} validUntil={order.validUntil} />
         {offlineSince && (
           <div className="no-print">
             <Alert kind="info">{t('pass.offlineCopy', { time: new Date(offlineSince).toLocaleString(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) })}</Alert>

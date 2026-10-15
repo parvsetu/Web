@@ -3,7 +3,7 @@
  * always come fresh from the server. Any request to another origin (the API
  * runs on its own origin) or to a path containing /api/ bypasses this worker.
  */
-const VERSION = 'parvsetu-shell-v3';
+const VERSION = 'parvsetu-shell-v4';
 // '/launch' is the home-screen start_url (routes to dashboard / My passes / explore);
 // '/book/my-passes' lists the passes saved on this phone, which open offline.
 const SHELL = ['/', '/launch', '/book/my-passes', '/dashboard', '/login', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'];
@@ -91,4 +91,37 @@ self.addEventListener('fetch', (event) => {
         .catch(() => offlinePage(req, url)),
     );
   }
+});
+
+// ─── Notifications (web push) ────────────────────────────────────────────
+// The API sends { title, body, url, tag }. Tapping opens (or focuses) that page.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: 'Parvsetu', body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Parvsetu', {
+      body: data.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: data.tag,
+      data: { url: data.url || '/' },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if (c.url === target && 'focus' in c) return c.focus();
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
 });

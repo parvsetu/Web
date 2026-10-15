@@ -360,6 +360,11 @@ const en = {
   'install.iosSteps': 'Tap the Share button, then “Add to Home Screen”.',
   'install.button': 'Install',
   'install.later': 'Not now',
+  'remind.button': 'Remind me before my slot',
+  'remind.on': 'Reminder on — we’ll notify this phone about 3 hours before your slot.',
+  'remind.needsInstall': 'To get a reminder on iPhone, first add Parvsetu to your home screen, then open your pass from there.',
+  'remind.denied': 'Notifications are blocked for this site in your phone’s settings.',
+  'remind.error': 'Could not turn on the reminder. Please try again.',
   'myPasses.retry': 'Retry loading {event} pass',
   'myPasses.remove': 'Remove {event} pass from this phone',
 

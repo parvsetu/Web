@@ -341,6 +341,11 @@ const hi: Messages = {
   'install.iosSteps': 'शेयर बटन दबाएँ, फिर “Add to Home Screen” चुनें।',
   'install.button': 'इंस्टॉल करें',
   'install.later': 'अभी नहीं',
+  'remind.button': 'मेरे स्लॉट से पहले याद दिलाएँ',
+  'remind.on': 'रिमाइंडर चालू — आपके स्लॉट से लगभग 3 घंटे पहले इस फ़ोन पर सूचना आएगी।',
+  'remind.needsInstall': 'iPhone पर रिमाइंडर के लिए पहले Parvsetu को होम स्क्रीन पर जोड़ें, फिर वहीं से अपना पास खोलें।',
+  'remind.denied': 'आपके फ़ोन की सेटिंग में इस साइट की सूचनाएँ बंद हैं।',
+  'remind.error': 'रिमाइंडर चालू नहीं हो सका। कृपया फिर कोशिश करें।',
   'myPasses.retry': '{event} का पास फिर से लोड करें',
   'myPasses.remove': '{event} का पास इस फ़ोन से हटाएँ',
 
