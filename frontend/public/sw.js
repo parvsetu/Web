@@ -3,9 +3,10 @@
  * always come fresh from the server. Any request to another origin (the API
  * runs on its own origin) or to a path containing /api/ bypasses this worker.
  */
-const VERSION = 'parvsetu-shell-v2';
-// '/' is the public explore page; '/dashboard' is the signed-in home (PWA start_url).
-const SHELL = ['/', '/dashboard', '/login', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'];
+const VERSION = 'parvsetu-shell-v3';
+// '/launch' is the home-screen start_url (routes to dashboard / My passes / explore);
+// '/book/my-passes' lists the passes saved on this phone, which open offline.
+const SHELL = ['/', '/launch', '/book/my-passes', '/dashboard', '/login', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -32,6 +33,21 @@ function isStatic(url) {
     url.pathname === '/manifest.webmanifest' ||
     /\.(?:js|css|woff2?|png|svg|ico|webp)$/.test(url.pathname)
   );
+}
+
+/**
+ * Offline navigation: the page itself if it was opened before; a pass link
+ * that wasn't falls back to My passes (whose saved passes open offline);
+ * anything else to the explore page.
+ */
+async function offlinePage(req, url) {
+  const hit = await caches.match(req);
+  if (hit) return hit;
+  if (url.pathname.startsWith('/pass/')) {
+    const passes = await caches.match('/book/my-passes');
+    if (passes) return passes;
+  }
+  return (await caches.match(url.pathname, { ignoreSearch: true })) || caches.match('/');
 }
 
 self.addEventListener('fetch', (event) => {
@@ -72,7 +88,7 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         })
-        .catch(() => caches.match(req).then((hit) => hit || caches.match('/'))),
+        .catch(() => offlinePage(req, url)),
     );
   }
 });

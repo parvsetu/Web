@@ -10,10 +10,11 @@ import { PassActions, PassCard } from '@/components/booking/PassCard';
 import { PassCarousel } from '@/components/booking/PassCarousel';
 import { SponsorStrip, type SponsorPublic } from '@/components/SponsorStrip';
 import { ReviewPanel } from '@/components/reviews/ReviewForm';
+import { InstallPrompt } from '@/components/InstallPrompt';
 import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '@/components/PrintFormat';
 import { Alert, Button, Empty, Skeleton, Spinner } from '@/components/ui';
 import { fmtMoney } from '@/lib/format';
-import { BookingError, booking, demoPayHref, orderPasses, savePass } from '@/lib/booking';
+import { BookingError, booking, cacheOrder, cachedOrder, demoPayHref, isOffline, orderPasses, savePass } from '@/lib/booking';
 import { fmtPassTimeL } from '@/lib/i18n/format';
 import { useT } from '@/lib/i18n/provider';
 import { useBookingErrorText } from '@/lib/i18n/errors';
@@ -36,6 +37,8 @@ function PassView() {
   const k = useSearchParams().get('k') ?? '';
   const [order, setOrder] = useState<PassOrder | null>(null);
   const [error, setError] = useState<BookingError | null>(null);
+  /** Set while showing the copy saved on this phone because there's no network. */
+  const [offlineSince, setOfflineSince] = useState<string | null>(null);
   const { t, tp, locale } = useT();
   const errText = useBookingErrorText();
 
@@ -44,8 +47,18 @@ function PassView() {
       const o = await booking.order(orderId, k);
       setOrder(o);
       setError(null);
+      setOfflineSince(null);
       savePass({ orderId: o.id, accessKey: k, eventName: o.event.name, createdAt: o.createdAt });
+      cacheOrder(o);
     } catch (e) {
+      // No signal (common at a crowded gate): show the copy saved on this phone.
+      const copy = isOffline(e) ? cachedOrder(orderId, k) : null;
+      if (copy) {
+        setOrder((cur) => cur ?? copy.order);
+        setOfflineSince(copy.savedAt);
+        setError(null);
+        return;
+      }
       setError(e instanceof BookingError ? e : new BookingError(0, errText(e)));
     }
   }, [orderId, k, errText]);
@@ -116,6 +129,12 @@ function PassView() {
         {error && (
           <div className="no-print">
             <Alert kind="warning">{t('pass.refreshFailed')}</Alert>
+          </div>
+        )}
+        <InstallPrompt />
+        {offlineSince && (
+          <div className="no-print">
+            <Alert kind="info">{t('pass.offlineCopy', { time: new Date(offlineSince).toLocaleString(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) })}</Alert>
           </div>
         )}
         {multi ? (

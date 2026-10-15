@@ -6,16 +6,17 @@ import { ChevronRight, RotateCcw, Smartphone, Ticket, Trash2 } from 'lucide-reac
 import { PublicShell } from '@/components/booking/PublicShell';
 import { FestivalBadge } from '@/components/FestivalBanner';
 import { Badge, Empty, Skeleton } from '@/components/ui';
+import { InstallPrompt } from '@/components/InstallPrompt';
 import { festivalTheme } from '@/lib/festival-theme';
 import { fmtMoney } from '@/lib/format';
-import { BookingError, booking, demoPayHref, isFree, loadSavedPasses, orderPasses, passHref, removeSavedPass } from '@/lib/booking';
+import { BookingError, booking, cacheOrder, cachedOrder, demoPayHref, isFree, isOffline, loadSavedPasses, orderPasses, passHref, removeSavedPass } from '@/lib/booking';
 import { fmtPassWindowL } from '@/lib/i18n/format';
 import type { MessageKey } from '@/lib/i18n/core';
 import { useT, type I18n } from '@/lib/i18n/provider';
 import { useBookingErrorText } from '@/lib/i18n/errors';
 import type { PassOrder, SavedPass } from '@/lib/booking-types';
 
-type Live = { state: 'loading' } | { state: 'ok'; order: PassOrder } | { state: 'gone' } | { state: 'error'; message: string };
+type Live = { state: 'loading' } | { state: 'ok'; order: PassOrder; offline?: boolean } | { state: 'gone' } | { state: 'error'; message: string };
 
 export default function MyPassesPage() {
   const [saved, setSaved] = useState<SavedPass[] | null>(null);
@@ -27,8 +28,15 @@ export default function MyPassesPage() {
     setLive((m) => ({ ...m, [p.orderId]: { state: 'loading' } }));
     try {
       const order = await booking.order(p.orderId, p.accessKey);
+      cacheOrder(order);
       setLive((m) => ({ ...m, [p.orderId]: { state: 'ok', order } }));
     } catch (e) {
+      // No signal: the passes saved on this phone still open (with their QR).
+      const copy = isOffline(e) ? cachedOrder(p.orderId, p.accessKey) : null;
+      if (copy) {
+        setLive((m) => ({ ...m, [p.orderId]: { state: 'ok', order: copy.order, offline: true } }));
+        return;
+      }
       const gone = e instanceof BookingError && e.status === 404;
       setLive((m) => ({ ...m, [p.orderId]: gone ? { state: 'gone' } : { state: 'error', message: errText(e) } }));
     }
@@ -56,6 +64,7 @@ export default function MyPassesPage() {
             {t('myPasses.intro')}
           </p>
         </div>
+        <InstallPrompt />
 
         {saved === null ? (
           <div className="flex flex-col gap-3" aria-busy="true" aria-label={t('myPasses.loading')}>
@@ -129,6 +138,7 @@ function PassRow({ saved, live, onRemove, onRetry }: { saved: SavedPass; live: L
                     · {tp('myPasses.qr', orderPasses(order).length)}
                   </span>
                 )}
+                {live.state === 'ok' && live.offline && <span className="font-semibold text-sky-700">· {t('myPasses.offline')}</span>}
               </div>
             </>
           )}

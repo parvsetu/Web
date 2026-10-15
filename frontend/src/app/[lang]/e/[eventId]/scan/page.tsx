@@ -22,6 +22,8 @@ import { can } from '@/lib/permissions';
 import type { ScanResponse } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
 import { EventGate } from '@/components/EventGate';
+import { InstallPrompt } from '@/components/InstallPrompt';
+import { useWakeLock } from '@/lib/wake-lock';
 import { ArrowLeft, CheckCircle2, Flashlight, FlashlightOff, Keyboard, Loader2, RefreshCw, ScanLine, ShieldAlert, ShieldX, WifiOff, XCircle } from 'lucide-react';
 import { Button, Input, Modal, cx } from '@/components/ui';
 
@@ -49,6 +51,8 @@ function isScanResponse(x: unknown): x is ScanResponse {
 export default function ScanPage() {
   const ev = useEvent();
   const online = useOnline();
+  // Volunteers hold the phone up for long stretches: keep the screen from locking.
+  useWakeLock(true);
   return (
     <AppShell
       festivalType={ev.festivalType}
@@ -71,6 +75,7 @@ export default function ScanPage() {
     >
       <div className="p-4">
         <EventGate anyOf={['TOKEN_SCAN']}>
+          <InstallPrompt variant="scanner" className="mb-3" />
           <Scanner />
         </EventGate>
       </div>

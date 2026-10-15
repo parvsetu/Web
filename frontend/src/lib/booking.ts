@@ -230,7 +230,54 @@ export function savePass(p: SavedPass) {
 
 export function removeSavedPass(orderId: string) {
   writeSaved(loadSavedPasses().filter((x) => x.orderId !== orderId));
+  forgetOrder(orderId);
 }
+
+// ─── Offline copy of paid passes ─────────────────────────────────────────
+// The QR code itself comes from the server, so without a stored copy a
+// visitor with no signal at the gate would see an error instead of the pass.
+// Only this phone keeps the copy; the gate still checks the QR online.
+
+const ORDER_CACHE = 'parvsetu.passCache.';
+
+export interface CachedOrder {
+  order: PassOrder;
+  /** When this copy was fetched from the server (ISO). */
+  savedAt: string;
+}
+
+/** Keeps the latest copy of a paid order that has passes (anything else is not worth showing offline). */
+export function cacheOrder(o: PassOrder) {
+  if (o.status !== 'PAID' || orderPasses(o).length === 0) return;
+  try {
+    window.localStorage.setItem(ORDER_CACHE + o.id, JSON.stringify({ order: o, savedAt: new Date().toISOString() } satisfies CachedOrder));
+  } catch {
+    /* storage full / private mode — the pass still works online */
+  }
+}
+
+/** The stored copy, only for an order this phone saved with the same access key. */
+export function cachedOrder(orderId: string, accessKey: string): CachedOrder | null {
+  try {
+    if (!loadSavedPasses().some((p) => p.orderId === orderId && p.accessKey === accessKey)) return null;
+    const raw = window.localStorage.getItem(ORDER_CACHE + orderId);
+    const c = raw ? (JSON.parse(raw) as CachedOrder) : null;
+    return c?.order?.id === orderId ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+function forgetOrder(orderId: string) {
+  try {
+    window.localStorage.removeItem(ORDER_CACHE + orderId);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** A network failure (no signal, timeout) rather than an answer from the server. */
+export const isOffline = (e: unknown) => e instanceof BookingError && e.status === 0;
 
 // ─── Display helpers (event timezone) ────────────────────────────────────
 

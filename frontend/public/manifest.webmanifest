@@ -1,17 +1,78 @@
 {
   "name": "Parvsetu",
   "short_name": "Parvsetu",
-  "description": "Festival and mandal management — entry tokens, volunteers, donations and reports.",
-  "start_url": "/dashboard",
+  "description": "Book QR entry passes for festivals near you — and run your mandal’s festivals: passes, gate scanning, volunteers and donations.",
+  "start_url": "/launch",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fffaf3",
   "theme_color": "#ea580c",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "id": "/",
+  "categories": [
+    "events",
+    "lifestyle",
+    "entertainment"
+  ],
+  "shortcuts": [
+    {
+      "name": "My passes",
+      "short_name": "Passes",
+      "url": "/book/my-passes",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Explore festivals",
+      "short_name": "Explore",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "My festivals (organisers)",
+      "short_name": "Dashboard",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }
