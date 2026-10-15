@@ -189,6 +189,7 @@ model User {
   stallBookings       StallBooking[]         @relation("StallBookingCreatedBy")
   mandalRegistrations MandalRegistration[]   @relation("RegistrationApplicant")
   passwordSetupTokens PasswordSetupToken[]
+  pushSubscriptions   PushSubscription[]
 
   @@index([partnerId])
   @@index([agentId])
@@ -701,6 +702,8 @@ model PassOrder {
   perPersonPasses     Boolean         @default(true)
   /// Blogger promotion whose referral code/link brought this booking (commission on payment).
   referralPromotionId String?
+  /// Set once the "your festival is today" push reminder went out (never sent twice).
+  reminderSentAt      DateTime?
   expiresAt           DateTime
   paidAt              DateTime?
   createdAt           DateTime        @default(now())
@@ -710,6 +713,7 @@ model PassOrder {
   timeSlot          TimeSlot          @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
   tokens            Token[]
   review            VisitorReview?
+  pushLinks         PushPassLink[]
   referralPromotion BloggerPromotion? @relation(fields: [referralPromotionId], references: [id], onDelete: SetNull)
 
   @@unique([paymentProvider, providerOrderId])
@@ -2058,4 +2062,55 @@ model InstagramMedia {
   @@unique([organizationId, igMediaId])
   @@index([organizationId, status, postedAt])
   @@map("instagram_media")
+}
+
+// ─── Web push notifications ─────────────────────────────────────────────
+//
+// The API makes its own VAPID key pair on first use (private key AES-GCM
+// encrypted) — no environment setup. A browser/phone that allows
+// notifications is one PushSubscription (its endpoint is unique): linked to a
+// signed-in user (organiser, blogger, vendor…) and/or to visitors' pass orders
+// (PushPassLink, proven with the order's access key). Endpoints the push
+// service reports gone (404/410) are deleted on the next send.
+
+model PushKeys {
+  id            String   @id @default("default")
+  publicKey     String
+  privateKeyEnc String
+  createdAt     DateTime @default(now())
+
+  @@map("push_keys")
+}
+
+model PushSubscription {
+  id         String    @id @default(uuid())
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userId     String?
+  userAgent  String?
+  /// Site language when it subscribed (en, hi, mr, bn, or, kn) — reminders are written in it.
+  lang       String    @default("en")
+  lastSentAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user   User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passes PushPassLink[]
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+model PushPassLink {
+  subscriptionId String
+  passOrderId    String
+  createdAt      DateTime @default(now())
+
+  subscription PushSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  passOrder    PassOrder        @relation(fields: [passOrderId], references: [id], onDelete: Cascade)
+
+  @@id([subscriptionId, passOrderId])
+  @@index([passOrderId])
+  @@map("push_pass_links")
 }

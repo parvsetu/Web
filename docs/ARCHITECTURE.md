@@ -294,6 +294,15 @@ only — no SSRF), checks it like any upload and stores it under the org quota l
 "active ⇔ token". Housekeeping every 3 h refreshes tokens and syncs. Meta's deauthorize / data-deletion callbacks verify
 `signed_request`. Setup: `docs/INSTAGRAM.md`.
 
+## Phones: installable PWA, offline passes, web push
+
+The website is the phone app (iPhone via Add to Home Screen, Android/Chrome via Install). The manifest opens `/launch`, which
+routes signed-in users to their dashboard and visitors with saved passes to My passes. Paid passes that load are kept in
+`localStorage` (only for orders the phone saved with the same access key) and shown when there is no network; the gate still
+redeems online. The service worker caches the shell and pages, never API responses. Web push (`modules/push`): self-generated
+VAPID keys, subscriptions per phone linked to a user and/or pass orders, one pass reminder per order (claimed with a conditional
+update). The gate scanner holds a screen wake lock.
+
 ## Hardening checklist
 
 - Input validation: global `ValidationPipe` with `whitelist` +

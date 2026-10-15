@@ -16,6 +16,7 @@ import { OtpService, maskEmail } from '../auth/otp.service';
 import { rupees, toPaise } from '../billing/billing.service';
 import { BloggerCtx } from './blogger.guard';
 import { ReferralEarningsService } from './referral-earnings.service';
+import { PushService } from '../push/push.service';
 import { CommissionMode, commissionValue, normalizeCode, presentCommission } from './referral-rules';
 import {
   BloggerListQuery, BloggerPayoutDto, BloggerSignupDto, BloggerStatusDto, PERCENT, PromotionCommissionDto, PromotionListQuery,
@@ -63,9 +64,16 @@ export class BloggersService {
     private readonly otp: OtpService,
     private readonly mail: MailService,
     private readonly earnings: ReferralEarningsService,
+    private readonly push: PushService,
   ) {}
 
-  // ─── Signup & portal ───────────────────────────────────────────────
+/** Push to every login of the blogger (best-effort, never fails the action). */
+  private async notifyBlogger(bloggerId: string, msg: { title: string; body: string; url: string; tag: string }) {
+    const users = await this.prisma.user.findMany({ where: { bloggerId }, select: { id: true } });
+    await this.push.sendToUsers(users.map((u) => u.id), msg);
+  }
+
+    // ─── Signup & portal ───────────────────────────────────────────────
 
   /** A festival a blogger may promote: platform-LIVE, not cancelled/completed, not over. */
   private async promotableEvent(db: Db, eventId: string) {
@@ -328,6 +336,7 @@ export class BloggersService {
       REJECTED: ['We could not approve your blogger account this time.', ...(dto.note ? [`Note from the Parvsetu team: ${dto.note}`] : [])],
       SUSPENDED: ['Your blogger account is suspended. Your referral links stop earning commission until it is re-activated.', ...(dto.note ? [`Note: ${dto.note}`] : [])],
     }[dto.status];
+    await this.notifyBlogger(id, { title: 'Blogger account update', body: msg[0], url: '/blogger', tag: 'blogger-status' });
     await this.mail.send({ to: after.email, ...brandedEmail({ subject: `Your Parvsetu blogger account: ${dto.status === 'ACTIVE' ? 'approved' : dto.status.toLowerCase()}`, title: 'Blogger account update', name: after.name, paragraphs: msg, cta: { label: 'Open your dashboard', url: `${siteUrl()}/blogger` } }) });
     return presentBlogger(after);
   }
@@ -391,6 +400,7 @@ export class BloggersService {
       : dto.decision === 'REJECT'
         ? [`Your request to promote ${before.event.name} was not approved.`, ...(dto.note ? [`Note: ${dto.note}`] : [])]
         : [`Your referral link for ${before.event.name} has been switched off and no longer earns commission.`, ...(dto.note ? [`Note: ${dto.note}`] : [])];
+    await this.notifyBlogger(before.bloggerId, { title: `${before.event.name}: ${dto.decision === 'APPROVE' ? 'approved' : dto.decision === 'REJECT' ? 'not approved' : 'link switched off'}`, body: paragraphs[0], url: '/blogger#festivals', tag: `promotion-${id}` });
     await this.mail.send({ to: before.blogger.email, ...brandedEmail({ subject: `${before.event.name}: promotion ${p.status.toLowerCase()}`, title: 'Festival promotion update', name: before.blogger.name, paragraphs, cta: { label: 'Open your dashboard', url: `${siteUrl()}/blogger` } }) });
     return p;
   }

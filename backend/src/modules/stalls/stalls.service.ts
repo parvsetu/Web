@@ -20,6 +20,7 @@ import {
 } from './stalls.dto';
 import { MAX_OPEN_BOOKINGS_PER_VENDOR, STALL_HOLD_MINUTES, quoteStalls } from './stalls.rules';
 import { VendorCtx } from './vendor.guard';
+import { PushService } from '../push/push.service';
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | PrismaService;
@@ -61,6 +62,7 @@ export class StallsService implements OnModuleInit, OnModuleDestroy {
     private readonly billing: BillingService,
     private readonly payouts: PayoutsService,
     @Inject(PASS_GATEWAYS) private readonly gateways: PaymentProvider[],
+    private readonly push: PushService,
   ) {}
 
   // ─── Availability ───────────────────────────────────────────────────
@@ -283,6 +285,12 @@ export class StallsService implements OnModuleInit, OnModuleDestroy {
         before: { status: 'PAID' }, after: { status: 'CANCELLED', refund: rupees(refundPaise), refundReference: dto.refundReference ?? null, creditNoteNo }, reason: dto.reason,
       }, tx);
       return tx.stallBooking.findUniqueOrThrow({ where: { id }, include: bookingInclude });
+    });
+    const vendorUsers = await this.prisma.user.findMany({ where: { vendorId: b.vendorId }, select: { id: true } });
+    await this.push.sendToUsers(vendorUsers.map((u) => u.id), {
+      title: `Stall booking cancelled — ${after.event.name}`,
+      body: refundPaise > 0 ? `${dto.reason.trim()} · Refund ₹${rupees(refundPaise)}.` : dto.reason.trim(),
+      url: '/vendor', tag: `stall-${b.id}`,
     });
     return this.presentForMandal(after);
   }

@@ -16,6 +16,7 @@ import { IMAGE_STORE, ImageStore } from '../../common/images/image-store';
 import { GALLERY_QUOTA_BYTES, MAX_PHOTO_BYTES, imageInfo } from '../../common/images/image-info';
 import { lockOrg, mb, storageUsage } from '../../common/images/quota';
 import { INSTAGRAM_PROVIDER, InstagramProvider } from './instagram-provider';
+import { PushService } from '../push/push.service';
 
 /** How many recent posts a sync looks at. */
 export const SYNC_MAX_POSTS = 60;
@@ -60,6 +61,7 @@ export class InstagramService implements OnModuleInit, OnModuleDestroy {
     private readonly mail: MailService,
     @Inject(IMAGE_STORE) private readonly store: ImageStore,
     @Inject(INSTAGRAM_PROVIDER) private readonly provider: InstagramProvider | null,
+    private readonly push: PushService,
   ) {}
 
   private requireProvider() {
@@ -390,7 +392,9 @@ export class InstagramService implements OnModuleInit, OnModuleDestroy {
       this.prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true, status: true } }),
       this.prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } }),
     ]);
-    if (!u?.email || u.status !== 'ACTIVE' || !org) return;
+    if (!u || u.status !== 'ACTIVE' || !org) return;
+    await this.push.sendToUser(userId, { title: `${added} new Instagram photo${added === 1 ? '' : 's'} to review`, body: `${org.name}: choose which ones appear on your page.`, url: `/org/${orgId}#instagram`, tag: `instagram-${orgId}` });
+    if (!u.email) return;
     await this.mail.send({
       to: u.email,
       ...brandedEmail({

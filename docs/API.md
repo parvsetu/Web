@@ -922,3 +922,20 @@ Setup and behaviour: `docs/INSTAGRAM.md`. Off (503 `INSTAGRAM_NOT_CONFIGURED`) u
   and a layout section `instagram` (GRID | CAROUSEL).
 - Meta: `POST /public/instagram/deauthorize`, `POST /public/instagram/data-deletion` (form field `signed_request`, HMAC-SHA256 with the app secret).
 - Approved photos count toward the mandal's 300 MB (`usage.breakdown.instagramBytes`).
+
+## Notifications (web push)
+
+Works in Chrome / Android / desktop, and on iPhone once Parvsetu is on the home screen (iOS 16.4+). No setup: the API makes
+its own VAPID key pair on first use (`push_keys`, private key encrypted). Sending is best-effort and never fails the action
+that triggered it; endpoints the push service reports gone (404/410) are deleted. Payload: `{ title, body, url, tag }` —
+the service worker (`public/sw.js`) shows it and opens `url` on tap.
+
+- `GET /public/push/key` → `{ publicKey }` (the application server key for `PushManager.subscribe`).
+- `POST /public/booking/orders/:orderId/push` `{ k, subscription: { endpoint (https), keys { p256dh, auth }, lang? } }` — visitor:
+  remind this phone about the pass (404 with a wrong access key). One reminder per order, about 3 hours before its window starts
+  (every 10 minutes the API claims due orders with a conditional update, so it never sends twice), in the subscription's language.
+- `POST /push/subscriptions` (signed in) `{ endpoint, keys, lang? }` — this phone gets the user's alerts;
+  `GET /push/subscriptions/status?endpoint=` → `{ subscribed }`.
+- `POST /public/push/unsubscribe` `{ endpoint }` — turns notifications off on that phone.
+- Alerts sent today: new Instagram photos to review (the admin who connected), blogger account / festival promotion decisions
+  (every login of the blogger), stall booking cancelled by the mandal (every login of the vendor), pass reminders (visitors).
