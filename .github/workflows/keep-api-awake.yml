@@ -1,23 +1,42 @@
 # Render's free plan sleeps the API after ~15 idle minutes; the next visitor
-# then waits 15-60 s for it to wake (and the site can time out). Pinging the
-# health endpoint every 10 minutes keeps it awake. Remove once the API is on
-# a paid Render instance (those never sleep).
+# then waits 15-60 s for it to wake (and the site can time out). Remove once
+# the API is on a paid Render instance (those never sleep).
+#
+# GitHub doesn't honour short cron intervals: '*/10' runs actually landed
+# 17-40 minutes apart, so the API was asleep between them. Instead each run
+# stays alive ~55 minutes and pings every 5 minutes itself; a new run starts
+# every 30 minutes and cancels the previous one, so coverage survives a
+# scheduled start that GitHub delays. Actions minutes are free on a public repo.
 name: Keep API awake
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
+
+concurrency:
+  group: keep-api-awake
+  cancel-in-progress: true
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 60
     steps:
-      - name: Ping API health
+      - name: Ping API health every 5 minutes
         run: |
-          for i in 1 2 3; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 https://parvsetu-api.onrender.com/api/v1/public/health) && [ "$code" = "200" ] && { echo "API awake ($code)"; exit 0; }
-            echo "attempt $i: $code"; sleep 10
+          url=https://parvsetu-api.onrender.com/api/v1/public/health
+          end=$(( $(date +%s) + 55 * 60 ))
+          failures=0
+          while [ "$(date +%s)" -lt "$end" ]; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 "$url" || true)
+            if [ "$code" = "200" ]; then
+              echo "$(date -u +%H:%M:%S) API awake ($code)"; failures=0
+            else
+              failures=$((failures + 1))
+              echo "$(date -u +%H:%M:%S) API did not answer ($code), failure $failures"
+              [ "$failures" -ge 3 ] && { echo "API down"; exit 1; }
+              sleep 10; continue
+            fi
+            sleep 300
           done
-          echo "API did not answer"; exit 1
