@@ -152,7 +152,7 @@ export function EventRow({ title, subtitle, events, seeAll }: { title: string; s
       </div>
       <div ref={ref} className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
         {events.map((e) => (
-          <PosterCard key={e.id} event={e} className="w-[44%] shrink-0 snap-start sm:w-[30%] md:w-[23%] lg:w-[18.5%]" />
+          <PosterCard key={e.id} event={e} className="w-[calc((100%_-_2rem)/2.4)] shrink-0 snap-start sm:w-[calc((100%_-_3rem)/3.5)] md:w-[calc((100%_-_4rem)/4.5)] lg:w-[calc((100%_-_5rem)/5.5)]" />
         ))}
       </div>
     </section>
