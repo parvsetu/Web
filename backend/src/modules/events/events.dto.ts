@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { FESTIVAL_GROUPS } from '../../common/catalog/festival-catalog.service';
 import { VenueFields } from '../../common/venue';
@@ -27,6 +27,10 @@ export class CreateEventDto extends VenueFields {
   @IsOptional() @Matches(/^[A-Z0-9]{2,6}$/, { message: 'tokenPrefix must be 2-6 uppercase letters/digits' }) tokenPrefix?: string;
   @IsOptional() @IsBoolean() volunteerRegistrationOpen?: boolean;
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
+  /** ISO date-time; null clears (sales open as soon as the festival is live). */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsISO8601() bookingOpensAt?: string | null;
+  /** ISO date-time; null clears (each slot sells until it ends). */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsISO8601() bookingClosesAt?: string | null;
   @IsOptional() @IsBoolean() gstEnabled?: boolean;
   @IsOptional() @IsIn([0, 5, 12, 18, 28]) gstRatePercent?: number;
   @IsOptional() @IsIn(['FLAT', 'SLAB']) gstMode?: 'FLAT' | 'SLAB';
@@ -54,6 +58,10 @@ export class UpdateEventDto extends VenueFields {
   @IsOptional() @Matches(/^[A-Z0-9]{2,6}$/) tokenPrefix?: string;
   @IsOptional() @IsBoolean() volunteerRegistrationOpen?: boolean;
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
+  /** ISO date-time; null clears (sales open as soon as the festival is live). */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsISO8601() bookingOpensAt?: string | null;
+  /** ISO date-time; null clears (each slot sells until it ends). */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsISO8601() bookingClosesAt?: string | null;
   @IsOptional() @IsBoolean() gstEnabled?: boolean;
   @IsOptional() @IsIn([0, 5, 12, 18, 28]) gstRatePercent?: number;
   @IsOptional() @IsIn(['FLAT', 'SLAB']) gstMode?: 'FLAT' | 'SLAB';

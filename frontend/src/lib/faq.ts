@@ -399,6 +399,14 @@ export const FAQ: FaqSection[] = [
           'The page shows your banner and logo, upcoming festivals with booking links, past festivals by year, your public photos, your mandal-wide sponsors, contact and share buttons. It is visible only while paid and switched on; use Preview to see it before that. The platform admin can also grant or switch off a page.',
         ],
       },
+      {
+        id: 'sales-window',
+        q: 'Can we sell passes before the festival starts, from a date we choose?',
+        a: [
+          'Yes. Once your festival is approved and live, visitors can buy passes for any festival day straight away — even if it starts weeks later. To start sales at a fixed moment, open Festival admin → Settings → Public pass booking → “Online sales open from” (for example 1 October, 10 am). Until then the festival page shows “Passes on sale from …”, and it switches to the Book button by itself at that time.',
+          '“Online sales close at” stops online sales whenever you like (for example the night before). Passes issued at the desk at the gate are never affected.',
+        ],
+      },
     ],
   },
   {

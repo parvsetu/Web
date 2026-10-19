@@ -9,6 +9,7 @@ import { dayPartsL, fmtDateL, fmtHHmmL } from '@/lib/i18n/format';
 import { useT } from '@/lib/i18n/provider';
 import { CATEGORY_STYLE, type ProgrammeItem, type ProgrammeSetting, type PublicProgramme } from '@/lib/programme-types';
 import { BookLink } from '@/app/[lang]/f/[eventId]/book-link';
+import { useSalesState } from '@/lib/sales-window';
 
 type Filter = 'ALL' | ProgrammeSetting;
 
@@ -17,12 +18,15 @@ type Filter = 'ALL' | ProgrammeSetting;
  * an Indoor / Outdoor filter, and a card per item (poster, artists, video).
  * The page around it is cached, so "today" is worked out in the browser.
  */
-export function PublicProgramme({ eventId, programme, accent, canBook }: { eventId: string; programme: PublicProgramme; accent: string; canBook: boolean }) {
+export function PublicProgramme({ eventId, programme, accent, canBook, salesOpensAt = null, salesClosesAt = null }: {
+  eventId: string; programme: PublicProgramme; accent: string; canBook: boolean; salesOpensAt?: string | null; salesClosesAt?: string | null;
+}) {
   const { t, locale } = useT();
   const { days, headliners } = programme;
   const [today, setToday] = useState('');
   const [active, setActive] = useState(days[0]?.date ?? '');
   const [filter, setFilter] = useState<Filter>('ALL');
+  const sales = useSalesState(salesOpensAt, salesClosesAt);
 
   // Open on today's (or the next) programme day once we know the visitor's date.
   useEffect(() => {
@@ -144,7 +148,7 @@ export function PublicProgramme({ eventId, programme, accent, canBook }: { event
         </ol>
       )}
 
-      {canBook && (!today || day.date >= today) && (
+      {canBook && sales === 'OPEN' && (!today || day.date >= today) && (
         <BookLink
           eventId={eventId}
           date={day.date}

@@ -242,6 +242,8 @@ export interface EventDetail {
   tokenPrefix: string;
   volunteerRegistrationOpen: boolean;
   publicBookingEnabled?: boolean;
+  bookingOpensAt?: string | null;
+  bookingClosesAt?: string | null;
   tokenDurationOptions?: number[];
   gstEnabled?: boolean;
   gstRatePercent?: number;
@@ -281,6 +283,8 @@ export interface EventBody {
   tokenPrefix?: string;
   volunteerRegistrationOpen?: boolean;
   publicBookingEnabled?: boolean;
+  bookingOpensAt?: string | null;
+  bookingClosesAt?: string | null;
   tokenDurationOptions?: number[];
   gstEnabled?: boolean;
   gstRatePercent?: number;

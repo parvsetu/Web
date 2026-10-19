@@ -31,12 +31,24 @@ function gstData(dto: { gstEnabled?: boolean; gstRatePercent?: number; gstBearer
   };
 }
 
+/** Online sales window from the DTO (undefined = unchanged, null = cleared); closing must come after opening. */
+function salesWindowData(dto: { bookingOpensAt?: string | null; bookingClosesAt?: string | null }, before?: { bookingOpensAt: Date | null; bookingClosesAt: Date | null }) {
+  const toDate = (v: string | null | undefined) => (v === undefined ? undefined : v ? new Date(v) : null);
+  const opens = toDate(dto.bookingOpensAt);
+  const closes = toDate(dto.bookingClosesAt);
+  const o = opens === undefined ? before?.bookingOpensAt ?? null : opens;
+  const c = closes === undefined ? before?.bookingClosesAt ?? null : closes;
+  if (o && c && c <= o) throw new BadRequestException('Online sales must close after they open.');
+  return { bookingOpensAt: opens, bookingClosesAt: closes };
+}
+
 export function presentEvent(e: Event & { organization?: { id: string; name: string; festivalTypes?: string[] } }, myPermissions?: Set<string>) {
   return {
     id: e.id, slug: e.slug, organizationId: e.organizationId, organization: e.organization,
     name: e.name, festivalType: e.festivalType, description: e.description, location: e.location, state: e.state, city: e.city,
     startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, status: e.status,
     tokenPrefix: e.tokenPrefix, volunteerRegistrationOpen: e.volunteerRegistrationOpen, publicBookingEnabled: e.publicBookingEnabled,
+    bookingOpensAt: e.bookingOpensAt, bookingClosesAt: e.bookingClosesAt,
     tokenDurationOptions: e.tokenDurationOptions,
     gstEnabled: e.gstEnabled, gstRatePercent: e.gstRateBps / 100, gstBearer: e.gstBearer, gstSac: e.gstSac,
     gstMode: e.gstMode, gstLowRatePercent: e.gstLowRateBps / 100, gstSlabThreshold: e.gstSlabThresholdPaise / 100,
@@ -163,6 +175,7 @@ export class EventsService {
           status: dto.status ?? 'DRAFT', approvalStatus: 'DRAFT', tokenPrefix: dto.tokenPrefix ?? defaultPrefixFor(festivalType),
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen ?? false,
           publicBookingEnabled: dto.publicBookingEnabled ?? false,
+          ...salesWindowData(dto),
           tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
           ...gstData(dto),
           maxVisitorsPerToken: dto.maxVisitorsPerToken ?? 10,
@@ -207,6 +220,7 @@ export class EventsService {
           state: stateOrThrow(dto.state), city: dto.city?.trim(), ...venueData(dto),
           startDate: s, endDate: e, timezone, status: dto.status, tokenPrefix: dto.tokenPrefix,
           volunteerRegistrationOpen: dto.volunteerRegistrationOpen, publicBookingEnabled: dto.publicBookingEnabled,
+          ...salesWindowData(dto, before),
           tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
           ...gstData(dto),
           maxVisitorsPerToken: dto.maxVisitorsPerToken,

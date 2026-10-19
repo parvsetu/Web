@@ -1042,3 +1042,14 @@ Parvsetu** — buyers send an enquiry, the mandal follows up and marks the piece
   `POST /public/artworks/:id/enquiries { name, phone, email?, message?, website (honeypot, leave empty) }` → `{ ok }` (`duplicate: true` when
   the same phone already has an open enquiry on that piece). 400 `NOT_FOR_SALE` / `ARTWORK_SOLD`. Rate limit
   `ART_ENQUIRY_RATE_LIMIT_PER_MIN` (default 5).
+
+## Online sales window (selling before the festival)
+
+Passes can be bought for any festival day as soon as the festival is LIVE (approval + fee) and public booking is on — the festival
+does not have to have started. Optionally the mandal sets `bookingOpensAt` / `bookingClosesAt` (ISO date-times on `POST` / `PATCH
+/events/:eventId`; null clears; closing must be after opening, also a DB check):
+
+- Outside the window `POST /public/booking/orders` → 409 `SALES_NOT_OPEN` (with `opensAt`) or `SALES_CLOSED`. Desk issuing is never limited.
+- `GET /public/events/:id`, `GET /public/booking/events[/:id]` carry `bookingOpensAt`, `bookingClosesAt`, `salesState` (`NOT_YET` | `OPEN` |
+  `CLOSED`). The festival / booking pages and explore cards re-check the window in the browser every 30 s, so a cached page switches
+  from “Passes on sale from …” to the Book button at the opening time.

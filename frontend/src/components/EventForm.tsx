@@ -12,6 +12,15 @@ import { printFormatLabel } from './PrintFormat';
 import { useFestivalTypes } from '@/lib/catalog';
 
 const STATUSES: EventStatus[] = ['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
+
+/** ISO instant → value for <input type="datetime-local"> in this browser's time zone. */
+function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 const TIMEZONES = ['Asia/Kolkata', 'Asia/Kathmandu', 'Asia/Dubai', 'Europe/London', 'America/New_York', 'America/Los_Angeles', 'Asia/Singapore', 'Australia/Sydney'];
 
 /** Create/edit an event. Festival types come from the server — never hard-coded. */
@@ -44,6 +53,8 @@ export function EventForm({
     tokenPrefix: initial?.tokenPrefix ?? '',
     volunteerRegistrationOpen: initial?.volunteerRegistrationOpen ?? false,
     publicBookingEnabled: initial?.publicBookingEnabled ?? false,
+    bookingOpensAt: toLocalInput(initial?.bookingOpensAt),
+    bookingClosesAt: toLocalInput(initial?.bookingClosesAt),
     tokenDurationOptions: initial?.tokenDurationOptions ?? [],
     maxVisitorsPerToken: String(initial?.maxVisitorsPerToken ?? 10),
     state: initial?.state ?? '',
@@ -101,6 +112,8 @@ export function EventForm({
       tokenPrefix: form.tokenPrefix || undefined,
       volunteerRegistrationOpen: form.volunteerRegistrationOpen,
       publicBookingEnabled: form.publicBookingEnabled,
+      bookingOpensAt: form.bookingOpensAt ? new Date(form.bookingOpensAt).toISOString() : null,
+      bookingClosesAt: form.bookingClosesAt ? new Date(form.bookingClosesAt).toISOString() : null,
       tokenDurationOptions: form.tokenDurationOptions,
       gstEnabled: form.gstEnabled,
       gstRatePercent: Number(form.gstRatePercent),
@@ -265,6 +278,24 @@ export function EventForm({
         checked={form.publicBookingEnabled}
         onChange={(v) => setForm((x) => ({ ...x, publicBookingEnabled: v }))}
       />
+      {form.publicBookingEnabled && (
+        <div className="-mt-2 ml-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <LabeledInput
+            label="Online sales open from (optional)"
+            type="datetime-local"
+            value={form.bookingOpensAt}
+            onChange={set('bookingOpensAt')}
+            hint="Empty = on sale as soon as the festival is live. Passes can be sold before the festival starts."
+          />
+          <LabeledInput
+            label="Online sales close at (optional)"
+            type="datetime-local"
+            value={form.bookingClosesAt}
+            onChange={set('bookingClosesAt')}
+            hint="Empty = each time slot sells until it ends. Desk passes at the gate are not affected."
+          />
+        </div>
+      )}
       <div className="flex flex-col gap-3 rounded-2xl border border-orange-200 bg-orange-50/40 p-3">
         <Checkbox
           label={<span className="font-semibold">Charge GST on online pass sales</span>}

@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Ticket } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { fmtMoney } from '@/lib/format';
-import { fmtDateL } from '@/lib/i18n/format';
+import { fmtDateL, fmtLongDateTimeL } from '@/lib/i18n/format';
+import { salesStateAt } from '@/lib/sales-window';
 import { useT, type I18n } from '@/lib/i18n/provider';
 import { isFree } from '@/lib/booking';
 import { eventCity, isLive } from '@/lib/explore';
@@ -17,6 +18,11 @@ import { FestivalArt, Mandala, Toran } from '../FestivalArt';
 const dates = (e: BookableEvent, locale: string) =>
   e.startDate === e.endDate ? fmtDateL(e.startDate, locale) : `${fmtDateL(e.startDate, locale)} – ${fmtDateL(e.endDate, locale)}`;
 const priceText = (i: I18n, p: string | null) => (p === null ? i.t('card.passesSoon') : isFree(p) ? i.t('card.freeEntry') : i.t('card.onwards', { price: fmtMoney(p) }));
+/** Price line, or "On sale 1 Oct, 10:00 am" while the mandal's online sales haven't opened yet. */
+const saleText = (i: I18n, e: BookableEvent) =>
+  salesStateAt(e.bookingOpensAt, e.bookingClosesAt) === 'NOT_YET' && e.bookingOpensAt
+    ? i.t('sales.fromShort', { when: fmtLongDateTimeL(e.bookingOpensAt, e.timezone, i.locale) })
+    : priceText(i, e.fromPrice);
 
 /** Mandal name, linking to its landing page (/m/<slug>) while that page is live. */
 export function MandalName({ org, className }: { org: BookableEvent['organization']; className?: string }) {
@@ -88,7 +94,7 @@ export function PosterCard({ event, className }: { event: BookableEvent; classNa
           </p>
         )}
         <p className="mt-1 text-sm font-bold" style={{ color: t.ink }}>
-          {priceText(i18n, event.fromPrice)}
+          {saleText(i18n, event)}
         </p>
       </div>
     </div>
@@ -234,7 +240,7 @@ export function HeroCarousel({ events }: { events: BookableEvent[] }) {
                     className="mt-4 inline-flex min-h-[46px] items-center gap-2 rounded-xl bg-white px-4 py-1.5 text-sm font-bold leading-tight shadow-lg hover:bg-orange-50 sm:px-5 sm:text-base"
                     style={{ color: t.ink }}
                   >
-                    <Ticket aria-hidden className="h-5 w-5 shrink-0" /> {i18n.t('card.book', { price: priceText(i18n, e.fromPrice) })}
+                    <Ticket aria-hidden className="h-5 w-5 shrink-0" /> {salesStateAt(e.bookingOpensAt, e.bookingClosesAt) === 'NOT_YET' ? saleText(i18n, e) : i18n.t('card.book', { price: priceText(i18n, e.fromPrice) })}
                   </Link>
                 </div>
                 <span className="absolute right-4 top-1/2 h-36 w-36 -translate-y-1/2 rounded-full bg-white/95 p-4 shadow-2xl ring-8 ring-white/30 sm:right-12 sm:h-56 sm:w-56 md:right-20 sm:p-6">

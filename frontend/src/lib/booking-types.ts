@@ -29,6 +29,10 @@ export interface BookableEvent {
   /** Cheapest BASE slot price (peak-day rules can raise it on some dates), "0.00" = a free slot exists, null = no slots. */
   fromPrice: string | null;
   onlinePayments: boolean;
+  /** Online sales window (null ends are open). */
+  bookingOpensAt?: string | null;
+  bookingClosesAt?: string | null;
+  salesState?: 'NOT_YET' | 'OPEN' | 'CLOSED';
 }
 
 export interface BookingSlot {

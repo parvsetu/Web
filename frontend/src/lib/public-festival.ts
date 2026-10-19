@@ -23,6 +23,9 @@ export interface PublicFestival {
   status: 'ACTIVE' | 'COMPLETED';
   publicBookingEnabled: boolean;
   volunteerRegistrationOpen: boolean;
+  bookingOpensAt: string | null;
+  bookingClosesAt: string | null;
+  salesState: 'NOT_YET' | 'OPEN' | 'CLOSED';
   organization: { name: string; city: string | null; state: string | null } & OrgBrand;
   timings: { label: string; startTime: string; endTime: string; price: string }[];
   fromPrice: string | null;

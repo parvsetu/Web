@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, CalendarX, Clock, CreditCard, MapPin, QrCode, RotateCcw, ShieldCheck, Ticket, Users } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CalendarX, Clock, CreditCard, MapPin, QrCode, RotateCcw, ShieldCheck, Ticket, Users } from 'lucide-react';
 import { FestivalBanner } from '@/components/FestivalBanner';
 import { SponsorStrip } from '@/components/SponsorStrip';
 import { PublicShell } from '@/components/booking/PublicShell';
@@ -14,7 +14,8 @@ import { placeLine } from '@/components/booking/EventCard';
 import { Alert, Button, Empty, LabeledInput, Skeleton, cx } from '@/components/ui';
 import { festivalTheme } from '@/lib/festival-theme';
 import { fmtMoney, todayIn } from '@/lib/format';
-import { fmtDateL } from '@/lib/i18n/format';
+import { fmtDateL, fmtLongDateTimeL } from '@/lib/i18n/format';
+import { useSalesState } from '@/lib/sales-window';
 import { useT } from '@/lib/i18n/provider';
 import { useBookingErrorText } from '@/lib/i18n/errors';
 import {
@@ -148,6 +149,8 @@ export default function BookEventPage() {
   }, [date, availReload, loadAvailability]);
 
   const onlinePayments = event?.onlinePayments ?? false;
+  // The mandal's online sales window ("passes on sale from …"); the API enforces it too.
+  const sales = useSalesState(event?.bookingOpensAt, event?.bookingClosesAt, event?.salesState ?? 'OPEN');
   const slots = avail?.date === date ? avail.slots : [];
   const slot = slots.find((s) => s.id === slotId) ?? null;
   const slotUsable = slot ? ['open', 'low'].includes(slotState(slot, onlinePayments)) : false;
@@ -329,6 +332,8 @@ export default function BookEventPage() {
           <Empty title={t('book.ended')} icon={CalendarX}>
             {t('book.endedHint')}
           </Empty>
+        ) : sales !== 'OPEN' ? (
+          <Empty title={sales === 'NOT_YET' ? t('sales.from', { when: fmtLongDateTimeL(event.bookingOpensAt!, event.timezone, locale) }) : t('sales.closed')} icon={CalendarClock} />
         ) : (
           <form onSubmit={submit} noValidate className="flex flex-col gap-4">
             <Step n={1} title={t('book.step1')} hint={tp('book.daysLeft', openDays.length)} theme={theme}>

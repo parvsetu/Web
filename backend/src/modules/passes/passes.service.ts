@@ -8,7 +8,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { QrSigner } from '../../common/qr/qr-signer';
 import { normalizeEmail, normalizeMobile } from '../../common/identity';
 import { paged, paging } from '../../common/http';
-import { slotWindow, ymd } from '../../common/time/validity';
+import { formatInZone, slotWindow, ymd } from '../../common/time/validity';
 import { TokensService } from '../tokens/tokens.service';
 import { effectiveStatus } from '../tokens/token-presenter';
 import { PaymentProvider } from '../donations/payment-provider';
@@ -24,6 +24,7 @@ import { PartnerBillingService } from '../partners/partner-billing.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { CreatePassOrderDto, PassOrderListQuery } from './passes.dto';
 import { LIVE_WHERE } from '../../common/event-approval';
+import { presentSalesWindow, salesState } from '../../common/booking-window';
 import { ReferralEarningsService } from '../referrals/referral-earnings.service';
 
 /** How long an unpaid order holds its places. */
@@ -79,15 +80,16 @@ export class PassesService {
       orderBy: { startDate: 'asc' },
       select: {
         id: true, organizationId: true, name: true, festivalType: true, description: true, ...VENUE_SELECT, startDate: true, endDate: true, timezone: true,
-        maxVisitorsPerToken: true, organization: { select: { name: true, city: true, ...ORG_BRAND_SELECT } },
+        maxVisitorsPerToken: true, bookingOpensAt: true, bookingClosesAt: true, organization: { select: { name: true, city: true, ...ORG_BRAND_SELECT } },
         timeSlots: { where: { isActive: true }, select: { price: true } },
       },
     });
     const verified = new Set(
       (await this.prisma.payoutAccount.findMany({ where: { status: 'VERIFIED', organizationId: { in: events.map((e) => e.organizationId) } }, select: { organizationId: true } })).map((p) => p.organizationId),
     );
-    return events.map(({ timeSlots, organizationId, organization, ...e }) => ({
+    return events.map(({ timeSlots, organizationId, organization, bookingOpensAt, bookingClosesAt, ...e }) => ({
       ...e,
+      ...presentSalesWindow({ bookingOpensAt, bookingClosesAt }),
       organization: presentOrgBrand(organization),
       startDate: ymd(e.startDate),
       endDate: ymd(e.endDate),
@@ -119,6 +121,7 @@ export class PassesService {
       venue: presentVenue(e),
       startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, maxVisitorsPerToken: e.maxVisitorsPerToken,
       organization: presentOrgBrand(e.organization), onlinePayments: this.gateways.length > 0 && (await this.payouts.isVerified(e.organizationId)), holdMinutes: ORDER_HOLD_MINUTES,
+      ...presentSalesWindow(e),
       // Slot prices here are BASE prices; the per-date effective price comes from availability().
       slots: slots.map((s) => ({ ...s, price: s.price.toFixed(2) })),
       /** Days on which at least one slot costs more than its base price (for "Peak" chips). */
@@ -160,6 +163,16 @@ export class PassesService {
     };
   }
 
+  /** Online sales only inside the mandal's window (desk issuing is never limited by it). */
+  private assertSalesOpen(e: { bookingOpensAt: Date | null; bookingClosesAt: Date | null; timezone: string }) {
+    const state = salesState(e);
+    if (state === 'OPEN') return;
+    const when = (d: Date) => formatInZone(d, e.timezone);
+    throw new ConflictException(state === 'NOT_YET'
+      ? { statusCode: 409, code: 'SALES_NOT_OPEN', message: `Online passes go on sale on ${when(e.bookingOpensAt!)}.`, opensAt: e.bookingOpensAt }
+      : { statusCode: 409, code: 'SALES_CLOSED', message: 'Online pass sales for this festival have closed. Passes may still be available at the venue.' });
+  }
+
   private assertDateInEvent(e: { startDate: Date; endDate: Date }, date: string) {
     if (date < ymd(e.startDate) || date > ymd(e.endDate)) {
       throw new BadRequestException(`Choose a date between ${ymd(e.startDate)} and ${ymd(e.endDate)}.`);
@@ -170,6 +183,7 @@ export class PassesService {
 
   async createOrder(dto: CreatePassOrderDto) {
     const event = await this.bookableEvent(dto.eventId);
+    this.assertSalesOpen(event);
     this.assertDateInEvent(event, dto.date);
     if (dto.visitorCount > event.maxVisitorsPerToken) {
       throw new BadRequestException(`One pass can admit at most ${event.maxVisitorsPerToken} people.`);

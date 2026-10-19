@@ -16,8 +16,8 @@ import { fmtRangeL } from '@/lib/i18n/format';
 import { getServerT } from '@/lib/i18n/server';
 import { PublicGallery } from '@/components/gallery/PublicGallery';
 import { ReviewsSection } from '@/components/reviews/PublicReviews';
-import { BookLink } from './book-link';
 import { CanonicalUrl } from './canonical-url';
+import { SalesGate } from './sales-gate';
 import { festivalJsonLd, festivalPath, jsonLdString, languageAlternates } from '@/lib/seo';
 
 type Props = { params: { lang: string; eventId: string } };
@@ -98,15 +98,19 @@ export default async function FestivalPage({ params }: Props) {
         <VenueCard venue={f.venue} accent={th.ink} />
 
         {f.status === 'ACTIVE' && f.publicBookingEnabled && (
-          <BookLink
+          <SalesGate
             eventId={f.id}
+            opensAt={f.bookingOpensAt ?? null}
+            closesAt={f.bookingClosesAt ?? null}
+            initial={f.salesState ?? 'OPEN'}
+            timezone={f.timezone}
             className="flex min-h-[64px] items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-xl font-extrabold text-white shadow-lg shadow-orange-500/30"
           >
             <Ticket aria-hidden className="h-7 w-7" /> {allFree ? t('festival.bookFree') : prices.includes(0) ? t('festival.bookFreePaid') : t('festival.bookFrom', { price: minPaid })}
-          </BookLink>
+          </SalesGate>
         )}
 
-        {programme && <PublicProgramme eventId={f.id} programme={programme} accent={th.ink} canBook={f.status === 'ACTIVE' && f.publicBookingEnabled} />}
+        {programme && <PublicProgramme eventId={f.id} programme={programme} accent={th.ink} canBook={f.status === 'ACTIVE' && f.publicBookingEnabled} salesOpensAt={f.bookingOpensAt ?? null} salesClosesAt={f.bookingClosesAt ?? null} />}
 
         <PublicCompetitions competitions={competitions} accent={th.ink} />
 

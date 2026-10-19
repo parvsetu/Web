@@ -12,6 +12,7 @@ import { LIVE_WHERE } from '../../common/event-approval';
 import { FestivalCatalogService } from '../../common/catalog/festival-catalog.service';
 import { CONTENT_POLICY } from '../../common/legal';
 import { EventSlugService } from '../events/event-slug.service';
+import { presentSalesWindow } from '../../common/booking-window';
 
 @Public()
 @Controller('public')
@@ -34,15 +35,16 @@ export class PublicController {
       where: { id: eventId, status: { in: ['ACTIVE', 'COMPLETED'] }, ...LIVE_WHERE },
       select: {
         id: true, slug: true, name: true, festivalType: true, description: true, ...VENUE_SELECT,
-        startDate: true, endDate: true, timezone: true, status: true, publicBookingEnabled: true, volunteerRegistrationOpen: true,
+        startDate: true, endDate: true, timezone: true, status: true, publicBookingEnabled: true, volunteerRegistrationOpen: true, bookingOpensAt: true, bookingClosesAt: true,
         organization: { select: { name: true, city: true, state: true, ...ORG_BRAND_SELECT } },
         timeSlots: { where: { isActive: true }, select: { label: true, startTime: true, endTime: true, price: true }, orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }] },
       },
     });
     if (!e) throw new NotFoundException('Festival not found');
-    const { timeSlots, organization, ...rest } = e;
+    const { timeSlots, organization, bookingOpensAt, bookingClosesAt, ...rest } = e;
     return {
       ...rest,
+      ...presentSalesWindow({ bookingOpensAt, bookingClosesAt }),
       organization: presentOrgBrand(organization),
       venue: presentVenue(e),
       startDate: ymd(e.startDate),
