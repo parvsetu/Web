@@ -15,6 +15,8 @@ import { getServerT } from '@/lib/i18n/server';
 import { PublicGallery } from '@/components/gallery/PublicGallery';
 import { ReviewsSection } from '@/components/reviews/PublicReviews';
 import { BookLink } from './book-link';
+import { CanonicalUrl } from './canonical-url';
+import { festivalJsonLd, festivalPath, jsonLdString, languageAlternates } from '@/lib/seo';
 
 type Props = { params: { lang: string; eventId: string } };
 
@@ -27,9 +29,11 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const [f, programme] = await Promise.all([getPublicFestival(params.eventId), getPublicProgramme(params.eventId)]);
+  const f = await getPublicFestival(params.eventId);
   const { t, locale, lang } = await getServerT(params);
-  if (!f) return { title: `${t('festival.notFound')} · Parvsetu` };
+  if (!f) return { title: `${t('festival.notFound')} · Parvsetu`, robots: { index: false } };
+  const programme = await getPublicProgramme(f.id);
+  const path = festivalPath(f);
   const place = [f.city, f.state].filter(Boolean).join(', ');
   const stars = [...new Set((programme?.headliners ?? []).map((h) => h.name))].slice(0, 4);
   const description = `${f.organization.name}${place ? ` · ${place}` : ''} · ${fmtRangeL(f.startDate, f.endDate, locale)}${stars.length ? ` · ${t('prog.featuring')} ${stars.join(', ')}` : ''}${f.publicBookingEnabled ? ` · ${t('festival.bookOnline')}` : ''}`;
@@ -37,7 +41,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     metadataBase: new URL(siteUrl()),
     title: `${f.name} · ${f.organization.name}`,
     description,
-    openGraph: { title: f.name, description, type: 'website', url: `/f/${f.id}`, siteName: 'Parvsetu', locale: `${lang}_IN` },
+    alternates: { canonical: path, languages: languageAlternates(path) },
+    openGraph: { title: f.name, description, type: 'website', url: path, siteName: 'Parvsetu', locale: `${lang}_IN` },
     twitter: { card: 'summary_large_image', title: f.name, description },
   };
 }
@@ -51,7 +56,8 @@ export default async function FestivalPage({ params }: Props) {
   const th = festivalTheme(f.festivalType);
   const { t, tp, locale } = await getServerT(params);
   const range = fmtRangeL(f.startDate, f.endDate, locale);
-  const url = `${siteUrl()}/f/${f.id}`;
+  const path = festivalPath(f);
+  const url = `${siteUrl()}${path}`;
   const place = [f.location, f.city, f.state].filter(Boolean).join(', ');
   const prices = f.timings.map((t) => Number(t.price));
   const allFree = prices.every((p) => p === 0);
@@ -59,6 +65,8 @@ export default async function FestivalPage({ params }: Props) {
 
   return (
     <PublicShell>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(festivalJsonLd(f, programme, url, `${url}/opengraph-image`)) }} />
+      <CanonicalUrl path={path} />
       <div className="flex flex-col gap-5">
         <FestivalBanner
           type={f.festivalType}
@@ -123,7 +131,7 @@ export default async function FestivalPage({ params }: Props) {
 
         <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
           <h2 className="mb-3 font-bold">{t('festival.share')}</h2>
-          <ShareButtons url={url} text={`🙏 ${f.name} — ${f.organization.name}, ${range}`} posterUrl={`/f/${f.id}/poster`} posterName={f.name.replace(/[^\w-]+/g, '-')} />
+          <ShareButtons url={url} text={`🙏 ${f.name} — ${f.organization.name}, ${range}`} posterUrl={`${path}/poster`} posterName={f.name.replace(/[^\w-]+/g, '-')} />
         </section>
 
         {stalls.open && (

@@ -8,6 +8,7 @@ import { encryptField } from '../src/common/crypto/field-crypto';
 import { donorIdHash, financialYearOf } from '../src/modules/tax/tax-rules';
 import { ALL_PERMISSIONS, PERMISSIONS, SYSTEM_ROLES, permissionGroup } from '../src/common/permissions';
 import { DECLARATION_VERSION } from '../src/common/legal';
+import { suggestEventSlug } from '../src/modules/events/event-slug.service';
 
 const prisma = new PrismaClient();
 
@@ -715,6 +716,20 @@ async function seedProgramme() {
   console.log(`Demo programme added on ${ev.name} (${n} days).`);
 }
 
+/**
+ * Every festival gets a page address (/f/<slug>, with the year). Runs on every
+ * start (Render runs the seed), so festivals created before slugs existed —
+ * including production ones — get one. Only fills empty slugs; never renames.
+ */
+async function backfillEventSlugs() {
+  const rows = await prisma.event.findMany({ where: { slug: null }, select: { id: true, name: true, startDate: true, organization: { select: { name: true } } } });
+  for (const r of rows) {
+    const slug = await suggestEventSlug(prisma, r.name, r.organization.name, r.startDate.getUTCFullYear(), r.id);
+    await prisma.event.updateMany({ where: { id: r.id, slug: null }, data: { slug } });
+  }
+  if (rows.length) console.log(`Page addresses given to ${rows.length} festival(s).`);
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -734,6 +749,7 @@ async function main() {
     await seedTaxDemo();
     await seedProgramme();
   }
+  await backfillEventSlugs();
 }
 
 if (require.main === module) {

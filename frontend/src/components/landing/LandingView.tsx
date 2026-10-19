@@ -152,7 +152,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
                 <ul className="flex flex-col divide-y divide-orange-50">
                   {y.events.map((e) => (
                     <li key={e.id}>
-                      <Link href={`/f/${e.id}`} className="flex min-h-[44px] items-center justify-between gap-2 py-1.5 text-sm hover:underline">
+                      <Link href={`/f/${e.slug ?? e.id}`} className="flex min-h-[44px] items-center justify-between gap-2 py-1.5 text-sm hover:underline">
                         <span className="font-semibold">{e.name}</span>
                         <span className="shrink-0 text-slate-500">{fmtRangeL(e.startDate, e.endDate, locale)}</span>
                       </Link>
@@ -213,7 +213,7 @@ function EventRow({ e, ink }: { e: LandingEventCard; ink: string }) {
   const pr = price(i18n, e.fromPrice);
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-      <Link href={`/f/${e.id}`} className="flex min-w-0 items-center gap-3 hover:underline">
+      <Link href={`/f/${e.slug ?? e.id}`} className="flex min-w-0 items-center gap-3 hover:underline">
         <span className="h-10 w-10 shrink-0 rounded-xl bg-orange-50 p-1"><FestivalArt type={e.festivalType} className="h-full w-full" /></span>
         <span className="min-w-0">
           <span className="block font-bold leading-snug">{e.name}</span>
@@ -249,7 +249,7 @@ function EventCard({ e, ink }: { e: LandingEventCard; ink: string }) {
             <Ticket aria-hidden className="h-4 w-4 shrink-0" /> {t('landing.bookPasses')}{pr ? ` · ${pr}` : ''}
           </Link>
         )}
-        <Link href={`/f/${e.id}`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-orange-200 px-3 text-sm font-semibold">
+        <Link href={`/f/${e.slug ?? e.id}`} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-orange-200 px-3 text-sm font-semibold">
           <CheckCircle2 aria-hidden className="h-4 w-4" /> {t('landing.details')}
         </Link>
       </div>

@@ -26,7 +26,17 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: 'Parvsetu', statusBarStyle: 'default' },
   // New file names (not apple-touch-icon.png): iPhones and the old service worker cache icons by URL,
   // so the first, broken icons kept showing as a letter "P" until the address changed.
-  icons: { apple: [{ url: '/icons/diya-180.png', sizes: '180x180', type: 'image/png' }] },
+  // favicon.ico (16/32/48) and icon.svg come from src/app; the PNGs are what Google's search results
+  // and Android pick (multiples of 48 px).
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icons/diya-48.png', sizes: '48x48', type: 'image/png' },
+      { url: '/icons/diya-96.png', sizes: '96x96', type: 'image/png' },
+      { url: '/icons/diya-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/diya-180.png', sizes: '180x180', type: 'image/png' }],
+  },
 };
 
 export const viewport: Viewport = {

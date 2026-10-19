@@ -18,6 +18,7 @@ import { BillingService, rupees, toPaise } from '../billing/billing.service';
 import { stateOrThrow } from '../organizations/organizations.service';
 import { EventFeeService, payUrl, presentFeePayment } from './event-fee.service';
 import { activateRegistrations } from './activate';
+import { suggestEventSlug } from '../events/event-slug.service';
 import {
   AgentRegistrationDto, ApproveRegistrationDto, MandalDetailsDto, MyRegistrationDto, RegistrationEventDto, RegistrationListQuery, SelfRegistrationDto,
 } from './registrations.dto';
@@ -387,7 +388,7 @@ export class RegistrationsService {
         const live = feePaise === 0;
         const ev = await tx.event.create({
           data: {
-            organizationId: org.id, name: e.name, festivalType: key!, location: e.location, venueAddress: e.venueAddress,
+            organizationId: org.id, name: e.name, slug: await suggestEventSlug(tx, e.name, org.name, dateOnly(e.startDate).getUTCFullYear()), festivalType: key!, location: e.location, venueAddress: e.venueAddress,
             startDate: dateOnly(e.startDate), endDate: dateOnly(e.endDate), timezone: 'Asia/Kolkata', state: r.state, city: r.city,
             status: live ? 'ACTIVE' : 'DRAFT', approvalStatus: live ? 'LIVE' : 'APPROVED_AWAITING_PAYMENT', tokenPrefix: this.catalog.prefixFor(key!),
             feeQuotedPaise: e.quotedFeePaise, feePaise, feeSource: c?.fee !== undefined ? 'ADMIN' : e.feeSource,

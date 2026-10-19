@@ -96,6 +96,23 @@ export const FAQ: FaqSection[] = [
         q: 'What are time slots?',
         a: ['Slots split the day (e.g. Morning 9–1, Evening 5–10). Each slot has its own price and optional capacity, and a pass is valid only for its slot window.'],
       },
+      {
+        id: 'programme',
+        q: 'How do we show the day-wise programme and artists?',
+        a: [
+          'Festival admin → Programme & line-up. Every festival day is listed: give a day a title (e.g. “Maha Ashtami”), then “Add to programme” for each performance, puja, competition or chief-guest visit — time, type, Indoor or Outdoor, stage, language, age limit, a poster, a YouTube or Instagram reel link, and the artists or guests with photo and Instagram.',
+          'Tick “Headline” for the big names: they appear in the star line-up at the top of your festival page. Untick “Published” to keep an item as a draft, or mark it Cancelled with a note so visitors know. “Copy this day’s programme” saves retyping on a 10-day festival — copies arrive as drafts.',
+          'Visitors see it on your festival page under Programme & line-up: one tab per day, an Indoor / Outdoor filter, and “Book passes for this day”. Posters and artist photos count toward your 300 MB photo space.',
+        ],
+      },
+      {
+        id: 'page-address',
+        q: 'How do we choose our festival page address?',
+        a: [
+          'Every festival has a readable link like parvsetu…/f/shree-durga-mandal-durga-puja-2026 — set automatically from your mandal name, festival name and year. To change it: Festival admin → Settings → Festival page address. It is checked as you type and saved only if it is free.',
+          'Use small letters, digits and hyphens, and keep the year in it — next year’s festival gets its own page. Your old address keeps working, so links already shared never break. Google shows your page with this address.',
+        ],
+      },
     ],
   },
   {

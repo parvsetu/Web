@@ -55,6 +55,8 @@ export interface LandingStatus {
 }
 
 export interface LandingEventCard {
+  /** Page address (/f/<slug>); null only briefly for old festivals. */
+  slug?: string | null;
   id: string;
   name: string;
   festivalType: string;

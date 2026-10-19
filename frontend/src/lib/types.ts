@@ -225,6 +225,8 @@ export interface AuditLog {
 
 export interface EventDetail {
   id: string;
+  /** Public page address /f/<slug>. */
+  slug: string | null;
   organizationId: string;
   organization: IdName & { festivalTypes?: string[] };
   name: string;

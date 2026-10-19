@@ -9,6 +9,8 @@ import type { EventDetail, EventStatus } from './types';
 
 export interface EventCtx {
   eventId: string;
+  /** Public page address (/f/<slug>); null until the detail loads or for unreadable events. */
+  slug: string | null;
   /** Basic info (always available once loaded). */
   name: string;
   festivalType: string;
@@ -53,6 +55,7 @@ export function EventProvider({ eventId, children }: { eventId: string; children
     const base = detail ?? fromMe;
     return {
       eventId,
+      slug: detail?.slug ?? null,
       name: base?.name ?? 'Festival',
       festivalType: base?.festivalType ?? '',
       status: base?.status ?? null,

@@ -6,6 +6,8 @@ import type { PublicProgramme } from './programme-types';
 
 export interface PublicFestival {
   id: string;
+  /** Page address (/f/<slug>); null only for festivals not yet backfilled. */
+  slug: string | null;
   name: string;
   festivalType: string;
   description: string | null;

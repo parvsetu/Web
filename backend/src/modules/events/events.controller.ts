@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { SearchPageQuery } from '../../common/http';
 import { Access, CurrentUser } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
@@ -6,6 +6,8 @@ import { AccessContext } from '../../common/access/access.service';
 import { RequireEventPermission, RequireOrgPermission } from '../../common/access/permission.guard';
 import { EventsService } from './events.service';
 import { PriceRulesService } from './price-rules.service';
+import { EventSlugService } from './event-slug.service';
+import { EventSlugDto } from './events.dto';
 import { CreatePriceRuleDto, UpdatePriceRuleDto } from './price-rules.dto';
 import {
   CreateAssignmentDto, CreateEventDto, CreateTimeSlotDto, UpdateAssignmentDto, UpdateEventDto, UpdateTimeSlotDto,
@@ -13,7 +15,7 @@ import {
 
 @Controller()
 export class EventsController {
-  constructor(private readonly events: EventsService, private readonly priceRules: PriceRulesService) {}
+  constructor(private readonly events: EventsService, private readonly priceRules: PriceRulesService, private readonly slugs: EventSlugService) {}
 
   @Get('events')
   mine(@CurrentUser() user: RequestUser) {
@@ -49,6 +51,19 @@ export class EventsController {
   @HttpCode(204)
   async remove(@CurrentUser() user: RequestUser, @Param('eventId') eventId: string) {
     await this.events.remove(user, eventId);
+  }
+
+  /** Live check of a page address while typing: { slug, valid, available, reason, suggestion }. */
+  @RequireEventPermission('EVENT_UPDATE')
+  @Get('events/:eventId/slug/check')
+  checkSlug(@Param('eventId') eventId: string, @Query('slug') slug: string) {
+    return this.slugs.check(eventId, slug ?? '');
+  }
+
+  @RequireEventPermission('EVENT_UPDATE')
+  @Put('events/:eventId/slug')
+  setSlug(@CurrentUser() user: RequestUser, @Param('eventId') eventId: string, @Body() dto: EventSlugDto) {
+    return this.slugs.set(user, eventId, dto.slug);
   }
 
   @RequireEventPermission('EVENT_VIEW')

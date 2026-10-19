@@ -18,6 +18,7 @@ import { stateOrThrow } from '../organizations/organizations.service';
 import {
   CreateAssignmentDto, CreateEventDto, CreateTimeSlotDto, UpdateAssignmentDto, UpdateEventDto, UpdateTimeSlotDto,
 } from './events.dto';
+import { EventSlugService } from './event-slug.service';
 
 /** Maps GST/print settings from the DTO (percent → basis points). */
 // passPrintFormat in the DTO is accepted but ignored: the platform sets the pass layout per mandal.
@@ -32,7 +33,7 @@ function gstData(dto: { gstEnabled?: boolean; gstRatePercent?: number; gstBearer
 
 export function presentEvent(e: Event & { organization?: { id: string; name: string; festivalTypes?: string[] } }, myPermissions?: Set<string>) {
   return {
-    id: e.id, organizationId: e.organizationId, organization: e.organization,
+    id: e.id, slug: e.slug, organizationId: e.organizationId, organization: e.organization,
     name: e.name, festivalType: e.festivalType, description: e.description, location: e.location, state: e.state, city: e.city,
     startDate: ymd(e.startDate), endDate: ymd(e.endDate), timezone: e.timezone, status: e.status,
     tokenPrefix: e.tokenPrefix, volunteerRegistrationOpen: e.volunteerRegistrationOpen, publicBookingEnabled: e.publicBookingEnabled,
@@ -79,6 +80,7 @@ export class EventsService {
     private readonly roles: RolesService,
     private readonly billing: BillingService,
     private readonly catalog: FestivalCatalogService,
+    private readonly slugs: EventSlugService,
   ) {}
 
   /**
@@ -151,9 +153,11 @@ export class EventsService {
           },
         });
       }
+      const org = await tx.organization.findUniqueOrThrow({ where: { id: orgId }, select: { name: true } });
+      const slug = await this.slugs.suggest(tx, dto.name.trim(), org.name, s.getUTCFullYear());
       const ev = await tx.event.create({
         data: {
-          organizationId: orgId, name: dto.name.trim(), festivalType,
+          organizationId: orgId, name: dto.name.trim(), slug, festivalType,
           description: dto.description, location: dto.location, startDate: s, endDate: e, timezone, ...venueData(dto),
           ...(await this.defaultPlace(orgId, dto)),
           status: dto.status ?? 'DRAFT', approvalStatus: 'DRAFT', tokenPrefix: dto.tokenPrefix ?? defaultPrefixFor(festivalType),

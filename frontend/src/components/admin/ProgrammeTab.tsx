@@ -68,7 +68,7 @@ export function ProgrammeTab() {
       {notice && <Alert kind="success">{notice}</Alert>}
       {q.error && <Alert>{q.error}</Alert>}
       {q.data && total > 0 && ev.eventId && (
-        <a href={`/f/${ev.eventId}#programme`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 self-end text-sm font-semibold text-brand-700 underline-offset-2 hover:underline">
+        <a href={`/f/${ev.slug ?? ev.eventId}#programme`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 self-end text-sm font-semibold text-brand-700 underline-offset-2 hover:underline">
           <ExternalLink aria-hidden className="h-4 w-4" /> See it on the public page
         </a>
       )}

@@ -967,3 +967,21 @@ competitions, chief guests, with artists, posters and a video link. Shown on `/f
   published items only, empty days left out. Items carry `video: { provider YOUTUBE|INSTAGRAM, url, embedUrl } | null` and `posterUrl`.
   Headliners are the guests of non-cancelled headline items. Images: `GET /public/programme/items/:id/poster`,
   `GET /public/programme/guests/:id/photo` (published items of public festivals only, cached a day).
+
+## Festival page addresses & search engines
+
+Every festival has a readable public address `/f/<slug>` (e.g. `/f/shree-durga-mandal-durga-puja-2026`). Rules (`common/event-slug.ts`):
+6–80 characters, `a-z 0-9` and single hyphens, must contain the festival's start year as its own word (the same festival repeats
+every year), not only numbers, not a reserved word. New festivals get mandal + name + year automatically; the seed backfills older ones.
+
+- `GET /events/:eventId/slug/check?slug=` (EVENT_UPDATE) → `{ slug (normalised), current, year, valid, available, reason, suggestion }`.
+- `PUT /events/:eventId/slug` (EVENT_UPDATE) `{ slug }` → `{ slug }`; 400 `SLUG_INVALID`, 409 `SLUG_TAKEN`. The previous address becomes an
+  alias (`EventSlugAlias`): it still opens the page and no other festival can take it; the festival itself can take it back.
+- `GET /public/events/:idOrSlug` accepts the id, the current slug or an old one; `slug` in the answer is the current address.
+  `GET /events/:eventId` and landing-page event cards include `slug`.
+- `GET /public/sitemap` → `{ festivals: [{ path, updatedAt, upcoming }], mandals: [{ slug, updatedAt }] }` — public festivals and live
+  landing pages only; the site serves it as `/sitemap.xml` (plus `/robots.txt`, which keeps the organiser app, checkout, passes and
+  receipts out of search engines).
+- The festival page carries a canonical link, `hreflang` alternates (`?lang=hi` …) and schema.org `Event` JSON-LD (dates, place,
+  organiser, ticket price range, headline artists from the programme). An old `/f/<id>` link switches the browser bar to the
+  address without a reload, keeping `?ref=` and `#day-…`.

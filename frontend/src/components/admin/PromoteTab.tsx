@@ -12,7 +12,7 @@ export function PromoteTab() {
   const ev = useEvent();
   const [origin, setOrigin] = useState('');
   useEffect(() => setOrigin(window.location.origin), []);
-  const url = `${origin}/f/${ev.eventId}`;
+  const url = `${origin}/f/${ev.slug ?? ev.eventId}`;
   const isPublic = ev.status === 'ACTIVE' || ev.status === 'COMPLETED';
 
   return (
@@ -31,7 +31,7 @@ export function PromoteTab() {
         <p className="text-sm text-slate-600">
           Shows your dates, timings, partners and a &ldquo;Book passes&rdquo; button. When shared on WhatsApp, Facebook or X it displays a festive preview card.
         </p>
-        {origin && <ShareButtons url={url} text={`🙏 ${ev.name} — ${ev.organization?.name ?? ''}`} posterUrl={`/f/${ev.eventId}/poster`} posterName={ev.name.replace(/[^\w-]+/g, '-')} />}
+        {origin && <ShareButtons url={url} text={`🙏 ${ev.name} — ${ev.organization?.name ?? ''}`} posterUrl={`/f/${ev.slug ?? ev.eventId}/poster`} posterName={ev.name.replace(/[^\w-]+/g, '-')} />}
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2">

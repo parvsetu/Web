@@ -259,12 +259,12 @@ export class LandingService {
       where: { organizationId: org.id, status: { in: [...PUBLIC_EVENT_STATUSES] }, approvalStatus: 'LIVE' },
       orderBy: { startDate: 'asc' },
       select: {
-        id: true, name: true, festivalType: true, description: true, location: true, city: true, startDate: true, endDate: true, status: true,
+        id: true, slug: true, name: true, festivalType: true, description: true, location: true, city: true, startDate: true, endDate: true, status: true,
         publicBookingEnabled: true, timeSlots: { where: { isActive: true }, select: { price: true } },
       },
     });
     const card = (e: (typeof events)[number]) => ({
-      id: e.id, name: e.name, festivalType: e.festivalType, description: e.description, location: e.location, city: e.city,
+      id: e.id, slug: e.slug, name: e.name, festivalType: e.festivalType, description: e.description, location: e.location, city: e.city,
       startDate: ymd(e.startDate), endDate: ymd(e.endDate), status: e.status,
       bookable: e.status === 'ACTIVE' && e.publicBookingEnabled && ymd(e.endDate) >= today,
       fromPrice: e.timeSlots.length ? Prisma.Decimal.min(...e.timeSlots.map((s) => s.price)).toFixed(2) : null,

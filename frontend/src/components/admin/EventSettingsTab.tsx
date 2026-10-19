@@ -6,12 +6,15 @@ import { useEvent } from '@/lib/event-context';
 import type { EventDetail } from '@/lib/types';
 import { EventForm } from '../EventForm';
 import { Alert, Card, SkeletonList } from '../ui';
+import { PageAddressCard } from './PageAddressCard';
 
 export function EventSettingsTab() {
   const ev = useEvent();
   const { refresh } = useAuth();
   if (!ev.detail) return ev.loading ? <SkeletonList /> : <Alert>Could not load festival settings.</Alert>;
   return (
+    <div className="flex flex-col gap-4">
+    <PageAddressCard />
     <Card>
       <EventForm
         key={ev.detail.id}
@@ -25,5 +28,6 @@ export function EventSettingsTab() {
         }}
       />
     </Card>
+    </div>
   );
 }

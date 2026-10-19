@@ -103,3 +103,7 @@ export class UpdateAssignmentDto {
   @IsOptional() @IsIn(['ACTIVE', 'INACTIVE']) status?: 'ACTIVE' | 'INACTIVE';
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
+
+export class EventSlugDto {
+  @IsString() @MaxLength(120) slug: string;
+}

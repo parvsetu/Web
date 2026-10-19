@@ -11,22 +11,29 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { LIVE_WHERE } from '../../common/event-approval';
 import { FestivalCatalogService } from '../../common/catalog/festival-catalog.service';
 import { CONTENT_POLICY } from '../../common/legal';
+import { EventSlugService } from '../events/event-slug.service';
 
 @Public()
 @Controller('public')
 export class PublicController {
-  constructor(private readonly prisma: PrismaService, private readonly sponsors: SponsorsService, private readonly catalog: FestivalCatalogService) {}
+  constructor(
+    private readonly prisma: PrismaService, private readonly sponsors: SponsorsService, private readonly catalog: FestivalCatalogService,
+    private readonly slugs: EventSlugService,
+  ) {}
 
   /**
    * Shareable festival page data (social previews, posters, promotion).
    * Only LIVE (reviewed + paid) ACTIVE / COMPLETED festivals are public; drafts stay private.
+   * `:eventId` may also be the page address (slug) or an old one; `slug` in the answer is the current address.
    */
   @Get('events/:eventId')
-  async event(@Param('eventId') eventId: string) {
+  async event(@Param('eventId') idOrSlug: string) {
+    const eventId = await this.slugs.resolve(idOrSlug);
+    if (!eventId) throw new NotFoundException('Festival not found');
     const e = await this.prisma.event.findFirst({
       where: { id: eventId, status: { in: ['ACTIVE', 'COMPLETED'] }, ...LIVE_WHERE },
       select: {
-        id: true, name: true, festivalType: true, description: true, ...VENUE_SELECT,
+        id: true, slug: true, name: true, festivalType: true, description: true, ...VENUE_SELECT,
         startDate: true, endDate: true, timezone: true, status: true, publicBookingEnabled: true, volunteerRegistrationOpen: true,
         organization: { select: { name: true, city: true, state: true, ...ORG_BRAND_SELECT } },
         timeSlots: { where: { isActive: true }, select: { label: true, startTime: true, endTime: true, price: true }, orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }] },
@@ -43,6 +50,29 @@ export class PublicController {
       timings: timeSlots.map((s) => ({ label: s.label, startTime: s.startTime, endTime: s.endTime, price: s.price.toFixed(2) })),
       fromPrice: timeSlots.length ? Prisma.Decimal.min(...timeSlots.map((s) => s.price)).toFixed(2) : null,
       sponsors: await this.sponsors.forEvent(e.id),
+    };
+  }
+
+  /**
+   * Everything search engines may index: public festivals (by page address) and live
+   * mandal landing pages. Used by the site's sitemap.xml; no private data.
+   */
+  @Get('sitemap')
+  async sitemap() {
+    const now = new Date();
+    const [events, landings] = await Promise.all([
+      this.prisma.event.findMany({
+        where: { status: { in: ['ACTIVE', 'COMPLETED'] }, ...LIVE_WHERE },
+        select: { id: true, slug: true, updatedAt: true, status: true }, orderBy: { startDate: 'desc' }, take: 5000,
+      }),
+      this.prisma.landingPage.findMany({
+        where: { enabled: true, paidUntil: { gt: now } },
+        select: { updatedAt: true, organization: { select: { slug: true } } }, take: 5000,
+      }),
+    ]);
+    return {
+      festivals: events.map((e) => ({ path: e.slug ?? e.id, updatedAt: e.updatedAt, upcoming: e.status === 'ACTIVE' })),
+      mandals: landings.map((l) => ({ slug: l.organization.slug, updatedAt: l.updatedAt })),
     };
   }
 

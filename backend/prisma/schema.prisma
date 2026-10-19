@@ -318,6 +318,9 @@ model Event {
   id                        String              @id @default(uuid())
   organizationId            String
   name                      String
+  /// Public page address /f/<slug> (lowercase, must contain the festival year — see common/event-slug.ts).
+  /// Null only for events created before slugs; the seed backfills them.
+  slug                      String?             @unique
   // Free-form key so new festivals need no migration (GANESH_UTSAV, DURGA_PUJA, ...).
   festivalType              String
   description               String?
@@ -411,6 +414,7 @@ model Event {
   stallBookings     StallBooking[]
   bloggerPromotions BloggerPromotion[]
   programmeDays     ProgrammeDay[]
+  slugAliases       EventSlugAlias[]
   programmeItems    ProgrammeItem[]
 
   @@index([organizationId])
@@ -2202,4 +2206,16 @@ model ProgrammeGuest {
 
   @@index([itemId])
   @@map("programme_guests")
+}
+
+/// A festival's earlier page addresses: old links keep working, and nobody else can take them.
+model EventSlugAlias {
+  slug      String   @id
+  eventId   String
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("event_slug_aliases")
 }
