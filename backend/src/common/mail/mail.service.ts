@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { siteUrl } from '../site-url';
 
@@ -10,48 +10,108 @@ export interface OutgoingMail {
 }
 
 /**
- * Email delivery.
- *   SMTP_HOST set        → real SMTP (e.g. Gmail with an app password, Brevo, SES)
+ * Email delivery. Transport, first match wins:
  *   MAIL_TRANSPORT=memory → kept in `outbox` (tests read OTPs from it)
- *   otherwise            → logged to the server console (local development)
- * Sending is best-effort: a mail failure is logged, never shown to the caller,
- * so responses can't be used to probe which addresses exist.
+ *   BREVO_API_KEY         → Brevo transactional API over HTTPS
+ *   RESEND_API_KEY        → Resend API over HTTPS
+ *   SMTP_HOST             → SMTP (Gmail app password, Brevo/SES relay…)
+ *   otherwise             → logged to the server console (local development)
+ * HTTPS APIs exist because hosts like Render's free plan block outgoing SMTP
+ * ports (25/465/587): SMTP then hangs until the connection timeout and nothing
+ * is delivered.
+ *
+ * Sending never holds up the request: real deliveries run in the background
+ * with short timeouts, and a failure is only logged — never shown to the
+ * caller, so responses can't be used to probe which addresses exist.
  */
+const SEND_TIMEOUT_MS = 15_000;
+
+/** "Parvsetu <no-reply@x.org>" → { name, email }. */
+function parseFrom(raw: string | undefined): { name: string; email: string } | null {
+  const v = (raw ?? '').trim();
+  if (!v) return null;
+  const m = /^(.*?)\s*<([^>]+)>$/.exec(v);
+  return m ? { name: m[1].replace(/^"|"$/g, '').trim() || 'Parvsetu', email: m[2].trim() } : { name: 'Parvsetu', email: v };
+}
+
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleDestroy {
   private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter | null = null;
   readonly outbox: OutgoingMail[] = [];
+  /** Deliveries still running (tests / shutdown can wait for them). */
+  private readonly inFlight = new Set<Promise<void>>();
 
   constructor() {
-    if (process.env.SMTP_HOST) {
+    if (process.env.SMTP_HOST && !this.httpProvider) {
       this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT ?? 587),
         secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
         auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+        // Defaults are 2 min / 30 s / 10 min — a blocked port would hang that long.
+        connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000,
       });
     }
   }
 
-  get mode(): 'smtp' | 'memory' | 'log' {
-    return this.transporter ? 'smtp' : process.env.MAIL_TRANSPORT === 'memory' ? 'memory' : 'log';
+  private get httpProvider(): 'brevo' | 'resend' | null {
+    return process.env.BREVO_API_KEY ? 'brevo' : process.env.RESEND_API_KEY ? 'resend' : null;
   }
 
+  get mode(): 'smtp' | 'memory' | 'log' | 'brevo' | 'resend' {
+    if (process.env.MAIL_TRANSPORT === 'memory') return 'memory';
+    return this.httpProvider ?? (this.transporter ? 'smtp' : 'log');
+  }
+
+  /** Queues the email and returns at once; delivery happens in the background. */
   async send(mail: OutgoingMail): Promise<void> {
-    if (this.mode === 'memory') {
+    const mode = this.mode;
+    if (mode === 'memory') {
       this.outbox.push(mail);
       return;
     }
-    if (!this.transporter) {
+    if (mode === 'log') {
       this.logger.warn(`[mail not configured] to=${mail.to} subject="${mail.subject}"\n${mail.text}`);
       return;
     }
-    try {
-      await this.transporter.sendMail({ from: process.env.MAIL_FROM ?? process.env.SMTP_USER, ...mail });
-    } catch (err) {
-      this.logger.error(`Mail to ${mail.to} failed: ${err instanceof Error ? err.message : String(err)}`);
+    const job = this.deliver(mode, mail)
+      .catch((err) => this.logger.error(`Mail (${mode}) to ${mail.to} failed: ${err instanceof Error ? err.message : String(err)}`))
+      .finally(() => this.inFlight.delete(job));
+    this.inFlight.add(job);
+  }
+
+  /** Waits for background deliveries (used on shutdown and in tests). */
+  async flush() {
+    await Promise.allSettled([...this.inFlight]);
+  }
+
+  private async deliver(mode: 'smtp' | 'brevo' | 'resend', mail: OutgoingMail) {
+    const from = parseFrom(process.env.MAIL_FROM) ?? parseFrom(process.env.SMTP_USER) ?? { name: 'Parvsetu', email: 'no-reply@parvsetu.app' };
+    if (mode === 'smtp') {
+      await this.transporter!.sendMail({ from: `${from.name} <${from.email}>`, ...mail });
+      return;
     }
+    const req: { url: string; headers: Record<string, string>; body: unknown } = mode === 'brevo'
+      ? {
+        url: 'https://api.brevo.com/v3/smtp/email',
+        headers: { 'api-key': process.env.BREVO_API_KEY! },
+        body: { sender: from, to: [{ email: mail.to }], subject: mail.subject, htmlContent: mail.html, textContent: mail.text },
+      }
+      : {
+        url: 'https://api.resend.com/emails',
+        headers: { authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+        body: { from: `${from.name} <${from.email}>`, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text },
+      };
+    const res = await fetch(req.url, {
+      method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', ...req.headers },
+      body: JSON.stringify(req.body), signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`${mode} API ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  }
+
+  async onModuleDestroy() {
+    await this.flush();
   }
 }
 

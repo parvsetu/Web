@@ -377,7 +377,10 @@ export default function BookEventPage() {
                     />
                   ))}
                   {slots.every((s) => !['open', 'low'].includes(slotState(s, onlinePayments))) && (
-                    <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">{t('book.noSlotsLeft')}</p>
+                    <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      {/* Say why: payment not set up is not the same as sold out. */}
+                      {slots.some((s) => slotState(s, onlinePayments) === 'nopay') ? t('book.paymentsNotReady') : t('book.noSlotsLeft')}
+                    </p>
                   )}
                 </div>
               )}

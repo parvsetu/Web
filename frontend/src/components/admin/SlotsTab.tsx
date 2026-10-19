@@ -30,6 +30,12 @@ export function SlotsTab() {
     }
   }
 
+  // Paid slots can't sell online until the mandal's payout account is verified — say so where prices are set.
+  const orgId = ev.organization?.id;
+  const payout = useAsync(
+    () => (orgId ? api.get<{ status: string } | null>(`/organizations/${orgId}/payout-account`).catch(() => undefined) : Promise.resolve(undefined)),
+    [orgId],
+  );
   const sorted = [...(q.data ?? [])].sort((a, b) => a.sortOrder - b.sortOrder || a.startTime.localeCompare(b.startTime));
 
   return (
@@ -38,6 +44,20 @@ export function SlotsTab() {
         Time slots set the entry window for new tokens. Changing a slot does <strong>not</strong> change tokens already issued — each
         token keeps its own window. To change one token, open it in the Tokens tab.
       </Alert>
+      {sorted.some((s) => s.isActive && Number(s.price ?? 0) > 0) && payout.data !== undefined && payout.data?.status !== 'VERIFIED' && !payout.loading && (
+        <Alert kind="warning">
+          <strong>Paid passes can&apos;t be bought online yet.</strong>{' '}
+          {payout.data === null
+            ? 'Add your bank details under Mandal → Payouts & bank so ticket money can reach you.'
+            : payout.data.status === 'NEEDS_CORRECTION'
+              ? 'Your payout details need a correction — see Mandal → Payouts & bank.'
+              : payout.data.status === 'REJECTED'
+                ? 'Your payout details were rejected — see Mandal → Payouts & bank.'
+                : 'Your payout details are waiting for verification by the Parvsetu team (usually within a working day).'}{' '}
+          Visitors see “Online payment unavailable” on paid slots until then; free slots and desk passes work as usual.
+          {orgId && <> <a href={`/org/${orgId}#payouts`} className="font-semibold underline">Open Payouts &amp; bank</a></>}
+        </Alert>
+      )}
       <div className="flex justify-end">
         <Button onClick={() => setEditing('new')}><Plus aria-hidden className="h-4 w-4" /> Add slot</Button>
       </div>

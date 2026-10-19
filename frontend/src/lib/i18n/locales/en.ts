@@ -207,6 +207,7 @@ const en = {
   'book.tryAnotherDay': 'Try another day.',
   'book.timeSlot': 'Time slot',
   'book.noSlotsLeft': 'No slots left on this day — please pick another day.',
+  'book.paymentsNotReady': 'Online payment isn’t set up for this festival yet, so paid passes can’t be booked online. Free passes still can — and passes may be available at the venue.',
   'book.step3': 'How many people?',
   'book.onlyLeft_one': 'Only {n} place left in this slot',
   'book.onlyLeft_other': 'Only {n} places left in this slot',

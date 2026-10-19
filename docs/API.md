@@ -1074,3 +1074,11 @@ The OTP email puts the code in the subject and the hidden preview line, shows it
 The code travels in the URL fragment, which browsers never send to a server; the page reads it, removes it from the address bar and
 fills the boxes (verification then submits by itself). The code boxes accept paste of a whole code, offer "Paste code" (clipboard)
 and submit as soon as the 6th digit is entered.
+
+## Email delivery
+
+`MailService.send()` queues the email and returns at once; delivery runs in the background (15 s HTTP timeout, 10/10/20 s SMTP
+timeouts) and failures are only logged. Transport, first match: `MAIL_TRANSPORT=memory` (tests) → `BREVO_API_KEY` (Brevo HTTPS API)
+→ `RESEND_API_KEY` (Resend HTTPS API) → `SMTP_HOST` → log only. Use an HTTPS API on hosts that block outgoing SMTP ports (Render's free
+plan blocks 25/465/587 — SMTP then hangs until the timeout and nothing is delivered). `MAIL_FROM` ("Name <email>") must be a sender
+the provider has verified.
