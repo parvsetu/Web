@@ -24,6 +24,7 @@ import { BloggersAdmin } from '@/components/platform/BloggersAdmin';
 import { TaxProfilesAdmin } from '@/components/platform/TaxProfilesAdmin';
 import { AgentsAdmin } from '@/components/platform/AgentsAdmin';
 import { EventFeesAdmin } from '@/components/platform/EventFeesAdmin';
+import { PlatformAlertsBar, type PendingCounts } from '@/components/platform/PlatformAlertsBar';
 import { FestivalChooser } from '@/components/org/OrgSettingsTab';
 import type { AgentInfo } from '@/lib/registration-types';
 import { BadgeIndianRupee, BriefcaseBusiness, ClipboardCheck, Flag, Ticket, Users as Users2, Wallet } from 'lucide-react';
@@ -32,10 +33,23 @@ import { BadgePercent, Building2, CalendarDays, Handshake, Landmark, Megaphone, 
 export default function PlatformPage() {
   const { me } = useAuth();
   const [tab, setTab] = useState('registrations');
+  const [pending, setPending] = useState<PendingCounts | null>(null);
   useEffect(() => {
     const h = window.location.hash.replace('#', '');
     if (h) setTab(h);
   }, []);
+  // Counts behind the tab badges; refreshed every minute and whenever a tab is opened (after acting on an item).
+  useEffect(() => {
+    if (!me?.isSuperAdmin) return;
+    let alive = true;
+    const load = () => api.get<PendingCounts>('/platform/pending').then((c) => alive && setPending(c)).catch(() => undefined);
+    void load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [me?.isSuperAdmin, tab]);
   function change(k: string) {
     setTab(k);
     try {
@@ -50,19 +64,20 @@ export default function PlatformPage() {
         <Alert kind="warning">Only platform super admins can open this page.</Alert>
       ) : (
         <div className="flex flex-col gap-4">
+          <PlatformAlertsBar counts={pending} onOpen={change} />
           <SideTabsLayout
             tabs={[
-              { key: 'registrations', label: 'Registrations', icon: ClipboardCheck },
-              { key: 'reviews', label: 'Event reviews', icon: Ticket },
-              { key: 'reported', label: 'Reported visitor reviews', icon: Flag },
+              { key: 'registrations', badge: pending?.registrations, label: 'Registrations', icon: ClipboardCheck },
+              { key: 'reviews', badge: pending?.reviews, label: 'Event reviews', icon: Ticket },
+              { key: 'reported', badge: pending?.reported, label: 'Reported visitor reviews', icon: Flag },
               { key: 'agents', label: 'Agents', icon: BriefcaseBusiness },
               { key: 'fees', label: 'Event fees', icon: BadgeIndianRupee },
               { key: 'billing', label: 'Billing & earnings', icon: Wallet },
-              { key: 'payouts', label: 'Payouts & KYC', icon: Landmark },
-              { key: 'tax', label: '80G verification', icon: BadgePercent },
-              { key: 'partners', label: 'Promotional partners', icon: Handshake },
+              { key: 'payouts', badge: pending?.payouts, label: 'Payouts & KYC', icon: Landmark },
+              { key: 'tax', badge: pending?.tax, label: '80G verification', icon: BadgePercent },
+              { key: 'partners', badge: pending?.partners, label: 'Promotional partners', icon: Handshake },
               { key: 'vendors', label: 'Stall vendors', icon: Store },
-              { key: 'bloggers', label: 'Bloggers', icon: Megaphone },
+              { key: 'bloggers', badge: pending?.bloggers, label: 'Bloggers', icon: Megaphone },
               { key: 'orgs', label: 'Mandals', icon: Building2 },
               { key: 'users', label: 'Users', icon: Users2 },
             ]}

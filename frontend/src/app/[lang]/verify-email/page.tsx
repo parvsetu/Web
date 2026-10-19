@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { MailCheck, ShieldCheck } from 'lucide-react';
 import { api, errorMessage } from '@/lib/api';
 import { homeFor, useAuth } from '@/lib/auth';
 import { AuthCard } from '@/components/AuthCard';
-import { OtpInput, ResendButton } from '@/components/OtpInput';
+import { OtpInput, ResendButton, useCodeFromLink } from '@/components/OtpInput';
 import { Alert, Button } from '@/components/ui';
 
 function VerifyForm() {
@@ -20,13 +20,13 @@ function VerifyForm() {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit(e?: React.FormEvent, typed = code) {
+    e?.preventDefault();
     setError(null);
-    if (code.length !== 6) return setError('Enter the 6-digit code from your email.');
+    if (typed.length !== 6) return setError('Enter the 6-digit code from your email.');
     setBusy(true);
     try {
-      const user = await verifyEmail(email, code);
+      const user = await verifyEmail(email, typed);
       router.replace(homeFor(user));
     } catch (err) {
       setError(errorMessage(err));
@@ -35,6 +35,14 @@ function VerifyForm() {
       setBusy(false);
     }
   }
+
+  // "Verify automatically" from the email: fill the code and verify straight away.
+  const fromLink = useCallback((c: string) => {
+    setCode(c);
+    void submit(undefined, c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
+  useCodeFromLink(fromLink);
 
   if (!email) {
     return (
@@ -54,7 +62,7 @@ function VerifyForm() {
           We sent a 6-digit code to <span className="font-semibold">{email}</span>. It expires in 10 minutes.
         </p>
       </div>
-      <OtpInput value={code} onChange={setCode} disabled={busy} />
+      <OtpInput value={code} onChange={setCode} disabled={busy} onComplete={(c) => void submit(undefined, c)} />
       {error && <Alert>{error}</Alert>}
       {info && <Alert kind="success">{info}</Alert>}
       <Button type="submit" size="lg" loading={busy} disabled={code.length !== 6}>

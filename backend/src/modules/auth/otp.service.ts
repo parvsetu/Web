@@ -44,7 +44,7 @@ export class OtpService {
         data: { userId: user.id, purpose, codeHash: this.hash(user.id, purpose, code), sentTo: user.email, expiresAt: new Date(now + OTP_TTL_MINUTES * 60_000) },
       }),
     ]);
-    await this.mail.send({ to: user.email, ...otpEmail(purpose === 'VERIFY_EMAIL' ? 'verify' : 'reset', user.name, code, OTP_TTL_MINUTES) });
+    await this.mail.send({ to: user.email, ...otpEmail(purpose === 'VERIFY_EMAIL' ? 'verify' : 'reset', user.name, code, OTP_TTL_MINUTES, { email: user.email, requestedAt: new Date() }) });
   }
 
   /** Consumes the latest live code if it matches; false otherwise (and counts the attempt). */

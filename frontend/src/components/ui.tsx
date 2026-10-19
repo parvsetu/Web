@@ -347,6 +347,8 @@ export interface TabDef {
   key: string;
   label: string;
   icon?: LucideIcon;
+  /** Small count pill (e.g. items waiting); hidden when 0 / undefined. */
+  badge?: number;
 }
 
 export function Tabs({ tabs, active, onChange }: { tabs: TabDef[]; active: string; onChange: (k: string) => void }) {
@@ -403,6 +405,11 @@ export function SideTabsLayout({ tabs, active, onChange, children }: { tabs: Tab
               >
                 {t.icon && <t.icon aria-hidden className={cx('h-4 w-4 shrink-0', on ? 'text-white' : 'text-orange-500')} />}
                 <span className="truncate">{t.label}</span>
+                {!!t.badge && (
+                  <span className={cx('ml-auto min-w-[22px] shrink-0 rounded-full px-1.5 text-center text-xs font-bold leading-[22px]', on ? 'bg-white text-orange-700' : 'bg-rose-600 text-white')} aria-label={`${t.badge} waiting`}>
+                    {t.badge > 99 ? '99+' : t.badge}
+                  </span>
+                )}
               </button>
             );
           })}

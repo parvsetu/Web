@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, KeyRound, LogIn, Send } from 'lucide-react';
 import { api, errorMessage } from '@/lib/api';
 import { AuthCard } from '@/components/AuthCard';
-import { OtpInput, ResendButton } from '@/components/OtpInput';
+import { OtpInput, ResendButton, useCodeFromLink } from '@/components/OtpInput';
 import { Alert, Button, LabeledInput } from '@/components/ui';
 
 type Step = 'request' | 'reset' | 'done';
@@ -18,6 +18,17 @@ export default function ForgotPasswordPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // From the email's "Set a new password" button: ?identifier=…#code=… → straight to the new-password step.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('identifier');
+    if (id) setIdentifier(id);
+  }, []);
+  const fromLink = useCallback((c: string) => {
+    setCode(c);
+    setStep('reset');
+  }, []);
+  useCodeFromLink(fromLink);
 
   async function request(e?: React.FormEvent) {
     e?.preventDefault();

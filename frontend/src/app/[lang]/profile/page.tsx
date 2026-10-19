@@ -179,11 +179,11 @@ function EmailCard({ me }: { me: MeUser }) {
       setBusy(null);
     }
   }
-  async function verify() {
+  async function verify(typed = code) {
     setError(null);
     setBusy('verify');
     try {
-      await api.post('/auth/me/email/verify', { code });
+      await api.post('/auth/me/email/verify', { code: typed });
       setCode('');
       await refresh();
     } catch (err) {
@@ -201,10 +201,10 @@ function EmailCard({ me }: { me: MeUser }) {
       </p>
       <div className="mt-3 flex flex-col gap-3">
         {sent && <Alert kind="info">Code sent to {sent}. It is valid for 10 minutes.</Alert>}
-        <OtpInput value={code} onChange={setCode} disabled={busy === 'verify'} />
+        <OtpInput value={code} onChange={setCode} disabled={busy === 'verify'} onComplete={(c) => void verify(c)} />
         {error && <Alert>{error}</Alert>}
         <div className="flex flex-wrap gap-2">
-          <Button onClick={verify} loading={busy === 'verify'} disabled={code.length !== 6}>
+          <Button onClick={() => verify()} loading={busy === 'verify'} disabled={code.length !== 6}>
             Verify
           </Button>
           <Button variant="secondary" onClick={send} loading={busy === 'send'} disabled={cooldown > 0}>

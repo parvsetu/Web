@@ -11,7 +11,7 @@ import { Alert, Button, Card } from './ui';
  * blogger approvals, stall booking changes… Each phone/browser is switched on
  * separately. On iPhone it needs Parvsetu on the home screen first.
  */
-export function NotificationsCard() {
+export function NotificationsCard({ description }: { description?: string } = {}) {
   const [support, setSupport] = useState<PushSupport | null>(null);
   const [on, setOn] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -27,7 +27,7 @@ export function NotificationsCard() {
   return (
     <Card className="flex flex-col gap-3">
       <h2 className="flex items-center gap-2 text-lg font-bold"><Bell aria-hidden className="h-5 w-5 text-orange-500" /> Notifications on this phone</h2>
-      <p className="text-sm text-slate-600">Get an alert when something needs you — new Instagram photos to review, a festival promotion approved, a stall booking changed.</p>
+      <p className="text-sm text-slate-600">{description ?? 'Get an alert when something needs you — new Instagram photos to review, a festival promotion approved, a stall booking changed.'}</p>
       {support === 'needs-install' && <Alert kind="info">On iPhone, first add Parvsetu to your home screen (Share → Add to Home Screen), open it from there, and switch notifications on here.</Alert>}
       {support === 'unsupported' && <Alert kind="info">This browser can’t show notifications.</Alert>}
       {support === 'denied' && <Alert kind="warning">Notifications are blocked for this site in your phone or browser settings. Allow them there, then come back.</Alert>}

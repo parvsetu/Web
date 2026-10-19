@@ -36,6 +36,7 @@ import { PushModule } from './modules/push/push.module';
 import { ProgrammeModule } from './modules/programme/programme.module';
 import { CompetitionsModule } from './modules/competitions/competitions.module';
 import { ArtModule } from './modules/art/art.module';
+import { PlatformAlertsModule } from './modules/platform-alerts/platform-alerts.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { ArtModule } from './modules/art/art.module';
     ProgrammeModule,
     CompetitionsModule,
     ArtModule,
+    PlatformAlertsModule,
   ],
   providers: [
     // Order matters: authenticate → rate-limit (per user) → authorize.

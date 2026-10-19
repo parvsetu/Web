@@ -825,6 +825,10 @@ model PlatformSettings {
   tax80GCashLimitPaise        Int      @default(200000)
   /// Form 10BD / 10BE due date after the financial year ends, as MM-DD (31 May today). CA review.
   tax10BDDueMonthDay          String   @default("05-31")
+  /// Super-admin alerts: everything submitted after this moment is still to be announced (see platform-alerts).
+  alertsCheckedAt             DateTime?
+  /// Extra addresses (comma-separated) that get the "waiting for review" emails besides every super admin.
+  alertEmails                 String?
   updatedAt                   DateTime @updatedAt
   updatedById                 String?
 

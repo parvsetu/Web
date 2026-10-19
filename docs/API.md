@@ -1053,3 +1053,24 @@ does not have to have started. Optionally the mandal sets `bookingOpensAt` / `bo
 - `GET /public/events/:id`, `GET /public/booking/events[/:id]` carry `bookingOpensAt`, `bookingClosesAt`, `salesState` (`NOT_YET` | `OPEN` |
   `CLOSED`). The festival / booking pages and explore cards re-check the window in the browser every 30 s, so a cached page switches
   from “Passes on sale from …” to the Book button at the opening time.
+
+## Super-admin alerts
+
+Every ~2 minutes (`ALERT_INTERVAL_MS`) the API checks every review queue for items that arrived since the last check
+(`PlatformSettings.alertsCheckedAt`) and, if there are any, sends ONE email to every active super admin plus
+`PlatformSettings.alertEmails`, and a web push to super admins' phones (tag `platform-alerts`, opens `/platform#<tab>`).
+Queues: mandal registrations in review, festivals submitted, payout/KYC and 80G details to verify, new partners and partner campaigns,
+blogger sign-ups and promotion requests, unresolved review reports. The round's window is claimed with a conditional update, so
+nothing is announced twice; the very first round only sets the marker (no flood of old items after a deploy). `PLATFORM_ALERTS=off` disables it.
+
+- `GET /platform/pending` (super admin) → `{ registrations, reviews, reported, payouts, tax, partners, bloggers, total }` — tab badges and
+  the "Waiting for you" strip.
+- `GET` / `PUT /platform/alert-settings` `{ alertEmails }` — extra comma-separated addresses (e.g. a team inbox).
+
+## One-time codes (email)
+
+The OTP email puts the code in the subject and the hidden preview line, shows it large (long-press to copy) and has a
+"Verify automatically" / "Set a new password" button linking to `/verify-email?email=…#code=…` or `/forgot-password?identifier=…#code=…`.
+The code travels in the URL fragment, which browsers never send to a server; the page reads it, removes it from the address bar and
+fills the boxes (verification then submits by itself). The code boxes accept paste of a whole code, offer "Paste code" (clipboard)
+and submit as soon as the 6th digit is entered.

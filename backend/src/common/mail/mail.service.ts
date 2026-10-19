@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { siteUrl } from '../site-url';
 
 export interface OutgoingMail {
   to: string;
@@ -54,22 +55,66 @@ export class MailService {
   }
 }
 
-/** Branded OTP email (inline styles — email clients ignore stylesheets). */
-export function otpEmail(kind: 'verify' | 'reset', name: string, code: string, minutes: number): Omit<OutgoingMail, 'to'> {
-  const title = kind === 'verify' ? 'Verify your email' : 'Reset your password';
-  const intro = kind === 'verify'
-    ? 'Use this code to verify your email and activate your Parvsetu account.'
-    : 'Use this code to set a new password for your Parvsetu account.';
-  const text = `${title}\n\nNamaste ${name},\n\n${intro}\n\nYour code: ${code}\n\nIt expires in ${minutes} minutes. If you didn't ask for this, you can ignore this email — nobody can use the code without access to your inbox.\n\n— Parvsetu`;
-  const html = `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;border:1px solid #fed7aa;border-radius:16px;overflow:hidden">
-  <div style="background:linear-gradient(135deg,#f59e0b,#f97316,#e11d48);color:#fff;padding:20px 24px;font-size:20px;font-weight:bold">🪔 Parvsetu</div>
-  <div style="padding:24px;color:#0f172a">
-    <h2 style="margin:0 0 8px">${title}</h2>
-    <p>Namaste ${escapeHtml(name)},</p><p>${intro}</p>
-    <p style="font-size:32px;font-weight:bold;letter-spacing:8px;text-align:center;background:#fff7ed;border-radius:12px;padding:16px;color:#c2410c">${code}</p>
-    <p style="color:#64748b;font-size:13px">This code expires in ${minutes} minutes. If you didn't ask for it, ignore this email.</p>
-  </div></div>`;
-  return { subject: `${code} is your Parvsetu ${kind === 'verify' ? 'verification' : 'password reset'} code`, text, html };
+/**
+ * One-time-code email. Built for phones:
+ * - the code is in the subject and the hidden preview line, so it can be read
+ *   from the notification without opening the mail;
+ * - a big, spaced code box (long-press to copy — email clients can't run a copy button);
+ * - "Verify automatically" opens Parvsetu with the code already filled in. The code
+ *   rides in the URL fragment (#code=…), which browsers never send to a server, so
+ *   it doesn't end up in any request log; the person still taps Verify / sets a password.
+ * Table layout + inline styles: email clients ignore stylesheets and flexbox.
+ */
+export function otpEmail(
+  kind: 'verify' | 'reset', name: string, code: string, minutes: number,
+  opts: { email?: string | null; requestedAt?: Date } = {},
+): Omit<OutgoingMail, 'to'> {
+  const verify = kind === 'verify';
+  const title = verify ? 'Verify your email' : 'Reset your password';
+  const intro = verify
+    ? 'Enter this code to verify your email and activate your Parvsetu account.'
+    : 'Enter this code to set a new password for your Parvsetu account.';
+  const base = siteUrl();
+  const link = opts.email
+    ? verify
+      ? `${base}/verify-email?email=${encodeURIComponent(opts.email)}#code=${code}`
+      : `${base}/forgot-password?identifier=${encodeURIComponent(opts.email)}#code=${code}`
+    : null;
+  const cta = verify ? 'Verify automatically' : 'Set a new password';
+  const when = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }).format(opts.requestedAt ?? new Date());
+  const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
+  const warning = 'Never share this code. Parvsetu staff will never ask you for it.';
+  const text = [
+    title, '', `Namaste ${name},`, '', intro, '', `Your code: ${code}`, '',
+    ...(link ? [`${cta}: ${link}`, ''] : []),
+    `It expires in ${minutes} minutes (requested ${when} IST). ${warning}`,
+    'Didn’t ask for this? You can ignore this email — nobody can use the code without access to your inbox.', '', '— Parvsetu',
+  ].join('\n');
+  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#fff7ed">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Your Parvsetu code is ${code} — expires in ${minutes} minutes.&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #fed7aa;border-radius:18px;overflow:hidden;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a">
+  <tr><td style="background:linear-gradient(135deg,#f59e0b,#f97316,#e11d48);background-color:#f97316;color:#ffffff;padding:18px 24px;font-size:20px;font-weight:bold">🪔 Parvsetu</td></tr>
+  <tr><td style="padding:24px 24px 8px">
+    <h1 style="margin:0 0 6px;font-size:22px">${title}</h1>
+    <p style="margin:0 0 4px">Namaste ${escapeHtml(name)},</p>
+    <p style="margin:0;color:#334155">${intro}</p>
+  </td></tr>
+  <tr><td style="padding:16px 24px" align="center">
+    <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:38px;line-height:1;font-weight:800;letter-spacing:10px;color:#c2410c;background:#fff7ed;border:2px dashed #fdba74;border-radius:14px;padding:18px 12px 18px 22px;user-select:all;-webkit-user-select:all">${spaced}</div>
+    <p style="margin:8px 0 0;font-size:12px;color:#64748b">Press and hold the code to copy it</p>
+  </td></tr>
+  ${link ? `<tr><td style="padding:4px 24px 8px" align="center">
+    <a href="${escapeHtml(link)}" style="display:inline-block;background:#ea580c;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 26px;border-radius:12px">${cta} →</a>
+    <p style="margin:8px 0 0;font-size:12px;color:#64748b">Opens Parvsetu with the code already filled in.</p>
+  </td></tr>` : ''}
+  <tr><td style="padding:16px 24px 24px">
+    <p style="margin:0 0 6px;font-size:13px;color:#475569">⏱ Expires in <b>${minutes} minutes</b> · requested ${when} IST</p>
+    <p style="margin:0 0 6px;font-size:13px;color:#b91c1c">🔒 ${warning}</p>
+    <p style="margin:0;font-size:12px;color:#94a3b8">Didn’t ask for this? Ignore this email — nobody can use the code without access to your inbox.</p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+  return { subject: `${code} is your Parvsetu ${verify ? 'verification' : 'password reset'} code`, text, html };
 }
 
 /** Branded transactional email: title, greeting, paragraphs and an optional button. */
