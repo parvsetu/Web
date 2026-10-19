@@ -46,7 +46,7 @@ export function intlLocale(lang: Lang): string {
  * Pages that follow the visitor's language. Everything else (the organiser /
  * admin app) stays English for now — add prefixes here to extend it.
  */
-const PUBLIC_PREFIXES = ['/book', '/pass', '/pay/demo', '/f/', '/m/', '/r/', '/faq', '/legal'];
+const PUBLIC_PREFIXES = ['/book', '/pass', '/pay/demo', '/f/', '/m/', '/r/', '/faq', '/legal', '/compete'];
 
 export function isPublicPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;

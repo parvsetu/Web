@@ -717,6 +717,59 @@ async function seedProgramme() {
 }
 
 /**
+ * Competitions demo on Shree Durga Mandal's Durga Puja: a swimming championship
+ * open for entries (paid categories + a free open category) and a finished
+ * dhunuchi dance contest with published results (free entries, so no money
+ * records are faked). Placeholder names. Skipped if the festival has any.
+ */
+async function seedCompetitions() {
+  const mandal = await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } });
+  const ev = mandal && (await prisma.event.findFirst({ where: { organizationId: mandal.id, festivalType: 'DURGA_PUJA' } }));
+  if (!ev || (await prisma.competition.findFirst({ where: { eventId: ev.id } }))) return;
+  const day = (offset: number) => new Date(ev.startDate.getTime() + offset * 86_400_000);
+  const lastDay = Math.round((ev.endDate.getTime() - ev.startDate.getTime()) / 86_400_000);
+  await prisma.competition.create({
+    data: {
+      organizationId: ev.organizationId, eventId: ev.id, name: 'Puja Swimming Championship', kind: 'SWIMMING', resultType: 'TIME',
+      date: day(Math.min(lastDay, 6)), startTime: '07:00', venue: 'Salt Lake municipal pool', setting: 'OUTDOOR', lanes: 6,
+      description: 'Inter-para swimming meet. Caps provided; bring your own costume and goggles.',
+      rules: 'Report 30 minutes before your category with your bib QR. One false start allowed. Judges\' decision is final.',
+      safetyDeclaration: 'The participant can swim at least 25 m without help and has no medical condition that makes swimming unsafe.',
+      registrationOpen: true, isPublished: true,
+      categories: { create: [
+        { name: '25 m freestyle · Under 10', gender: 'ANY', minAge: 6, maxAge: 9, feePaise: 10000, capacity: 24, sortOrder: 0 },
+        { name: '50 m freestyle · Under 14 · Girls', gender: 'FEMALE', minAge: 10, maxAge: 13, feePaise: 20000, capacity: 24, sortOrder: 1 },
+        { name: '50 m freestyle · Under 14 · Boys', gender: 'MALE', minAge: 10, maxAge: 13, feePaise: 20000, capacity: 24, sortOrder: 2 },
+        { name: '50 m freestyle · Open', gender: 'ANY', minAge: 14, feePaise: 0, capacity: 40, sortOrder: 3 },
+      ] },
+    },
+  });
+  const dhunuchi = await prisma.competition.create({
+    data: {
+      organizationId: ev.organizationId, eventId: ev.id, name: 'Dhunuchi Naach Contest', kind: 'DANCE', resultType: 'RANK',
+      date: day(0), startTime: '18:00', venue: 'Main pandal', setting: 'INDOOR', registrationOpen: false, isPublished: true, resultsPublished: true,
+      description: 'Traditional dhunuchi dance with the dhakis. Judged on rhythm, balance and grace.',
+      categories: { create: [{ name: 'Open (all ages)', gender: 'ANY', minAge: 12, feePaise: 0, sortOrder: 0 }] },
+    },
+    include: { categories: true },
+  });
+  const cat = dhunuchi.categories[0];
+  const names = ['Ananya Bose', 'Ritwik Das', 'Moumita Sen', 'Sayan Ghosh', 'Priyanka Roy'];
+  for (const [i, name] of names.entries()) {
+    await prisma.competitionEntry.create({ data: {
+      organizationId: ev.organizationId, eventId: ev.id, competitionId: dhunuchi.id, categoryId: cat.id, participantName: name,
+      dateOfBirth: new Date(Date.UTC(1995 + i, i, 10)), ageOnDay: 30 - i, gender: i % 2 ? 'MALE' : 'FEMALE', phone: `90000011${String(i).padStart(2, '0')}`,
+      city: 'Kolkata', emergencyName: 'Family', emergencyPhone: '9000001199', declarationText: 'I will follow the organisers’ rules.', declarationAcceptedAt: new Date(),
+      basePaise: 0, amountPaise: 0, commissionBps: 0, platformFeePaise: 0, status: 'PAID', paymentProvider: 'free',
+      accessKey: `demo-dhunuchi-${dhunuchi.id.slice(0, 8)}-${i}`, bibNo: i + 1, expiresAt: new Date(), paidAt: new Date(), checkedInAt: new Date(),
+      resultStatus: 'FINISHED', rank: i + 1,
+    } });
+  }
+  await prisma.competition.update({ where: { id: dhunuchi.id }, data: { bibSeq: names.length } });
+  console.log(`Demo competitions added on ${ev.name} (swimming open for entries, dhunuchi results published).`);
+}
+
+/**
  * Every festival gets a page address (/f/<slug>, with the year). Runs on every
  * start (Render runs the seed), so festivals created before slugs existed —
  * including production ones — get one. Only fills empty slugs; never renames.
@@ -748,6 +801,7 @@ async function main() {
     await seedBloggers();
     await seedTaxDemo();
     await seedProgramme();
+    await seedCompetitions();
   }
   await backfillEventSlugs();
 }

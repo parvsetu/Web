@@ -6,7 +6,7 @@ import { can, canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
 import { EventGate } from '@/components/EventGate';
-import { BarChart3, Camera, CalendarDays, Clock, Globe, Megaphone, FileBarChart, HandCoins, LayoutDashboard, MessageSquareQuote, ReceiptIndianRupee, ScanLine, Settings, Store, Ticket, Users } from 'lucide-react';
+import { BarChart3, Camera, CalendarDays, Clock, Trophy, Globe, Megaphone, FileBarChart, HandCoins, LayoutDashboard, MessageSquareQuote, ReceiptIndianRupee, ScanLine, Settings, Store, Ticket, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { fmtDate } from '@/lib/format';
 import { FestivalBanner } from '@/components/FestivalBanner';
@@ -26,12 +26,14 @@ import { PhotosTab } from '@/components/admin/PhotosTab';
 import { ReviewsTab } from '@/components/admin/ReviewsTab';
 import { StallsTab } from '@/components/admin/StallsTab';
 import { ProgrammeTab } from '@/components/admin/ProgrammeTab';
+import { CompetitionsTab } from '@/components/admin/CompetitionsTab';
 import { EventApprovalCard } from '@/components/admin/EventApprovalCard';
 
 const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] }[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, anyOf: ['REPORT_VIEW'] },
   { key: 'tokens', label: 'Tokens', icon: Ticket, anyOf: ['TOKEN_VIEW', 'TOKEN_GENERATE'] },
   { key: 'programme', label: 'Programme & line-up', icon: CalendarDays, anyOf: ['EVENT_UPDATE'] },
+  { key: 'competitions', label: 'Competitions', icon: Trophy, anyOf: ['EVENT_UPDATE'] },
   { key: 'slots', label: 'Time slots', icon: Clock, anyOf: ['SETTINGS_UPDATE'] },
   { key: 'volunteers', label: 'Volunteers', icon: Users, anyOf: ['VOLUNTEER_VIEW'] },
   { key: 'scans', label: 'Scans', icon: ScanLine, anyOf: ['REPORT_VIEW'] },
@@ -107,6 +109,7 @@ function Admin() {
       {tab === 'overview' && <OverviewTab />}
       {tab === 'tokens' && <TokensTab />}
       {tab === 'programme' && <ProgrammeTab />}
+      {tab === 'competitions' && <CompetitionsTab />}
       {tab === 'slots' && <SlotsTab />}
       {tab === 'volunteers' && <VolunteersTab />}
       {tab === 'scans' && <ScansTab />}

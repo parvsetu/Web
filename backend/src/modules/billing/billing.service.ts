@@ -104,6 +104,8 @@ export class BillingService {
       eventFeeOverridePaise: b?.eventFeePaise ?? null,
       /** Platform fee on stall bookings (bps of the rent before GST). */
       stallCommissionBps: b?.stallCommissionBps ?? s.stallCommissionBps,
+      /** Platform fee on competition entries (bps of the entry fee before GST); platform-wide. */
+      competitionCommissionBps: s.competitionCommissionBps,
     };
   }
 
@@ -367,7 +369,7 @@ export class BillingService {
 
   // ─── Super admin ───────────────────────────────────────────────────
 
-  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerRate?: string; gatewayFeePercent?: string; defaultPassPrintFormat?: PassPrintSetting; landingPageYearlyPrice?: string; defaultEventFee?: string; agentReferralFee?: string; agentCommissionPercent?: string; stallCommissionPercent?: string; referralCommissionMode?: 'PERCENT' | 'FIXED'; referralCommissionValue?: string; tax80GCashLimit?: string; tax10BDDueMonthDay?: string }) {
+  async updateSettings(actorId: string, dto: { defaultTokenPrice?: string; defaultCommissionPercent?: string; lowCreditThreshold?: string; welcomeCredit?: string; partnerRate?: string; gatewayFeePercent?: string; defaultPassPrintFormat?: PassPrintSetting; landingPageYearlyPrice?: string; defaultEventFee?: string; agentReferralFee?: string; agentCommissionPercent?: string; stallCommissionPercent?: string; competitionCommissionPercent?: string; referralCommissionMode?: 'PERCENT' | 'FIXED'; referralCommissionValue?: string; tax80GCashLimit?: string; tax10BDDueMonthDay?: string }) {
     const before = await this.settings();
     const data: Prisma.PlatformSettingsUpdateInput = { updatedById: actorId };
     if (dto.defaultTokenPrice !== undefined) data.defaultTokenPricePaise = toPaise(dto.defaultTokenPrice);
@@ -382,6 +384,7 @@ export class BillingService {
     if (dto.agentReferralFee !== undefined) data.agentReferralFeePaise = toPaise(dto.agentReferralFee);
     if (dto.agentCommissionPercent !== undefined) data.agentCommissionBps = Math.round(Number(dto.agentCommissionPercent) * 100);
     if (dto.stallCommissionPercent !== undefined) data.stallCommissionBps = Math.round(Number(dto.stallCommissionPercent) * 100);
+    if (dto.competitionCommissionPercent !== undefined) data.competitionCommissionBps = Math.round(Number(dto.competitionCommissionPercent) * 100);
     if (dto.referralCommissionMode !== undefined || dto.referralCommissionValue !== undefined) {
       const mode = dto.referralCommissionMode ?? before.referralCommissionMode;
       const raw = dto.referralCommissionValue ?? '';
@@ -397,7 +400,7 @@ export class BillingService {
     return this.presentSettings(after);
   }
 
-  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; defaultPassPrintFormat: string; landingPageYearlyPricePaise: number; defaultEventFeePaise: number; agentReferralFeePaise: number; agentCommissionBps: number; stallCommissionBps: number; referralCommissionMode: string; referralCommissionValue: number; tax80GCashLimitPaise: number; tax10BDDueMonthDay: string; updatedAt: Date }) {
+  presentSettings(s: { defaultTokenPricePaise: number; defaultCommissionBps: number; lowCreditThresholdPaise: number; welcomeCreditPaise: number; sponsorPassFeePaise: number; gatewayFeeBps: number; defaultPassPrintFormat: string; landingPageYearlyPricePaise: number; defaultEventFeePaise: number; agentReferralFeePaise: number; agentCommissionBps: number; stallCommissionBps: number; competitionCommissionBps: number; referralCommissionMode: string; referralCommissionValue: number; tax80GCashLimitPaise: number; tax10BDDueMonthDay: string; updatedAt: Date }) {
     return {
       defaultTokenPrice: rupees(s.defaultTokenPricePaise), defaultCommissionPercent: (s.defaultCommissionBps / 100).toFixed(2),
       lowCreditThreshold: rupees(s.lowCreditThresholdPaise), welcomeCredit: rupees(s.welcomeCreditPaise),
@@ -405,6 +408,7 @@ export class BillingService {
       landingPageYearlyPrice: rupees(s.landingPageYearlyPricePaise),
       defaultEventFee: rupees(s.defaultEventFeePaise), agentReferralFee: rupees(s.agentReferralFeePaise), agentCommissionPercent: (s.agentCommissionBps / 100).toFixed(2),
       stallCommissionPercent: (s.stallCommissionBps / 100).toFixed(2),
+      competitionCommissionPercent: (s.competitionCommissionBps / 100).toFixed(2),
       /** Blogger referral commission: PERCENT → value is %, FIXED → value is ₹ per paid booking. */
       referralCommissionMode: s.referralCommissionMode, referralCommissionValue: (s.referralCommissionValue / 100).toFixed(2),
       /** 80G rules (CA review): cash limit (₹) and the Form 10BD / 10BE due date (MM-DD after the year ends). */
@@ -448,6 +452,9 @@ export class BillingService {
     // Stall bookings net of refunds (STALL_REFUND rows are negative and hand back the fee pro rata).
     const stalls = await this.prisma.paymentSettlement.aggregate({ where: { sourceType: { in: ['STALL_BOOKING', 'STALL_REFUND'] } }, _sum: { commissionPaise: true, grossPaise: true } });
     const stallCount = await this.prisma.paymentSettlement.count({ where: { sourceType: 'STALL_BOOKING' } });
+    // Competition entry fees, net of refunds (COMPETITION_REFUND rows are negative).
+    const comps = await this.prisma.paymentSettlement.aggregate({ where: { sourceType: { in: ['COMPETITION_ENTRY', 'COMPETITION_REFUND'] } }, _sum: { commissionPaise: true, grossPaise: true } });
+    const compCount = await this.prisma.paymentSettlement.count({ where: { sourceType: 'COMPETITION_ENTRY' } });
     const landing = await this.prisma.landingPurchase.aggregate({ where: { status: 'PAID' }, _sum: { amountPaise: true }, _count: { _all: true } });
     const landingPaise = landing._sum.amountPaise ?? 0;
     // Per-event registration fees actually collected (waived / refunded / open links excluded).
@@ -480,6 +487,9 @@ export class BillingService {
       stallFeesEarned: rupees(stalls._sum.commissionPaise ?? 0),
       stallBookingsPaid: stallCount,
       stallGross: rupees(stalls._sum.grossPaise ?? 0),
+      competitionFeesEarned: rupees(comps._sum.commissionPaise ?? 0),
+      competitionEntriesPaid: compCount,
+      competitionGross: rupees(comps._sum.grossPaise ?? 0),
       /** Paid mandal landing pages (yearly fees; manual super-admin grants are free and not counted). */
       landingPageEarned: rupees(landingPaise),
       landingPagesSold: landing._count._all,

@@ -3,6 +3,7 @@ import type { Venue } from '@/components/VenueDetails';
 import type { OrgBrand } from './media';
 import type { PublicPhoto } from './gallery-types';
 import type { PublicProgramme } from './programme-types';
+import type { PublicCompetition } from './competition-types';
 
 export interface PublicFestival {
   id: string;
@@ -58,6 +59,16 @@ export async function getPublicProgramme(eventId: string): Promise<PublicProgram
     return p.days.length ? p : null;
   } catch {
     return null;
+  }
+}
+
+/** Published competitions of a festival (cached 1 minute — spots move). */
+export async function getPublicCompetitions(eventId: string): Promise<PublicCompetition[]> {
+  try {
+    const res = await fetch(`${API}/public/events/${encodeURIComponent(eventId)}/competitions`, { next: { revalidate: 60 } });
+    return res.ok ? ((await res.json()) as PublicCompetition[]) : [];
+  } catch {
+    return [];
   }
 }
 

@@ -15,6 +15,7 @@ import {
   ScanLine,
   ShieldX,
   Ticket,
+  Trophy,
   Users,
 } from "lucide-react";
 import { fmtDate, fmtDateTime, fmtNum, humanize } from "@/lib/format";
@@ -67,6 +68,13 @@ function Home() {
   const sponsors = useAsync(
     () => api.get<SponsorPublic[]>(`/events/${ev.eventId}/sponsors`),
     [ev.eventId],
+  );
+  // Competition check-in is offered only when the festival has competitions.
+  const canCheckInCompetitions = canScan || can(ev.perms, "EVENT_UPDATE");
+  const competitions = useAsync(
+    () => api.get<{ id: string }[]>(`/events/${ev.eventId}/competitions`),
+    [ev.eventId],
+    canCheckInCompetitions,
   );
   const credit = useAsync(
     () => api.get<EventAllowance>(`/events/${ev.eventId}/credit-status`),
@@ -181,6 +189,15 @@ function Home() {
             </Link>
           )}
           {canIssue && <IssueAllowance data={credit.data} />}
+          {canCheckInCompetitions && (competitions.data?.length ?? 0) > 0 && (
+            <Link
+              href={`/e/${ev.eventId}/competition-checkin`}
+              className="flex min-h-[64px] items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-sky-500 to-indigo-600 text-lg font-extrabold tracking-wide text-white shadow-lg shadow-indigo-500/30 active:scale-[0.99]"
+            >
+              <Trophy aria-hidden className="h-6 w-6" />
+              COMPETITION CHECK-IN
+            </Link>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">

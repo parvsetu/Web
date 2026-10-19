@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [
         '/dashboard', '/e/', '/org/', '/platform', '/profile', '/vendor', '/partner', '/agent', '/blogger', '/registration',
         '/pass/', '/pay/', '/r/', '/v/', '/book/my-passes', '/set-password', '/forgot-password', '/verify-email', '/awaiting',
-        '/instagram/', '/launch', '/m/*/preview', '/*?*ref=',
+        '/instagram/', '/launch', '/compete/entry/', '/compete/certificate/', '/m/*/preview', '/*?*ref=',
       ],
     },
     sitemap: `${siteUrl()}/sitemap.xml`,

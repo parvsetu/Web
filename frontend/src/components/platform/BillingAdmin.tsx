@@ -11,9 +11,9 @@ import type { CreditStatus } from '../org/CreditTab';
 import { SearchBar } from '../SearchBar';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SectionTitle, SkeletonList, Stat, Table, Td, cx } from '../ui';
 
-interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerRate: string; feePerPass: string; gatewayFeePercent: string; defaultPassPrintFormat: string; landingPageYearlyPrice: string; stallCommissionPercent: string; referralCommissionMode: 'PERCENT' | 'FIXED'; referralCommissionValue: string; tax80GCashLimit: string; tax10BDDueMonthDay: string }
+interface Settings { defaultTokenPrice: string; defaultCommissionPercent: string; lowCreditThreshold: string; welcomeCredit: string; partnerRate: string; feePerPass: string; gatewayFeePercent: string; defaultPassPrintFormat: string; landingPageYearlyPrice: string; stallCommissionPercent: string; competitionCommissionPercent: string; referralCommissionMode: 'PERCENT' | 'FIXED'; referralCommissionValue: string; tax80GCashLimit: string; tax10BDDueMonthDay: string }
 interface Summary {
-  commissionEarned: string; partnerFeesEarned: string; promotionalPartnerEarned: string; eventFeesEarned: string; eventFeesPaid: number; agentEarningsDue: string; agentPayoutsMade: string; bloggerCommissionDue?: string; bloggerPayoutsMade?: string; partnerWalletsOutstanding: string; splitCommissionEarned: string; onlineGross: string; stallFeesEarned: string; stallBookingsPaid: number; totalEarned: string; landingPageEarned: string; landingPagesSold: number; tokensGenerated: number; personsAdmitted: number;
+  commissionEarned: string; partnerFeesEarned: string; promotionalPartnerEarned: string; eventFeesEarned: string; eventFeesPaid: number; agentEarningsDue: string; agentPayoutsMade: string; bloggerCommissionDue?: string; bloggerPayoutsMade?: string; partnerWalletsOutstanding: string; splitCommissionEarned: string; onlineGross: string; stallFeesEarned: string; stallBookingsPaid: number; competitionFeesEarned?: string; competitionEntriesPaid?: number; totalEarned: string; landingPageEarned: string; landingPagesSold: number; tokensGenerated: number; personsAdmitted: number;
   creditOutstanding: string; totalRecharged: string; paidRecharges: number;
   mandals: { total: number; low: number; exhausted: number };
   bySource: { source: string | null; commission: string; tokens: number }[];
@@ -48,7 +48,7 @@ export function BillingAdmin() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">Your platform earnings</p>
             <p className="text-4xl font-black">{fmtMoney(s.totalEarned)}</p>
             <p className="text-sm text-white/90">
-              Event registration fees {fmtMoney(s.eventFeesEarned)}{s.eventFeesPaid ? ` (${s.eventFeesPaid} paid)` : ''} · Pass credit commission {fmtMoney(s.commissionEarned)} · Online split commission {fmtMoney(s.splitCommissionEarned)} (incl. stall fees {fmtMoney(s.stallFeesEarned)}{s.stallBookingsPaid ? `, ${s.stallBookingsPaid} bookings` : ''}) · Promotional partners {fmtMoney(s.promotionalPartnerEarned)} · Landing pages {fmtMoney(s.landingPageEarned)}{s.landingPagesSold ? ` (${s.landingPagesSold} sold)` : ''}
+              Event registration fees {fmtMoney(s.eventFeesEarned)}{s.eventFeesPaid ? ` (${s.eventFeesPaid} paid)` : ''} · Pass credit commission {fmtMoney(s.commissionEarned)} · Online split commission {fmtMoney(s.splitCommissionEarned)} (incl. stall fees {fmtMoney(s.stallFeesEarned)}{s.stallBookingsPaid ? `, ${s.stallBookingsPaid} bookings` : ''}; competition fees {fmtMoney(s.competitionFeesEarned ?? '0')}{s.competitionEntriesPaid ? `, ${s.competitionEntriesPaid} entries` : ''}) · Promotional partners {fmtMoney(s.promotionalPartnerEarned)} · Landing pages {fmtMoney(s.landingPageEarned)}{s.landingPagesSold ? ` (${s.landingPagesSold} sold)` : ''}
               {Number(s.partnerFeesEarned) > 0 ? ` · Legacy sponsor print fees ${fmtMoney(s.partnerFeesEarned)}` : ''}
             </p>
             <p className="mt-1 text-xs text-white/75">Online payments collected: {fmtMoney(s.onlineGross)} · Partner wallets held: {fmtMoney(s.partnerWalletsOutstanding)} · Owed to field agents: {fmtMoney(s.agentEarningsDue)} (paid {fmtMoney(s.agentPayoutsMade)}){s.bloggerCommissionDue !== undefined ? ` · Owed to bloggers: ${fmtMoney(s.bloggerCommissionDue)} (paid ${fmtMoney(s.bloggerPayoutsMade ?? '0')})` : ''}</p>
@@ -162,8 +162,8 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
     setOk(false);
     setBusy(true);
     try {
-      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent, referralCommissionMode, referralCommissionValue, tax80GCashLimit, tax10BDDueMonthDay } = f!;
-      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent, referralCommissionMode, referralCommissionValue, tax80GCashLimit, tax10BDDueMonthDay });
+      const { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent, competitionCommissionPercent, referralCommissionMode, referralCommissionValue, tax80GCashLimit, tax10BDDueMonthDay } = f!;
+      const saved = await api.put<Settings>('/platform/billing/settings', { defaultTokenPrice, defaultCommissionPercent, lowCreditThreshold, welcomeCredit, partnerRate, gatewayFeePercent, defaultPassPrintFormat, landingPageYearlyPrice, stallCommissionPercent, competitionCommissionPercent, referralCommissionMode, referralCommissionValue, tax80GCashLimit, tax10BDDueMonthDay });
       setForm(saved);
       setOk(true);
       onSaved();
@@ -189,6 +189,7 @@ function SettingsCard({ onSaved }: { onSaved: () => void }) {
         <LabeledInput label="Gateway fee taken from the mandal's share (%)" inputMode="decimal" value={f.gatewayFeePercent ?? ''} onChange={set('gatewayFeePercent')} hint="Applied to each paid online pass before the mandal's net" />
         <LabeledInput label="Landing page yearly fee (₹)" inputMode="decimal" value={f.landingPageYearlyPrice ?? ''} onChange={set('landingPageYearlyPrice')} hint="Default price of a mandal page at /m/<slug> for one year" />
         <LabeledInput label="Stall booking fee (%)" inputMode="decimal" value={f.stallCommissionPercent ?? ''} onChange={set('stallCommissionPercent')} hint="Platform share of each vendor stall booking (rent before GST); locked per booking" />
+        <LabeledInput label="Competition entry fee (%)" inputMode="decimal" value={f.competitionCommissionPercent ?? ''} onChange={set('competitionCommissionPercent')} hint="Platform share of each paid competition entry (fee before GST); locked per entry" />
         <LabeledSelect label="Blogger commission" value={f.referralCommissionMode ?? 'PERCENT'} onChange={(e) => setForm({ ...f, referralCommissionMode: e.target.value as 'PERCENT' | 'FIXED' })} hint="Paid by the platform per paid booking a blogger’s link brings in">
           <option value="PERCENT">% of the ticket value (ex-GST)</option>
           <option value="FIXED">Fixed ₹ per booking</option>

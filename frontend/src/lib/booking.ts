@@ -133,6 +133,12 @@ async function attempt<T>(method: 'GET' | 'POST', url: URL, body: unknown): Prom
   return data as T;
 }
 
+/** Same no-login request path (retries, slow-server notice, friendly errors) for other public flows (competition entries). */
+export const publicApi = {
+  get: <T>(path: string, query?: Query) => call<T>('GET', path, { query }),
+  post: <T>(path: string, body?: unknown) => call<T>('POST', path, { body }),
+};
+
 export const booking = {
   locations: () => call<BookingLocation[]>('GET', '/public/locations'),
   events: (q: { state?: string; city?: string; q?: string }) => call<BookableEvent[]>('GET', '/public/booking/events', { query: q }),

@@ -365,6 +365,9 @@ model Event {
   stallBookingEnabled       Boolean             @default(false)
   stallCreditNoteSeq        Int                 @default(0)
   stallInvoiceSeq           Int                 @default(0)
+  /// Tax-invoice / credit-note counters for competition entry fees.
+  competitionInvoiceSeq     Int                 @default(0)
+  competitionCreditNoteSeq  Int                 @default(0)
   /// GST on stall rent when the festival has GST on (added on top; CA review — see stalls.rules.ts).
   stallGstRateBps           Int                 @default(1800)
   /// Default print layout for passes: A4 | THERMAL_80 | THERMAL_58
@@ -415,6 +418,7 @@ model Event {
   bloggerPromotions BloggerPromotion[]
   programmeDays     ProgrammeDay[]
   slugAliases       EventSlugAlias[]
+  competitions      Competition[]
   programmeItems    ProgrammeItem[]
 
   @@index([organizationId])
@@ -807,6 +811,8 @@ model PlatformSettings {
   agentCommissionBps          Int      @default(0)
   /// Platform fee on every paid stall booking (bps of the stall rent, before GST).
   stallCommissionBps          Int      @default(500)
+  /// Platform fee on every paid competition entry (bps of the entry fee, before GST).
+  competitionCommissionBps    Int      @default(500)
   /// Blogger referral commission on a paid pass booking: PERCENT (bps of the ex-GST ticket value) or FIXED (paise per booking).
   referralCommissionMode      String   @default("PERCENT")
   referralCommissionValue     Int      @default(500)
@@ -2218,4 +2224,148 @@ model EventSlugAlias {
 
   @@index([eventId])
   @@map("event_slug_aliases")
+}
+
+// ─── Competitions (swimming, dhunuchi, rangoli, drawing, garba, quiz…) ──
+// A festival runs competitions; each has categories (age group / gender /
+// event, own fee and spots). Visitors enter without an account and pay online
+// (fees are online only); the entry is read back with its random accessKey,
+// like a pass order. Paid entries get a bib number; the mandal checks people
+// in, assigns heats/lanes, records results and publishes them. The platform
+// fee goes through PaymentSettlement (sourceType COMPETITION_ENTRY).
+
+model Competition {
+  id                   String    @id @default(uuid())
+  organizationId       String
+  eventId              String
+  name                 String
+  /// SWIMMING | RUNNING | DANCE | ART | QUIZ | SPORTS | OTHER (icon and defaults only).
+  kind                 String    @default("OTHER")
+  /// TIME (lowest wins: swimming, running) | SCORE (highest wins) | RANK (judges place people).
+  resultType           String    @default("RANK")
+  description          String?
+  rules                String?
+  date                 DateTime  @db.Date
+  startTime            String
+  venue                String?
+  /// INDOOR | OUTDOOR | null
+  setting              String?
+  /// Lanes per heat (swimming / running); null = no heats.
+  lanes                Int?
+  registrationOpen     Boolean   @default(false)
+  registrationClosesAt DateTime?
+  /// Extra declaration every entrant accepts, e.g. "can swim 25 m unaided, no medical condition".
+  safetyDeclaration    String?
+  isPublished          Boolean   @default(false)
+  resultsPublished     Boolean   @default(false)
+  /// Bib numbers are given in payment order, per competition.
+  bibSeq               Int       @default(0)
+  sortOrder            Int       @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  event      Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  categories CompetitionCategory[]
+  entries    CompetitionEntry[]
+
+  @@index([eventId])
+  @@map("competitions")
+}
+
+model CompetitionCategory {
+  id            String   @id @default(uuid())
+  competitionId String
+  /// "50 m freestyle · Under 14 · Girls"
+  name          String
+  /// ANY | MALE | FEMALE
+  gender        String   @default("ANY")
+  /// Age on the competition day, inclusive; null = no limit.
+  minAge        Int?
+  maxAge        Int?
+  feePaise      Int      @default(0)
+  /// null = unlimited
+  capacity      Int?
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  competition Competition        @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  entries     CompetitionEntry[]
+
+  @@index([competitionId])
+  @@map("competition_categories")
+}
+
+model CompetitionEntry {
+  id                    String          @id @default(uuid())
+  organizationId        String
+  eventId               String
+  competitionId         String
+  categoryId            String
+  participantName       String
+  dateOfBirth           DateTime        @db.Date
+  /// Age on the competition day (stored so later edits to the date don't change eligibility).
+  ageOnDay              Int
+  /// MALE | FEMALE | OTHER
+  gender                String
+  phone                 String
+  email                 String?
+  city                  String?
+  /// Required when the participant is under 18.
+  guardianName          String?
+  guardianPhone         String?
+  guardianConsentAt     DateTime?
+  emergencyName         String
+  emergencyPhone        String
+  /// Rules + safety declaration accepted (text snapshot kept for the record).
+  declarationText       String
+  declarationAcceptedAt DateTime
+  basePaise             Int
+  gstRateBps            Int             @default(0)
+  gstPaise              Int             @default(0)
+  amountPaise           Int
+  commissionBps         Int
+  platformFeePaise      Int
+  status                PassOrderStatus @default(PENDING)
+  paymentProvider       String
+  providerOrderId       String?
+  paymentReference      String?
+  invoiceNo             String?
+  accessKey             String          @unique
+  bibNo                 Int?
+  expiresAt             DateTime
+  paidAt                DateTime?
+  checkedInAt           DateTime?
+  checkedInById         String?
+  heat                  Int?
+  lane                  Int?
+  /// FINISHED | DNF | DNS | DQ — null until recorded.
+  resultStatus          String?
+  /// TIME results in milliseconds.
+  resultMs              Int?
+  /// SCORE results.
+  resultScore           Decimal?        @db.Decimal(10, 2)
+  /// Computed for TIME / SCORE, entered for RANK.
+  rank                  Int?
+  resultNote            String?
+  cancelledAt           DateTime?
+  cancelledById         String?
+  cancelReason          String?
+  refundPaise           Int             @default(0)
+  refundReference       String?
+  creditNoteNo          String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  competition Competition         @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  category    CompetitionCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([competitionId, bibNo])
+  @@unique([paymentProvider, providerOrderId])
+  @@unique([eventId, invoiceNo])
+  @@index([categoryId, status, expiresAt])
+  @@index([competitionId, status])
+  @@index([status, expiresAt])
+  @@map("competition_entries")
 }

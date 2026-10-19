@@ -985,3 +985,40 @@ every year), not only numbers, not a reserved word. New festivals get mandal + n
 - The festival page carries a canonical link, `hreflang` alternates (`?lang=hi` …) and schema.org `Event` JSON-LD (dates, place,
   organiser, ticket price range, headline artists from the programme). An old `/f/<id>` link switches the browser bar to the
   address without a reload, keeping `?ref=` and `#day-…`.
+
+## Competitions (swimming, dhunuchi, rangoli, drawing, garba, quiz…)
+
+A festival runs competitions; each has categories (age group / gender / event) with their own fee and spots. Visitors enter without
+an account and **pay online only** (same gateways as passes; free categories confirm at once). Rules in `competitions.rules.ts`.
+
+Organiser (`/events/:eventId/…`; set-up, entries and results need EVENT_UPDATE — check-in also TOKEN_SCAN):
+- `GET competitions` (EVENT_UPDATE or TOKEN_SCAN) → competitions with categories and counts (`taken` = paid + unexpired unpaid, `paid`, `checkedIn`).
+- `POST competitions` / `PATCH competitions/:id` `{ name, kind SWIMMING|RUNNING|DANCE|ART|QUIZ|SPORTS|OTHER, resultType TIME|SCORE|RANK, date, startTime,
+  venue?, setting? INDOOR|OUTDOOR, lanes? 2–12, description?, rules?, safetyDeclaration?, registrationOpen?, registrationClosesAt?, isPublished?,
+  resultsPublished? (PATCH), categories?[{ id?, name, gender ANY|MALE|FEMALE, minAge?, maxAge?, fee, capacity?, isActive? }] }`. The date must be in
+  the festival. A category list replaces the old one; a removed category that has entries is kept inactive (`keptInactive` in the answer).
+  `resultType` can't change once results exist (409 `RESULTS_RECORDED`).
+- `DELETE competitions/:id` → 204; 409 `HAS_PAID_ENTRIES` once anyone has paid (money records stay).
+- `GET competitions/:id/entries?categoryId&status&q&page` (q = name, phone or bib) and `GET competitions/:id/entries.csv`.
+- `POST competitions/:id/check-in` `{ entryId | bibNo, checkedIn? }` → `{ alreadyCheckedIn, entry }`; paid entries only (409 `ENTRY_NOT_PAID`).
+  The entrant's QR is `PVS-CMP:<entryId>`.
+- `POST competitions/:id/heats` `{ categoryId, onlyCheckedIn? (default true), firstHeat? }` → `{ heats, entries }` — evenly sized heats (7 swimmers,
+  6 lanes → 4 + 3), middle lanes first, repeatable shuffle.
+- `PATCH competition-entries/:entryId/result` `{ resultStatus FINISHED|DNF|DNS|DQ, time? "m:ss.hh", score?, rank? (RANK type), note?, heat?, lane? }`;
+  TIME / SCORE places are recomputed for the whole category (ties share a place). `DELETE …/result` clears it.
+- `POST competition-entries/:entryId/cancel` `{ reason, refund? (default all), refundReference? }` — paid → CANCELLED; negative `COMPETITION_REFUND`
+  settlement (platform fee returned pro rata), credit note when the entry had GST.
+
+Public (no login):
+- `GET /public/events/:eventId/competitions`, `GET /public/competitions/:id` — published competitions of public festivals: categories with fee,
+  `spotsLeft`, `full`, `entrants`, `closedReason`, `gstOnFees`; once results are published, per-category results with names shortened
+  (“Riya S.”).
+- `POST /public/competitions/entries` `{ categoryId, participantName, dateOfBirth, gender MALE|FEMALE|OTHER, phone, email?, city?, guardianName?,
+  guardianPhone?, guardianConsent?, emergencyName, emergencyPhone, acceptDeclaration }` → entry + `accessKey`. Age is taken on the competition
+  day. Errors: `REGISTRATION_CLOSED`, `NOT_ELIGIBLE`, `GUARDIAN_REQUIRED` (under 18), `DECLARATION_REQUIRED`, `ALREADY_ENTERED`, `CATEGORY_FULL`,
+  `PAYOUTS_NOT_READY`, `NO_PAYMENTS`. An unpaid entry holds the spot 15 minutes (never oversold: row lock on the category).
+- `GET /public/competitions/entries/:id?k=`, `POST …/demo-pay { k, outcome }` (demo gateway), `GET …/certificate?k=` (after results are published,
+  for paid entrants who checked in or have a result; WINNER for places 1–3, else PARTICIPATION).
+- Paid: bib number (per competition), invoice `PREFIX-CMP-YYYY-NNNNN`, `COMPETITION_ENTRY` settlement with the platform fee
+  (`PlatformSettings.competitionCommissionBps`, default 5% of the fee before GST). GST (18%, CA review) is added only when the festival
+  charges GST. Entry rate limit: `COMPETITION_ENTRY_RATE_LIMIT_PER_MIN` (default 10).

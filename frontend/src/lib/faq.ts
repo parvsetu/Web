@@ -113,6 +113,15 @@ export const FAQ: FaqSection[] = [
           'Use small letters, digits and hyphens, and keep the year in it — next year’s festival gets its own page. Your old address keeps working, so links already shared never break. Google shows your page with this address.',
         ],
       },
+      {
+        id: 'competitions',
+        q: 'How do we run a competition (swimming, dhunuchi, rangoli, drawing…)?',
+        a: [
+          'Festival admin → Competitions → Add competition. Pick the kind (swimming gets lanes, a safety declaration and typical age groups in one tap), how results work (fastest time, highest score, or judges’ places), the day, venue and Indoor / Outdoor, then add categories — e.g. “50 m freestyle · Under 14 · Girls” — each with its own age range, fee and number of spots.',
+          'Tick “Published” and “Entries open”: people enter from your festival page and pay the fee online (entry fees are online only; GST is added when your festival charges GST). Under-18s need a parent’s name, phone and consent. Each paid entry gets a bib number and a QR code.',
+          'On the day, volunteers open “Competition check-in” on their festival home and scan the QR or type the bib number. In Competitions → Entries you can split swimmers into heats and lanes, record times / scores / places (places are worked out automatically), then “Publish results” — winners and participants can download a certificate. Cancelling a paid entry records the refund and deducts it from your next payout.',
+        ],
+      },
     ],
   },
   {
@@ -536,6 +545,13 @@ export const FAQ: FaqSection[] = [
         id: 'payment-failed',
         q: 'My payment failed. Was I charged?',
         a: ['No pass is issued for a failed payment and your places are released. If money was debited, the bank normally reverses it automatically; contact the mandal with your booking details.'],
+      },
+      {
+        id: 'enter-competition',
+        q: 'How do I enter a competition?',
+        a: [
+          'Open the festival page → Competitions → choose your category → Enter. Fill in the participant’s details (a parent or guardian must agree for under-18s), accept the rules and pay online. Your entry page shows the bib number and a QR — keep it and show the QR at check-in. Results and your certificate appear on the same page once the organisers publish them.',
+        ],
       },
     ],
   },
