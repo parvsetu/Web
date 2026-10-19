@@ -4,6 +4,7 @@ import type { OrgBrand } from './media';
 import type { PublicPhoto } from './gallery-types';
 import type { PublicProgramme } from './programme-types';
 import type { PublicCompetition } from './competition-types';
+import type { PublicArtwork } from './art-types';
 
 export interface PublicFestival {
   id: string;
@@ -67,6 +68,16 @@ export async function getPublicCompetitions(eventId: string): Promise<PublicComp
   try {
     const res = await fetch(`${API}/public/events/${encodeURIComponent(eventId)}/competitions`, { next: { revalidate: 60 } });
     return res.ok ? ((await res.json()) as PublicCompetition[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Published artworks of a festival's art gallery (cached 5 minutes). */
+export async function getPublicArtworks(eventId: string): Promise<PublicArtwork[]> {
+  try {
+    const res = await fetch(`${API}/public/events/${encodeURIComponent(eventId)}/artworks`, { next: { revalidate: 300 } });
+    return res.ok ? ((await res.json()) as PublicArtwork[]) : [];
   } catch {
     return [];
   }

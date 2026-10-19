@@ -419,6 +419,7 @@ model Event {
   programmeDays     ProgrammeDay[]
   slugAliases       EventSlugAlias[]
   competitions      Competition[]
+  artworks          Artwork[]
   programmeItems    ProgrammeItem[]
 
   @@index([organizationId])
@@ -2368,4 +2369,75 @@ model CompetitionEntry {
   @@index([competitionId, status])
   @@index([status, expiresAt])
   @@map("competition_entries")
+}
+
+// ─── Art gallery (exhibition at the festival) ──────────────────────────
+// Each artwork is DISPLAY (shown only) or SALE (price + Available / Reserved
+// / Sold). Buyers don't pay through Parvsetu: they send an enquiry (name +
+// phone) that the mandal follows up, and the mandal marks the piece sold.
+// Images count toward the mandal's 300 MB image quota.
+
+model Artwork {
+  id              String    @id @default(uuid())
+  organizationId  String
+  eventId         String
+  title           String
+  artistName      String
+  artistBio       String?
+  artistInstagram String?
+  /// Free text: "Oil on canvas", "Terracotta", "Watercolour"…
+  medium          String?
+  widthCm         Decimal?  @db.Decimal(7, 1)
+  heightCm        Decimal?  @db.Decimal(7, 1)
+  depthCm         Decimal?  @db.Decimal(7, 1)
+  year            Int?
+  description     String?
+  /// DISPLAY | SALE
+  mode            String    @default("DISPLAY")
+  /// SALE only (paise).
+  pricePaise      Int?
+  /// AVAILABLE | RESERVED | SOLD (SALE only; DISPLAY stays AVAILABLE).
+  saleStatus      String    @default("AVAILABLE")
+  soldAt          DateTime?
+  imageKey        String?
+  thumbKey        String?
+  imageWidth      Int?
+  imageHeight     Int?
+  /// Full + thumbnail bytes; counts toward the image quota.
+  imageSizeBytes  Int       @default(0)
+  imageUpdatedAt  DateTime?
+  isFeatured      Boolean   @default(false)
+  isPublished     Boolean   @default(true)
+  sortOrder       Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  event     Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  enquiries ArtworkEnquiry[]
+
+  @@index([eventId, isPublished])
+  @@index([organizationId])
+  @@map("artworks")
+}
+
+/// "I'm interested" from a visitor. Personal data: only the mandal (GALLERY_MANAGE) sees it.
+model ArtworkEnquiry {
+  id        String   @id @default(uuid())
+  artworkId String
+  eventId   String
+  name      String
+  phone     String
+  email     String?
+  message   String?
+  /// NEW | CONTACTED | CLOSED
+  status    String   @default("NEW")
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  artwork Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, status, createdAt])
+  @@index([artworkId])
+  @@map("artwork_enquiries")
 }

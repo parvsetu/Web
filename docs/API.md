@@ -1022,3 +1022,23 @@ Public (no login):
 - Paid: bib number (per competition), invoice `PREFIX-CMP-YYYY-NNNNN`, `COMPETITION_ENTRY` settlement with the platform fee
   (`PlatformSettings.competitionCommissionBps`, default 5% of the fee before GST). GST (18%, CA review) is added only when the festival
   charges GST. Entry rate limit: `COMPETITION_ENTRY_RATE_LIMIT_PER_MIN` (default 10).
+
+## Art gallery
+
+Artworks shown at a festival: `DISPLAY` (shown only) or `SALE` (price, `AVAILABLE` | `RESERVED` | `SOLD`). **No money moves through
+Parvsetu** — buyers send an enquiry, the mandal follows up and marks the piece sold. Images count toward the 300 MB image quota
+(`usage.breakdown.artworkBytes`).
+
+- `GET /events/:eventId/artworks` (GALLERY_VIEW) → artworks with `enquiries` / `newEnquiries` counts.
+- `POST` / `PATCH /events/:eventId/artworks[/:id]` (GALLERY_MANAGE) `{ title, artistName, artistBio?, artistInstagram? (@handle or profile link),
+  medium?, widthCm?, heightCm?, depthCm?, year?, description?, mode DISPLAY|SALE, price? (required for SALE), saleStatus?, isFeatured?, isPublished?,
+  sortOrder? }`. A DISPLAY piece never keeps a price or a sale status; `soldAt` is set when it becomes SOLD and cleared otherwise.
+- `DELETE /events/:eventId/artworks/:id` → 204 (image and enquiries deleted).
+- `PUT /events/:eventId/artworks/:id/image` (multipart `file` ≤ 2 MB + optional `thumb` ≤ 300 KB), `DELETE …/image`;
+  `GET …/image?size=thumb|full` (GALLERY_VIEW, works for hidden pieces).
+- `GET /events/:eventId/artwork-enquiries?status=NEW|CONTACTED|CLOSED` and `PATCH …/artwork-enquiries/:id { status, note? }` (GALLERY_MANAGE —
+  enquiries hold names and phone numbers).
+- Public: `GET /public/events/:eventId/artworks` (published pieces of public festivals), `GET /public/artworks/:id/image?size=`,
+  `POST /public/artworks/:id/enquiries { name, phone, email?, message?, website (honeypot, leave empty) }` → `{ ok }` (`duplicate: true` when
+  the same phone already has an open enquiry on that piece). 400 `NOT_FOR_SALE` / `ARTWORK_SOLD`. Rate limit
+  `ART_ENQUIRY_RATE_LIMIT_PER_MIN` (default 5).

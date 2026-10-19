@@ -33,7 +33,7 @@ export interface GalleryUsage {
   quotaBytes: number;
   photos: number;
   /** What the used space is made of (festival photos, visitor review photos, trophy images). */
-  breakdown?: { photoBytes: number; visitorPhotoBytes: number; achievementBytes: number; programmeBytes?: number };
+  breakdown?: { photoBytes: number; visitorPhotoBytes: number; achievementBytes: number; programmeBytes?: number; artworkBytes?: number };
 }
 
 export interface GallerySummary {

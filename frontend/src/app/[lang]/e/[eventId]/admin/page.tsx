@@ -6,7 +6,7 @@ import { can, canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
 import { EventGate } from '@/components/EventGate';
-import { BarChart3, Camera, CalendarDays, Clock, Trophy, Globe, Megaphone, FileBarChart, HandCoins, LayoutDashboard, MessageSquareQuote, ReceiptIndianRupee, ScanLine, Settings, Store, Ticket, Users } from 'lucide-react';
+import { BarChart3, Camera, CalendarDays, Clock, Palette, Trophy, Globe, Megaphone, FileBarChart, HandCoins, LayoutDashboard, MessageSquareQuote, ReceiptIndianRupee, ScanLine, Settings, Store, Ticket, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { fmtDate } from '@/lib/format';
 import { FestivalBanner } from '@/components/FestivalBanner';
@@ -27,6 +27,7 @@ import { ReviewsTab } from '@/components/admin/ReviewsTab';
 import { StallsTab } from '@/components/admin/StallsTab';
 import { ProgrammeTab } from '@/components/admin/ProgrammeTab';
 import { CompetitionsTab } from '@/components/admin/CompetitionsTab';
+import { ArtTab } from '@/components/admin/ArtTab';
 import { EventApprovalCard } from '@/components/admin/EventApprovalCard';
 
 const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] }[] = [
@@ -39,6 +40,7 @@ const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] 
   { key: 'scans', label: 'Scans', icon: ScanLine, anyOf: ['REPORT_VIEW'] },
   { key: 'reports', label: 'Reports', icon: FileBarChart, anyOf: ['REPORT_VIEW'] },
   { key: 'photos', label: 'Photos', icon: Camera, anyOf: ['GALLERY_VIEW'] },
+  { key: 'art', label: 'Art gallery', icon: Palette, anyOf: ['GALLERY_MANAGE'] },
   { key: 'reviews', label: 'Visitor reviews', icon: MessageSquareQuote, anyOf: ['REVIEW_VIEW'] },
   { key: 'stalls', label: 'Stalls', icon: Store, anyOf: ['STALL_VIEW'] },
   { key: 'promote', label: 'Promote', icon: Megaphone, anyOf: ['EVENT_UPDATE'] },
@@ -115,6 +117,7 @@ function Admin() {
       {tab === 'scans' && <ScansTab />}
       {tab === 'reports' && <ReportsTab />}
       {tab === 'photos' && <PhotosTab />}
+      {tab === 'art' && <ArtTab />}
       {tab === 'reviews' && <ReviewsTab />}
       {tab === 'stalls' && <StallsTab />}
       {tab === 'promote' && <PromoteTab />}

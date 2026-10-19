@@ -770,6 +770,34 @@ async function seedCompetitions() {
 }
 
 /**
+ * Art gallery demo on Shree Durga Mandal's Durga Puja: pieces for sale (one
+ * reserved, one sold), display-only pieces and one buyer enquiry. No images —
+ * upload some in the festival's Art gallery tab. Skipped if any exist.
+ */
+async function seedArt() {
+  const mandal = await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } });
+  const ev = mandal && (await prisma.event.findFirst({ where: { organizationId: mandal.id, festivalType: 'DURGA_PUJA' } }));
+  if (!ev || (await prisma.artwork.findFirst({ where: { eventId: ev.id } }))) return;
+  const base = { organizationId: ev.organizationId, eventId: ev.id };
+  const works = [
+    { title: 'Maa Durga in Kalighat style', artistName: 'Sudipta Pal', medium: 'Acrylic on canvas', widthCm: 60, heightCm: 90, year: 2026, mode: 'SALE', pricePaise: 1800000, isFeatured: true,
+      description: 'Bold Kalighat pat lines with gold leaf on the crown.', artistBio: 'Kolkata painter working in the Kalighat pat tradition for 15 years.' },
+    { title: 'Dhaki at dusk', artistName: 'Ritika Sen', medium: 'Watercolour on paper', widthCm: 40, heightCm: 30, year: 2025, mode: 'SALE', pricePaise: 650000, saleStatus: 'RESERVED' },
+    { title: 'Terracotta Ganesha', artistName: 'Bankura Craft Collective', medium: 'Terracotta', widthCm: 20, heightCm: 35, depthCm: 18, mode: 'SALE', pricePaise: 250000, saleStatus: 'SOLD', soldAt: new Date() },
+    { title: 'Pandal mural — Mahishasura Mardini', artistName: 'Students of Salt Lake Art School', medium: 'Mixed media', mode: 'DISPLAY',
+      description: 'Painted on the pandal entrance wall over 12 nights.' },
+    { title: 'Sindoor Khela (photograph)', artistName: 'Arnab Dutta', medium: 'Archival print', widthCm: 50, heightCm: 33, year: 2024, mode: 'DISPLAY' },
+  ];
+  for (const [i, w] of works.entries()) {
+    const a = await prisma.artwork.create({ data: { ...base, sortOrder: i, ...w } });
+    if (i === 0) {
+      await prisma.artworkEnquiry.create({ data: { artworkId: a.id, eventId: ev.id, name: 'Rahul Mehta', phone: '9000001201', message: 'Can I see it on Saturday evening?' } });
+    }
+  }
+  console.log(`Demo art gallery added on ${ev.name} (${works.length} artworks).`);
+}
+
+/**
  * Every festival gets a page address (/f/<slug>, with the year). Runs on every
  * start (Render runs the seed), so festivals created before slugs existed —
  * including production ones — get one. Only fills empty slugs; never renames.
@@ -802,6 +830,7 @@ async function main() {
     await seedTaxDemo();
     await seedProgramme();
     await seedCompetitions();
+    await seedArt();
   }
   await backfillEventSlugs();
 }

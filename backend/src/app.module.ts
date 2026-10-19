@@ -35,6 +35,7 @@ import { TaxModule } from './modules/tax/tax.module';
 import { PushModule } from './modules/push/push.module';
 import { ProgrammeModule } from './modules/programme/programme.module';
 import { CompetitionsModule } from './modules/competitions/competitions.module';
+import { ArtModule } from './modules/art/art.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { CompetitionsModule } from './modules/competitions/competitions.module';
     PushModule,
     ProgrammeModule,
     CompetitionsModule,
+    ArtModule,
   ],
   providers: [
     // Order matters: authenticate → rate-limit (per user) → authorize.

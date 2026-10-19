@@ -122,6 +122,14 @@ export const FAQ: FaqSection[] = [
           'On the day, volunteers open “Competition check-in” on their festival home and scan the QR or type the bib number. In Competitions → Entries you can split swimmers into heats and lanes, record times / scores / places (places are worked out automatically), then “Publish results” — winners and participants can download a certificate. Cancelling a paid entry records the refund and deducts it from your next payout.',
         ],
       },
+      {
+        id: 'art-gallery',
+        q: 'How do we show an art exhibition or sell artworks?',
+        a: [
+          'Festival admin → Art gallery → Add artwork: a photo, title, artist (with Instagram if you like), medium, size and year. Choose “For sale” with a price, or “Display only”. Featured pieces are shown first; untick “Published” to hide one.',
+          'Visitors see the gallery on your festival page with For sale / On display filters. On a piece for sale they can tap “I’m interested” and leave their name and phone — it appears under Art gallery → Enquiries. Call them, arrange the viewing and payment directly (Parvsetu takes no payment or fee on artworks), then mark the piece Reserved or Sold.',
+        ],
+      },
     ],
   },
   {
@@ -551,6 +559,13 @@ export const FAQ: FaqSection[] = [
         q: 'How do I enter a competition?',
         a: [
           'Open the festival page → Competitions → choose your category → Enter. Fill in the participant’s details (a parent or guardian must agree for under-18s), accept the rules and pay online. Your entry page shows the bib number and a QR — keep it and show the QR at check-in. Results and your certificate appear on the same page once the organisers publish them.',
+        ],
+      },
+      {
+        id: 'buy-art',
+        q: 'How do I buy an artwork from a festival’s art gallery?',
+        a: [
+          'Open the festival page → Art gallery → tap the artwork → “I’m interested”, and leave your name and mobile number. The organisers call you to arrange a viewing and payment directly — you don’t pay anything on Parvsetu.',
         ],
       },
     ],

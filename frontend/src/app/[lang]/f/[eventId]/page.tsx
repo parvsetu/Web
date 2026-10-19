@@ -8,8 +8,9 @@ import { PublicShell } from '@/components/booking/PublicShell';
 import { ShareButtons } from '@/components/ShareButtons';
 import { SponsorStrip } from '@/components/SponsorStrip';
 import { festivalTheme } from '@/lib/festival-theme';
-import { getPublicCompetitions, getPublicFestival, getPublicPhotos, getPublicProgramme, getPublicStalls, siteUrl } from '@/lib/public-festival';
+import { getPublicArtworks, getPublicCompetitions, getPublicFestival, getPublicPhotos, getPublicProgramme, getPublicStalls, siteUrl } from '@/lib/public-festival';
 import { PublicCompetitions } from '@/components/competitions/PublicCompetitions';
+import { PublicArtGallery } from '@/components/art/PublicArtGallery';
 import { PublicProgramme } from '@/components/programme/PublicProgramme';
 import { fmtRangeL } from '@/lib/i18n/format';
 import { getServerT } from '@/lib/i18n/server';
@@ -51,7 +52,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function FestivalPage({ params }: Props) {
   const f = await getPublicFestival(params.eventId);
   if (!f) notFound();
-  const [photos, stalls, programme, competitions] = await Promise.all([getPublicPhotos(f.id), getPublicStalls(f.id), getPublicProgramme(f.id), getPublicCompetitions(f.id)]);
+  const [photos, stalls, programme, competitions, artworks] = await Promise.all([getPublicPhotos(f.id), getPublicStalls(f.id), getPublicProgramme(f.id), getPublicCompetitions(f.id), getPublicArtworks(f.id)]);
   const stallsLeft = stalls.types.reduce((n, s) => n + s.available, 0);
   const stallFrom = stalls.types.length ? Math.min(...stalls.types.map((s) => Number(s.price))) : 0;
   const th = festivalTheme(f.festivalType);
@@ -108,6 +109,8 @@ export default async function FestivalPage({ params }: Props) {
         {programme && <PublicProgramme eventId={f.id} programme={programme} accent={th.ink} canBook={f.status === 'ACTIVE' && f.publicBookingEnabled} />}
 
         <PublicCompetitions competitions={competitions} accent={th.ink} />
+
+        <PublicArtGallery artworks={artworks} accent={th.ink} />
 
         {f.timings.length > 0 && (
           <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
