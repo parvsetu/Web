@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { DateTime } from 'luxon';
@@ -668,6 +668,53 @@ async function seedTaxDemo() {
   console.log('Demo 80G registration submitted for Shree Durga Mandal (verify it under Platform → 80G verification).');
 }
 
+/**
+ * Day-wise programme demo on Shree Durga Mandal's Durga Puja: day titles,
+ * indoor/outdoor items, a headline artist per evening, a cancelled item and
+ * a draft. Placeholder artists (no real names). Skipped if the festival
+ * already has a programme, so reruns are no-ops.
+ */
+async function seedProgramme() {
+  const mandal = await prisma.organization.findUnique({ where: { slug: 'shree-durga-mandal' } });
+  const ev = mandal && (await prisma.event.findFirst({ where: { organizationId: mandal.id, festivalType: 'DURGA_PUJA' } }));
+  if (!ev || (await prisma.programmeItem.findFirst({ where: { eventId: ev.id } }))) return;
+  const dates: Date[] = [];
+  for (let t = ev.startDate.getTime(); t <= ev.endDate.getTime(); t += 86_400_000) dates.push(new Date(t));
+  const n = dates.length;
+  // The last five days are the Puja proper; earlier ones are build-up days.
+  const titles = ['Shashthi', 'Saptami', 'Maha Ashtami', 'Maha Navami', 'Vijaya Dashami'];
+  const subtitles = ['Bodhon & Amantran at dusk', 'Nabapatrika snan at dawn', 'Sandhi Puja at night · Kumari Puja', 'Maha Aarti & bhog', 'Sindoor Khela · Visarjan procession'];
+  for (let i = 0; i < n; i++) {
+    const k = i - (n - 5);
+    await prisma.programmeDay.create({ data: k >= 0
+      ? { eventId: ev.id, date: dates[i], title: titles[k], subtitle: subtitles[k] }
+      : { eventId: ev.id, date: dates[i], title: i === 0 ? 'Pandal opening' : `Pre-Puja evening ${i}`, subtitle: i === 0 ? 'Ribbon cutting by the chief guest' : null } });
+  }
+  const stars = [
+    { name: 'Rupa Sen & Band', role: 'Playback singer', bio: 'Bengali folk-fusion band, ten years of Puja stages across Kolkata.' },
+    { name: 'Arjun Malhotra', role: 'Sufi & Bollywood singer', bio: 'Known for live unplugged evenings.' },
+    { name: 'Kolkata Dhaki Dal', role: 'Dhak ensemble', bio: '24 dhakis from Murshidabad.' },
+    { name: 'Nritya Kala Academy', role: 'Classical dance troupe', bio: 'Odissi and Bharatanatyam students and gurus.' },
+    { name: 'DJ Ritam', role: 'Dhunuchi night DJ', bio: null },
+  ];
+  for (let i = 0; i < n; i++) {
+    const date = dates[i];
+    const star = stars[i % stars.length];
+    const items: Omit<Prisma.ProgrammeItemUncheckedCreateInput, 'eventId'>[] = [
+      { date, startTime: '07:00', endTime: '09:00', title: 'Morning puja & pushpanjali', category: 'PUJA', setting: 'INDOOR', stage: 'Main pandal', language: 'Bengali, Sanskrit', ageLimit: 'All ages', sortOrder: 0 },
+      { date, startTime: '17:00', endTime: '18:30', title: i % 2 ? 'Drawing competition for kids' : 'Dhunuchi dance competition', category: 'COMPETITION', setting: 'OUTDOOR', stage: 'Pandal ground', ageLimit: i % 2 ? 'Under 14' : 'All ages', sortOrder: 1, description: 'Register at the help desk by 4:30 pm. Prizes on Dashami.' },
+      { date, startTime: '19:30', endTime: '22:30', title: `Cultural night with ${star.name}`, category: 'PERFORMANCE', setting: 'OUTDOOR', stage: 'Main stage', language: 'Bengali, Hindi', ageLimit: 'All ages', isHeadline: true, sortOrder: 2,
+        description: 'Live music under the stars. Seating on a first-come basis; carry a mat if you like.', videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        guests: { create: [{ ...star, sortOrder: 0 }] } },
+    ];
+    if (i === 0) items.push({ date, startTime: '18:30', endTime: '19:15', title: 'Inauguration', category: 'CHIEF_GUEST', setting: 'INDOOR', stage: 'Community hall', sortOrder: 1, guests: { create: [{ name: 'Smt. Ananya Ghosh', role: 'Chief guest · Ward councillor', sortOrder: 0 }] } });
+    if (i === 2) items.push({ date, startTime: '21:00', title: 'Laser show', category: 'OTHER', setting: 'OUTDOOR', status: 'CANCELLED', statusNote: 'Cancelled due to rain — moved to the next evening.', sortOrder: 3 });
+    if (i === 3) items.push({ date, startTime: '15:00', title: 'Rehearsal (draft, not public)', category: 'OTHER', isPublished: false, sortOrder: 4 });
+    for (const it of items) await prisma.programmeItem.create({ data: { ...it, eventId: ev.id } });
+  }
+  console.log(`Demo programme added on ${ev.name} (${n} days).`);
+}
+
 async function main() {
   await seedCatalog();
   console.log('Permission catalog and system roles synced.');
@@ -685,6 +732,7 @@ async function main() {
     await seedStalls();
     await seedBloggers();
     await seedTaxDemo();
+    await seedProgramme();
   }
 }
 

@@ -114,10 +114,16 @@ export default function BookEventPage() {
   const days = useMemo(() => (event ? festivalDays(event.startDate, event.endDate) : []), [event]);
   const openDays = useMemo(() => days.filter((d) => d >= today), [days, today]);
 
-  // Pick the default day once the festival loads.
+  // Pick the default day once the festival loads: ?date= (from the programme's "book this day"), else today, else the next open day.
   useEffect(() => {
     if (!event || date) return;
-    setDate(openDays.includes(today) ? today : (openDays[0] ?? ''));
+    let wanted = '';
+    try {
+      wanted = new URLSearchParams(window.location.search).get('date') ?? '';
+    } catch {
+      /* ignore */
+    }
+    setDate(openDays.includes(wanted) ? wanted : openDays.includes(today) ? today : (openDays[0] ?? ''));
   }, [event, openDays, today, date]);
 
   const loadAvailability = useCallback(async (d: string) => {

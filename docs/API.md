@@ -939,3 +939,31 @@ the service worker (`public/sw.js`) shows it and opens `url` on tap.
 - `POST /public/push/unsubscribe` `{ endpoint }` — turns notifications off on that phone.
 - Alerts sent today: new Instagram photos to review (the admin who connected), blogger account / festival promotion decisions
   (every login of the blogger), stall booking cancelled by the mandal (every login of the vendor), pass reminders (visitors).
+
+## Festival programme / line-up
+
+What happens on each day of a multi-day festival (Durga Puja's ten days, Navratri's nine nights): performances, pujas,
+competitions, chief guests, with artists, posters and a video link. Shown on `/f/<eventId>` under **Programme & line-up**
+(star line-up strip, one tab per day, Indoor / Outdoor filter, "Book passes for this day" → `/book/<id>?date=YYYY-MM-DD`).
+
+- `GET /events/:eventId/programme` (EVENT_VIEW) → `{ startDate, endDate, timezone, days: [{ date, inRange, title, subtitle, items[] }] }` —
+  every festival day, plus any day left outside the range after the festival dates changed (`inRange: false`, never public).
+- `PUT /events/:eventId/programme/days/:date` (EVENT_UPDATE) `{ title?, subtitle? }` — day heading ("Maha Ashtami"); both empty removes it.
+- `POST /events/:eventId/programme/items` (EVENT_UPDATE) `{ date, startTime HH:mm, endTime?, title, category?, description?, setting? INDOOR|OUTDOOR|null,
+  stage?, language?, ageLimit?, videoUrl?, isHeadline?, status? SCHEDULED|CANCELLED, statusNote?, isPublished?, sortOrder?, guests?[≤10] }`.
+  `category`: PERFORMANCE | PUJA | CULTURAL | COMPETITION | CHIEF_GUEST | WORKSHOP | OTHER. `guests[]`: `{ id?, name, role?, bio?, instagramUrl? }`.
+  `videoUrl` must be a YouTube video/short/live or an Instagram reel/post link (stored normalised); `instagramUrl` takes `@handle` or a profile link.
+  The date must be inside the festival; at most 200 items per festival.
+- `PATCH /events/:eventId/programme/items/:itemId` — same fields, all optional. A `guests` list replaces the old one: rows with an `id` are
+  updated (and keep their photo), missing ones are deleted with their photo, rows without `id` are added. Guests come back in the order sent.
+- `DELETE /events/:eventId/programme/items/:itemId` → 204 (poster and artist photos deleted too).
+- `POST /events/:eventId/programme/days/:date/copy-to/:to` → `{ copied }` — copies items and guests (no images) as unpublished, non-headline drafts.
+- `PUT …/items/:itemId/poster` (multipart `file`, ≤ 2 MB) and `PUT …/items/:itemId/guests/:guestId/photo` (≤ 512 KB) → the item;
+  `DELETE` the same paths to remove. PNG / JPEG / WebP, sniffed. Both count toward the mandal's 300 MB
+  (`usage.breakdown.programmeBytes`; 413 `GALLERY_QUOTA_EXCEEDED`).
+- Organiser image URLs (`/events/:eventId/programme/images/poster|photo/:id`, EVENT_VIEW) work for drafts too.
+- Public: `GET /public/events/:eventId/programme` → `{ startDate, endDate, timezone, days: [{ date, dayNumber, title, subtitle, items[] }],
+  headliners: [{ itemId, date, startTime, title, category, name, role, photoUrl }] }` — LIVE + ACTIVE/COMPLETED festivals only (else 404),
+  published items only, empty days left out. Items carry `video: { provider YOUTUBE|INSTAGRAM, url, embedUrl } | null` and `posterUrl`.
+  Headliners are the guests of non-cancelled headline items. Images: `GET /public/programme/items/:id/poster`,
+  `GET /public/programme/guests/:id/photo` (published items of public festivals only, cached a day).

@@ -410,6 +410,8 @@ model Event {
   stallTypes        StallType[]
   stallBookings     StallBooking[]
   bloggerPromotions BloggerPromotion[]
+  programmeDays     ProgrammeDay[]
+  programmeItems    ProgrammeItem[]
 
   @@index([organizationId])
   @@index([state, city])
@@ -2113,4 +2115,91 @@ model PushPassLink {
   @@id([subscriptionId, passOrderId])
   @@index([passOrderId])
   @@map("push_pass_links")
+}
+
+// ─── Festival programme / line-up ──────────────────────────────────────
+// What happens on each day of a multi-day festival (Durga Puja's ten days,
+// Navratri's nine nights): performances, pujas, competitions, chief guests.
+// Shown on the public festival page only while the event is public (LIVE +
+// ACTIVE/COMPLETED) and the item is published. Times are "HH:mm" in the
+// event's timezone, like TimeSlot.
+
+/// Optional per-day heading ("Maha Ashtami", "Day 3 · Colour: Green").
+model ProgrammeDay {
+  id        String   @id @default(uuid())
+  eventId   String
+  date      DateTime @db.Date
+  title     String?
+  subtitle  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, date])
+  @@map("programme_days")
+}
+
+model ProgrammeItem {
+  id              String    @id @default(uuid())
+  eventId         String
+  date            DateTime  @db.Date
+  startTime       String
+  endTime         String?
+  title           String
+  /// PERFORMANCE | PUJA | CULTURAL | COMPETITION | CHIEF_GUEST | WORKSHOP | OTHER
+  category        String    @default("PERFORMANCE")
+  description     String?
+  /// INDOOR | OUTDOOR | null (not said) — shown as a tag, like activity listings.
+  setting         String?
+  /// Where inside the venue: "Main stage", "Pandal ground", "Community hall".
+  stage           String?
+  /// "Hindi, Bengali" — free text.
+  language        String?
+  /// "All ages", "5+", "18+" — free text, shown as given.
+  ageLimit        String?
+  /// Normalised YouTube / Instagram link (see programme.rules.ts).
+  videoUrl        String?
+  posterKey       String?
+  posterUpdatedAt DateTime?
+  /// Counts toward the mandal's image quota (common/images/quota.ts).
+  posterSizeBytes Int       @default(0)
+  /// Shown in the "Star line-up" strip at the top of the programme.
+  isHeadline      Boolean   @default(false)
+  /// SCHEDULED | CANCELLED (kept visible with the note, so visitors know).
+  status          String    @default("SCHEDULED")
+  statusNote      String?
+  isPublished     Boolean   @default(true)
+  sortOrder       Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  event  Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  guests ProgrammeGuest[]
+
+  @@index([eventId, date])
+  @@map("programme_items")
+}
+
+/// An artist / celebrity / chief guest appearing in one programme item.
+model ProgrammeGuest {
+  id             String    @id @default(uuid())
+  itemId         String
+  name           String
+  /// "Playback singer", "Chief guest", "Dhaki group"…
+  role           String?
+  bio            String?
+  instagramUrl   String?
+  photoKey       String?
+  photoUpdatedAt DateTime?
+  /// Counts toward the mandal's image quota.
+  photoSizeBytes Int       @default(0)
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  item ProgrammeItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@map("programme_guests")
 }

@@ -2,6 +2,7 @@ import type { SponsorPublic } from '@/components/SponsorStrip';
 import type { Venue } from '@/components/VenueDetails';
 import type { OrgBrand } from './media';
 import type { PublicPhoto } from './gallery-types';
+import type { PublicProgramme } from './programme-types';
 
 export interface PublicFestival {
   id: string;
@@ -43,6 +44,18 @@ export async function getPublicPhotos(eventId: string): Promise<PublicPhoto[]> {
     return res.ok ? ((await res.json()) as { items: PublicPhoto[] }).items : [];
   } catch {
     return [];
+  }
+}
+
+/** Day-wise programme / line-up (cached 5 minutes); null when there's none to show. */
+export async function getPublicProgramme(eventId: string): Promise<PublicProgramme | null> {
+  try {
+    const res = await fetch(`${API}/public/events/${encodeURIComponent(eventId)}/programme`, { next: { revalidate: 300 } });
+    if (!res.ok) return null;
+    const p = (await res.json()) as PublicProgramme;
+    return p.days.length ? p : null;
+  } catch {
+    return null;
   }
 }
 

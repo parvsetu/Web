@@ -6,27 +6,31 @@ type Db = Prisma.TransactionClient | PrismaService;
 
 /**
  * Everything that counts toward a mandal's 300 MB image quota: festival photos,
- * visitor review photos, approved Instagram photos and achievement images (full + thumbnail bytes each).
+ * visitor review photos, approved Instagram photos, achievement images (full + thumbnail bytes each) and
+ * programme posters / artist photos.
  * Logo and banner are small and fixed-size, so they don't count.
  * Callers that add bytes must hold the organization row lock (`SELECT … FOR NO KEY UPDATE` — it doesn't
  * collide with the FOR KEY SHARE locks that inserting rows referencing the org takes).
  */
 export async function storageUsage(db: Db, organizationId: string) {
-  const [photos, reviewPhotos, achievements, instagram] = await Promise.all([
+  const [photos, reviewPhotos, achievements, instagram, posters, guestPhotos] = await Promise.all([
     db.eventPhoto.aggregate({ where: { organizationId }, _sum: { sizeBytes: true }, _count: { _all: true } }),
     db.reviewPhoto.aggregate({ where: { organizationId }, _sum: { sizeBytes: true } }),
     db.achievement.aggregate({ where: { organizationId }, _sum: { imageSizeBytes: true } }),
     db.instagramMedia.aggregate({ where: { organizationId }, _sum: { sizeBytes: true } }),
+    db.programmeItem.aggregate({ where: { event: { organizationId } }, _sum: { posterSizeBytes: true } }),
+    db.programmeGuest.aggregate({ where: { item: { event: { organizationId } } }, _sum: { photoSizeBytes: true } }),
   ]);
   const photoBytes = photos._sum.sizeBytes ?? 0;
   const visitorPhotoBytes = reviewPhotos._sum.sizeBytes ?? 0;
   const achievementBytes = achievements._sum.imageSizeBytes ?? 0;
   const instagramBytes = instagram._sum.sizeBytes ?? 0;
+  const programmeBytes = (posters._sum.posterSizeBytes ?? 0) + (guestPhotos._sum.photoSizeBytes ?? 0);
   return {
-    usedBytes: photoBytes + visitorPhotoBytes + achievementBytes + instagramBytes,
+    usedBytes: photoBytes + visitorPhotoBytes + achievementBytes + instagramBytes + programmeBytes,
     quotaBytes: GALLERY_QUOTA_BYTES,
     photos: photos._count._all,
-    breakdown: { photoBytes, visitorPhotoBytes, achievementBytes, instagramBytes },
+    breakdown: { photoBytes, visitorPhotoBytes, achievementBytes, instagramBytes, programmeBytes },
   };
 }
 
