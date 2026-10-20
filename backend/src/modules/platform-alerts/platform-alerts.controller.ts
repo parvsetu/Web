@@ -20,6 +20,13 @@ export class PlatformAlertsController {
     return this.alerts.pendingCounts();
   }
 
+  /** Counts plus the waiting items themselves (newest first) — the notification bell. */
+  @Get('pending/items')
+  async items() {
+    const [counts, items] = await Promise.all([this.alerts.pendingCounts(), this.alerts.waiting()]);
+    return { counts, items };
+  }
+
   @Get('alert-settings')
   async settings() {
     const s = await this.prisma.platformSettings.findUnique({ where: { id: 'default' }, select: { alertEmails: true } });

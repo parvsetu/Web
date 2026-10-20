@@ -9,6 +9,7 @@ import { useAuth, useRequireAuth } from '@/lib/auth';
 import { ArrowLeft, BriefcaseBusiness, CalendarHeart, ClipboardCheck, Handshake, HelpCircle, KeyRound, LogOut, Megaphone, ShieldCheck, Store, UserRound } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { LogoMark } from './FestivalArt';
+import { PlatformBell } from './platform/PlatformBell';
 import { Alert, Button, LabeledInput, Modal, SkeletonList, cx } from './ui';
 
 export function AppShell({
@@ -60,6 +61,7 @@ export function AppShell({
             {subtitle && <div className="truncate text-xs text-slate-500">{subtitle}</div>}
           </div>
           {right}
+          {me?.isSuperAdmin && <PlatformBell />}
           <UserMenu />
         </div>
         <div aria-hidden className="h-1 w-full" style={{ background: gradient(festivalTheme(festivalType), 90) }} />

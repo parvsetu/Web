@@ -52,6 +52,18 @@ describe('Platform alerts (e2e)', () => {
     expect(p.body).toEqual(expect.objectContaining({ registrations: expect.any(Number), reviews: expect.any(Number), total: expect.any(Number) }));
     const m = await makeOrgWithEvent(ctx.prisma);
     expect((await ctx.http().get(api('/platform/pending')).set('Authorization', bearer(ctx, m.admin))).status).toBe(403);
+    // The bell: every waiting item, newest first, plus the same counts.
+    const older = await makeOrgWithEvent(ctx.prisma, { approvalStatus: 'SUBMITTED', status: 'DRAFT' });
+    await ctx.prisma.event.update({ where: { id: older.event.id }, data: { submittedAt: new Date(Date.now() - 3600_000) } });
+    const newer = await makeOrgWithEvent(ctx.prisma, { approvalStatus: 'SUBMITTED', status: 'DRAFT' });
+    await ctx.prisma.event.update({ where: { id: newer.event.id }, data: { submittedAt: new Date() } });
+    const bell = await ctx.http().get(api('/platform/pending/items')).set('Authorization', sa);
+    expect(bell.status).toBe(200);
+    expect(bell.body.counts.total).toBeGreaterThanOrEqual(2);
+    const titles = (bell.body.items as { tab: string; title: string }[]).filter((i) => i.tab === 'reviews').map((i) => i.title);
+    expect(titles.indexOf(`Festival submitted for review: ${newer.event.name}`)).toBeLessThan(titles.indexOf(`Festival submitted for review: ${older.event.name}`));
+    expect(titles.indexOf(`Festival submitted for review: ${older.event.name}`)).toBeGreaterThanOrEqual(0);
+    expect((await ctx.http().get(api('/platform/pending/items')).set('Authorization', bearer(ctx, m.admin))).status).toBe(403);
     const set = await ctx.http().put(api('/platform/alert-settings')).set('Authorization', sa).send({ alertEmails: ' Ops@Parvsetu.test ; ceo@parvsetu.test ' });
     expect(set.body).toEqual({ alertEmails: 'ops@parvsetu.test, ceo@parvsetu.test' });
   });

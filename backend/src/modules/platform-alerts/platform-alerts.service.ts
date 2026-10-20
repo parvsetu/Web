@@ -57,18 +57,29 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Everything that entered a review queue in (since, until] and is still waiting. */
-  async newSince(since: Date, until: Date): Promise<PlatformAlert[]> {
-    const range = { gt: since, lte: until };
+  newSince(since: Date, until: Date): Promise<PlatformAlert[]> {
+    return this.collect({ gt: since, lte: until });
+  }
+
+  /** Everything still waiting, newest first — the super admin's notification bell. At most `perQueue` per queue. */
+  async waiting(perQueue = 25): Promise<PlatformAlert[]> {
+    return (await this.collect(undefined, perQueue)).reverse();
+  }
+
+  /** Waiting items, oldest first; `range` limits to when they entered the queue, `take` keeps the newest N per queue. */
+  private async collect(range: { gt: Date; lte: Date } | undefined, take?: number): Promise<PlatformAlert[]> {
+    const pg = <F extends 'submittedAt' | 'createdAt'>(field: F): { orderBy?: Record<F, 'desc'>; take?: number } =>
+      take ? { orderBy: { [field]: 'desc' } as Record<F, 'desc'>, take } : {};
     const [regs, events, payouts, tax, partners, campaigns, bloggers, promotions, reports] = await Promise.all([
-      this.prisma.mandalRegistration.findMany({ where: { status: 'PENDING_REVIEW', submittedAt: range }, select: { orgName: true, city: true, source: true, submittedAt: true, events: true } }),
-      this.prisma.event.findMany({ where: { approvalStatus: 'SUBMITTED', submittedAt: range }, select: { name: true, submittedAt: true, organization: { select: { name: true } } } }),
-      this.prisma.payoutAccount.findMany({ where: { status: 'PENDING', submittedAt: range }, select: { submittedAt: true, organization: { select: { name: true } } } }),
-      this.prisma.orgTaxProfile.findMany({ where: { status: 'SUBMITTED', submittedAt: range }, select: { submittedAt: true, organization: { select: { name: true } } } }),
-      this.prisma.partner.findMany({ where: { status: 'PENDING', createdAt: range }, select: { name: true, createdAt: true } }),
-      this.prisma.partnerCampaign.findMany({ where: { status: 'REQUESTED', createdAt: range }, select: { createdAt: true, partner: { select: { name: true } }, organization: { select: { name: true } } } }),
-      this.prisma.blogger.findMany({ where: { status: 'PENDING', createdAt: range }, select: { name: true, city: true, createdAt: true } }),
-      this.prisma.bloggerPromotion.findMany({ where: { status: 'PENDING', createdAt: range }, select: { createdAt: true, blogger: { select: { name: true } }, event: { select: { name: true } } } }),
-      this.prisma.reviewReport.findMany({ where: { resolvedAt: null, createdAt: range }, select: { reason: true, createdAt: true, review: { select: { organization: { select: { name: true } } } } } }),
+      this.prisma.mandalRegistration.findMany({ where: { status: 'PENDING_REVIEW', submittedAt: range }, ...pg('submittedAt'), select: { orgName: true, city: true, source: true, submittedAt: true, events: true } }),
+      this.prisma.event.findMany({ where: { approvalStatus: 'SUBMITTED', submittedAt: range }, ...pg('submittedAt'), select: { name: true, submittedAt: true, organization: { select: { name: true } } } }),
+      this.prisma.payoutAccount.findMany({ where: { status: 'PENDING', submittedAt: range }, ...pg('submittedAt'), select: { submittedAt: true, organization: { select: { name: true } } } }),
+      this.prisma.orgTaxProfile.findMany({ where: { status: 'SUBMITTED', submittedAt: range }, ...pg('submittedAt'), select: { submittedAt: true, organization: { select: { name: true } } } }),
+      this.prisma.partner.findMany({ where: { status: 'PENDING', createdAt: range }, ...pg('createdAt'), select: { name: true, createdAt: true } }),
+      this.prisma.partnerCampaign.findMany({ where: { status: 'REQUESTED', createdAt: range }, ...pg('createdAt'), select: { createdAt: true, partner: { select: { name: true } }, organization: { select: { name: true } } } }),
+      this.prisma.blogger.findMany({ where: { status: 'PENDING', createdAt: range }, ...pg('createdAt'), select: { name: true, city: true, createdAt: true } }),
+      this.prisma.bloggerPromotion.findMany({ where: { status: 'PENDING', createdAt: range }, ...pg('createdAt'), select: { createdAt: true, blogger: { select: { name: true } }, event: { select: { name: true } } } }),
+      this.prisma.reviewReport.findMany({ where: { resolvedAt: null, createdAt: range }, ...pg('createdAt'), select: { reason: true, createdAt: true, review: { select: { organization: { select: { name: true } } } } } }),
     ]);
     const out: PlatformAlert[] = [
       ...regs.map((r) => {

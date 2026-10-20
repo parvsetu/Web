@@ -35,8 +35,14 @@ export default function PlatformPage() {
   const [tab, setTab] = useState('registrations');
   const [pending, setPending] = useState<PendingCounts | null>(null);
   useEffect(() => {
-    const h = window.location.hash.replace('#', '');
-    if (h) setTab(h);
+    // Initial hash, and the header bell switching tabs while the console is open.
+    const read = () => {
+      const h = window.location.hash.replace('#', '');
+      if (h) setTab(h);
+    };
+    read();
+    window.addEventListener('hashchange', read);
+    return () => window.removeEventListener('hashchange', read);
   }, []);
   // Counts behind the tab badges; refreshed every minute and whenever a tab is opened (after acting on an item).
   useEffect(() => {
