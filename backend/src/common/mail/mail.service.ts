@@ -129,7 +129,10 @@ export class MailService implements OnModuleDestroy {
  * One-time-code email. Built for phones:
  * - the code is in the subject and the hidden preview line, so it can be read
  *   from the notification without opening the mail;
- * - a big, spaced code box (long-press to copy — email clients can't run a copy button);
+ * - a big code box (tap / long-press selects it all — email clients can't run a copy button).
+ *   The digits are one unbroken string (spacing is letter-spacing only) and a plain
+ *   "Your … code is 123456" sentence is present, so Gmail's own "Copy code" detection
+ *   can find it — a space inside the code defeats that;
  * - "Verify automatically" opens Parvsetu with the code already filled in. The code
  *   rides in the URL fragment (#code=…), which browsers never send to a server, so
  *   it doesn't end up in any request log; the person still taps Verify / sets a password.
@@ -152,7 +155,6 @@ export function otpEmail(
     : null;
   const cta = verify ? 'Verify automatically' : 'Set a new password';
   const when = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }).format(opts.requestedAt ?? new Date());
-  const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
   const warning = 'Never share this code. Parvsetu staff will never ask you for it.';
   const text = [
     title, '', `Namaste ${name},`, '', intro, '', `Your code: ${code}`, '',
@@ -169,10 +171,11 @@ export function otpEmail(
     <h1 style="margin:0 0 6px;font-size:22px">${title}</h1>
     <p style="margin:0 0 4px">Namaste ${escapeHtml(name)},</p>
     <p style="margin:0;color:#334155">${intro}</p>
+    <p style="margin:10px 0 0;color:#334155">Your ${verify ? 'verification' : 'password reset'} code is <b>${code}</b></p>
   </td></tr>
   <tr><td style="padding:16px 24px" align="center">
-    <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:38px;line-height:1;font-weight:800;letter-spacing:10px;color:#c2410c;background:#fff7ed;border:2px dashed #fdba74;border-radius:14px;padding:18px 12px 18px 22px;user-select:all;-webkit-user-select:all">${spaced}</div>
-    <p style="margin:8px 0 0;font-size:12px;color:#64748b">Press and hold the code to copy it</p>
+    <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:38px;line-height:1;font-weight:800;letter-spacing:10px;color:#c2410c;background:#fff7ed;border:2px dashed #fdba74;border-radius:14px;padding:18px 12px 18px 22px;user-select:all;-webkit-user-select:all">${code}</div>
+    <p style="margin:8px 0 0;font-size:12px;color:#64748b">Tap or press and hold the code to copy it</p>
   </td></tr>
   ${link ? `<tr><td style="padding:4px 24px 8px" align="center">
     <a href="${escapeHtml(link)}" style="display:inline-block;background:#ea580c;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 26px;border-radius:12px">${cta} →</a>
