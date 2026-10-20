@@ -27,7 +27,7 @@ export default function IssuePage() {
   const ev = useEvent();
   return (
     <AppShell festivalType={ev.festivalType} title="Issue token" subtitle={ev.name} back={`/e/${ev.eventId}`}>
-      <EventGate anyOf={['TOKEN_CREATE']}>
+      <EventGate anyOf={['TOKEN_CREATE']} liveOnly>
         <IssueForm />
       </EventGate>
     </AppShell>

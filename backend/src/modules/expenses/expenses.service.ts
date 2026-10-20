@@ -7,6 +7,7 @@ import { RequestUser } from '../../common/auth/request-user';
 import { paged, paging, userRef } from '../../common/http';
 import { dateOnly, ymd } from '../../common/time/validity';
 import { CreateExpenseDto, CreateOrgExpenseDto, ExpenseListQuery, OrgExpenseListQuery, UpdateExpenseDto } from './expenses.dto';
+import { assertLive } from '../../common/event-approval';
 
 const expenseSelect = {
   id: true, eventId: true, category: true, description: true, amount: true, expenseDate: true, vendor: true, receiptRef: true,
@@ -71,8 +72,9 @@ export class ExpensesService {
 
   async createForOrg(actor: RequestUser, orgId: string, dto: CreateOrgExpenseDto) {
     if (dto.eventId) {
-      const ev = await this.prisma.event.findFirst({ where: { id: dto.eventId, organizationId: orgId }, select: { id: true } });
+      const ev = await this.prisma.event.findFirst({ where: { id: dto.eventId, organizationId: orgId }, select: { id: true, approvalStatus: true } });
       if (!ev) throw new BadRequestException('That festival does not belong to this mandal');
+      assertLive(ev, 'record expenses for it');
     }
     return this.insert(actor, orgId, dto.eventId ?? null, dto);
   }

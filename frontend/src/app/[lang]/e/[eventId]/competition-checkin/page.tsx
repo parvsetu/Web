@@ -23,7 +23,7 @@ export default function CompetitionCheckInPage() {
   const ev = useEvent();
   return (
     <AppShell title="Competition check-in" subtitle={ev.name} back={`/e/${ev.eventId}`} festivalType={ev.festivalType}>
-      <EventGate>
+      <EventGate liveOnly>
         <CheckIn />
       </EventGate>
     </AppShell>

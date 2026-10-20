@@ -10,6 +10,7 @@ import { LocateFixed, MapPin, Printer } from 'lucide-react';
 import { FestivalTypeSelect, StateCityPicker } from './PlacePicker';
 import { printFormatLabel } from './PrintFormat';
 import { useFestivalTypes } from '@/lib/catalog';
+import { Declaration } from './registration/Declaration';
 
 const STATUSES: EventStatus[] = ['DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
 
@@ -29,13 +30,18 @@ export function EventForm({
   onSubmit,
   submitLabel,
   festivalTypes,
+  declaration,
 }: {
   /** The mandal's chosen festivals; the type dropdown lists only these (empty = all). */
   festivalTypes?: string[];
   initial?: EventDetail | null;
   onSubmit: (body: EventBody) => Promise<void>;
   submitLabel: string;
+  /** New festival: show the content-policy declaration and require it — saving also submits it for platform review. */
+  declaration?: boolean;
 }) {
+  const [declared, setDeclared] = useState(false);
+  const [declError, setDeclError] = useState<string | null>(null);
   const types = useFestivalTypes();
   const groups = [...new Set((types.data ?? []).map((t) => t.group))];
   // Until the platform makes the event LIVE (review + fee) it can only be a draft.
@@ -134,6 +140,10 @@ export function EventForm({
       ...(form.state || initial ? { state: form.state } : {}),
       ...(form.city || initial ? { city: form.city.trim() } : {}),
     };
+    if (declaration && !declared) {
+      setDeclError('Please tick the declaration — the festival is sent for review when you create it.');
+      return;
+    }
     setBusy(true);
     try {
       await onSubmit(body);
@@ -390,6 +400,15 @@ export function EventForm({
           })}
         </div>
       </Field>
+      {declaration && (
+        <>
+          <Declaration checked={declared} onChange={(v) => { setDeclared(v); setDeclError(null); }} error={declError} />
+          <p className="text-xs text-slate-600">
+            Creating the festival sends it to the Parvsetu team for review. Once approved and the registration fee is paid it goes live;
+            until then you can set up slots, prices and the programme.
+          </p>
+        </>
+      )}
       {error && <Alert>{error}</Alert>}
       {ok && <Alert kind="success">Saved.</Alert>}
       <Button type="submit" loading={busy}>

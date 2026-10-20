@@ -3,7 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { CurrentUser, Public } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
-import { RequireAnyEventPermission, RequireEventPermission } from '../../common/access/permission.guard';
+import { RequireAnyEventPermission, RequireEventPermission, RequireLiveEvent } from '../../common/access/permission.guard';
 import {
   AssignHeatsDto, CancelEntryDto, CheckInDto, CreateCompetitionDto, CreateEntryDto, DemoPayEntryDto, EntryKeyQuery, EntryListQuery, ResultDto, UpdateCompetitionDto,
 } from './competitions.dto';
@@ -24,18 +24,21 @@ export class EventCompetitionsController {
   }
 
   @RequireEventPermission('EVENT_UPDATE')
+  @RequireLiveEvent('run competitions')
   @Post('competitions')
   create(@CurrentUser() u: RequestUser, @Param('eventId') eventId: string, @Body() dto: CreateCompetitionDto) {
     return this.comps.create(u, eventId, dto);
   }
 
   @RequireEventPermission('EVENT_UPDATE')
+  @RequireLiveEvent('run competitions')
   @Patch('competitions/:id')
   update(@CurrentUser() u: RequestUser, @Param('eventId') eventId: string, @Param('id') id: string, @Body() dto: UpdateCompetitionDto) {
     return this.comps.update(u, eventId, id, dto);
   }
 
   @RequireEventPermission('EVENT_UPDATE')
+  @RequireLiveEvent('run competitions')
   @Delete('competitions/:id')
   @HttpCode(204)
   async remove(@CurrentUser() u: RequestUser, @Param('eventId') eventId: string, @Param('id') id: string) {
@@ -59,30 +62,35 @@ export class EventCompetitionsController {
   }
 
   @RequireAnyEventPermission('EVENT_UPDATE', 'TOKEN_SCAN')
+  @RequireLiveEvent('run competitions')
   @Post('competitions/:id/check-in')
   checkIn(@CurrentUser() u: RequestUser, @Param('eventId') eventId: string, @Param('id') id: string, @Body() dto: CheckInDto) {
     return this.comps.checkIn(u, eventId, id, dto);
   }
 
   @RequireEventPermission('EVENT_UPDATE')
+  @RequireLiveEvent('run competitions')
   @Post('competitions/:id/heats')
   heats(@CurrentUser() u: RequestUser, @Param('eventId') eventId: string, @Param('id') id: string, @Body() dto: AssignHeatsDto) {
     return this.comps.assignHeats(u, eventId, id, dto);
   }
 
   @RequireEventPermission('EVENT_UPDATE')
+  @RequireLiveEvent('run competitions')
   @Patch('competition-entries/:entryId/result')
   result(@CurrentUser() u: RequestUser, @Param('eventId') eventId: string, @Param('entryId') entryId: string, @Body() dto: ResultDto) {
     return this.comps.setResult(u, eventId, entryId, dto);
   }
 
   @RequireEventPermission('EVENT_UPDATE')
+  @RequireLiveEvent('run competitions')
   @Delete('competition-entries/:entryId/result')
   clearResult(@CurrentUser() u: RequestUser, @Param('eventId') eventId: string, @Param('entryId') entryId: string) {
     return this.comps.clearResult(u, eventId, entryId);
   }
 
   @RequireEventPermission('EVENT_UPDATE')
+  @RequireLiveEvent('run competitions')
   @Post('competition-entries/:entryId/cancel')
   cancel(@CurrentUser() u: RequestUser, @Param('eventId') eventId: string, @Param('entryId') entryId: string, @Body() dto: CancelEntryDto) {
     return this.comps.cancelEntry(u, eventId, entryId, dto);

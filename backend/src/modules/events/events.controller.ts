@@ -3,7 +3,7 @@ import { SearchPageQuery } from '../../common/http';
 import { Access, CurrentUser } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
 import { AccessContext } from '../../common/access/access.service';
-import { RequireEventPermission, RequireOrgPermission } from '../../common/access/permission.guard';
+import { RequireEventPermission, RequireOrgPermission, RequireLiveEvent } from '../../common/access/permission.guard';
 import { EventsService } from './events.service';
 import { PriceRulesService } from './price-rules.service';
 import { EventSlugService } from './event-slug.service';
@@ -136,12 +136,14 @@ export class EventsController {
   }
 
   @RequireEventPermission('VOLUNTEER_ASSIGN')
+  @RequireLiveEvent('assign volunteers')
   @Post('events/:eventId/assignments')
   assign(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Body() dto: CreateAssignmentDto) {
     return this.events.assign(user, a.perms, a.organizationId, eventId, dto);
   }
 
   @RequireEventPermission('VOLUNTEER_ASSIGN')
+  @RequireLiveEvent('assign volunteers')
   @Patch('events/:eventId/assignments/:assignmentId')
   updateAssignment(
     @CurrentUser() user: RequestUser, @Access() a: AccessContext,

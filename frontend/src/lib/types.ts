@@ -56,6 +56,8 @@ export interface MeEvent {
   name: string;
   festivalType: string;
   status: EventStatus;
+  /** Platform review state; only a LIVE festival can run passes, donations, stalls… */
+  approvalStatus?: ApprovalStatus;
   startDate: string;
   endDate: string;
   timezone: string;

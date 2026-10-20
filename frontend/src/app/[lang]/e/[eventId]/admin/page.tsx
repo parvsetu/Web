@@ -30,23 +30,24 @@ import { CompetitionsTab } from '@/components/admin/CompetitionsTab';
 import { ArtTab } from '@/components/admin/ArtTab';
 import { EventApprovalCard } from '@/components/admin/EventApprovalCard';
 
-const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] }[] = [
+/** `liveOnly` tabs run the festival (passes, money, people) and stay hidden until it is LIVE; the rest is set-up. */
+const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[]; liveOnly?: boolean }[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, anyOf: ['REPORT_VIEW'] },
-  { key: 'tokens', label: 'Tokens', icon: Ticket, anyOf: ['TOKEN_VIEW', 'TOKEN_GENERATE'] },
+  { key: 'tokens', label: 'Tokens', icon: Ticket, anyOf: ['TOKEN_VIEW', 'TOKEN_GENERATE'], liveOnly: true },
   { key: 'programme', label: 'Programme & line-up', icon: CalendarDays, anyOf: ['EVENT_UPDATE'] },
-  { key: 'competitions', label: 'Competitions', icon: Trophy, anyOf: ['EVENT_UPDATE'] },
+  { key: 'competitions', label: 'Competitions', icon: Trophy, anyOf: ['EVENT_UPDATE'], liveOnly: true },
   { key: 'slots', label: 'Time slots', icon: Clock, anyOf: ['SETTINGS_UPDATE'] },
-  { key: 'volunteers', label: 'Volunteers', icon: Users, anyOf: ['VOLUNTEER_VIEW'] },
-  { key: 'scans', label: 'Scans', icon: ScanLine, anyOf: ['REPORT_VIEW'] },
+  { key: 'volunteers', label: 'Volunteers', icon: Users, anyOf: ['VOLUNTEER_VIEW'], liveOnly: true },
+  { key: 'scans', label: 'Scans', icon: ScanLine, anyOf: ['REPORT_VIEW'], liveOnly: true },
   { key: 'reports', label: 'Reports', icon: FileBarChart, anyOf: ['REPORT_VIEW'] },
   { key: 'photos', label: 'Photos', icon: Camera, anyOf: ['GALLERY_VIEW'] },
   { key: 'art', label: 'Art gallery', icon: Palette, anyOf: ['GALLERY_MANAGE'] },
-  { key: 'reviews', label: 'Visitor reviews', icon: MessageSquareQuote, anyOf: ['REVIEW_VIEW'] },
-  { key: 'stalls', label: 'Stalls', icon: Store, anyOf: ['STALL_VIEW'] },
-  { key: 'promote', label: 'Promote', icon: Megaphone, anyOf: ['EVENT_UPDATE'] },
-  { key: 'passes', label: 'Online passes', icon: Globe, anyOf: ['DONATION_VIEW'] },
-  { key: 'donations', label: 'Donations', icon: HandCoins, anyOf: ['DONATION_VIEW'] },
-  { key: 'expenses', label: 'Expenses', icon: ReceiptIndianRupee, anyOf: ['EXPENSE_VIEW'] },
+  { key: 'reviews', label: 'Visitor reviews', icon: MessageSquareQuote, anyOf: ['REVIEW_VIEW'], liveOnly: true },
+  { key: 'stalls', label: 'Stalls', icon: Store, anyOf: ['STALL_VIEW'], liveOnly: true },
+  { key: 'promote', label: 'Promote', icon: Megaphone, anyOf: ['EVENT_UPDATE'], liveOnly: true },
+  { key: 'passes', label: 'Online passes', icon: Globe, anyOf: ['DONATION_VIEW'], liveOnly: true },
+  { key: 'donations', label: 'Donations', icon: HandCoins, anyOf: ['DONATION_VIEW'], liveOnly: true },
+  { key: 'expenses', label: 'Expenses', icon: ReceiptIndianRupee, anyOf: ['EXPENSE_VIEW'], liveOnly: true },
   { key: 'settings', label: 'Settings', icon: Settings, anyOf: ['EVENT_UPDATE'] },
 ];
 
@@ -63,7 +64,7 @@ export default function EventAdminPage() {
 
 function Admin() {
   const ev = useEvent();
-  const visible = useMemo(() => TABS.filter((t) => canAny(ev.perms, t.anyOf)), [ev.perms]);
+  const visible = useMemo(() => TABS.filter((t) => canAny(ev.perms, t.anyOf) && (ev.live || !t.liveOnly)), [ev.perms, ev.live]);
   const [tab, setTab] = useState<string>('');
 
   useEffect(() => {

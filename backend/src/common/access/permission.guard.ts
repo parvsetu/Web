@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { Permission } from '../permissions';
 import { AccessService } from './access.service';
 import { RequestUser } from '../auth/request-user';
+import { assertLive } from '../event-approval';
 
 interface PermissionRequirement {
   scope: 'event' | 'org' | 'platform';
@@ -11,6 +12,16 @@ interface PermissionRequirement {
 }
 
 const REQUIREMENT = 'permissionRequirement';
+const LIVE_ONLY = 'requireLiveEvent';
+
+/**
+ * The event (`:eventId`) must be LIVE — reviewed and fee paid — else 409
+ * EVENT_NOT_LIVE. Put it on festival *operations* (donations, volunteers,
+ * stalls, competitions, expenses); set-up (details, slots, programme, photos,
+ * submit/pay) stays open while the festival waits for review. Needs an event
+ * permission decorator on the same route.
+ */
+export const RequireLiveEvent = (what: string) => SetMetadata(LIVE_ONLY, what);
 
 /** Requires the permission(s) on the event named by `:eventId` (or body.eventId). */
 export const RequireEventPermission = (...perms: Permission[]) =>
@@ -71,6 +82,8 @@ export class PermissionGuard implements CanActivate {
     if (!ok) {
       throw new ForbiddenException({ statusCode: 403, message: 'You do not have permission to do this.', code: 'FORBIDDEN' });
     }
+    const liveOnly = this.reflector.getAllAndOverride<string | undefined>(LIVE_ONLY, [context.getHandler(), context.getClass()]);
+    if (liveOnly && ctx.event) assertLive(ctx.event, liveOnly);
     req.access = ctx;
     return true;
   }

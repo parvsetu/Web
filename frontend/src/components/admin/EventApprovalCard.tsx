@@ -12,6 +12,7 @@ import type { ApprovalStatus } from '@/lib/types';
 import { Declaration } from '../registration/Declaration';
 import { ApprovalBadge, PayLinkActions, paymentLine } from '../registration/FeeStatus';
 import { Alert, Button, Modal, cx } from '../ui';
+import { NOT_LIVE_NOTE } from '../EventGate';
 
 const STEPS: { key: string; label: string; icon: typeof Wrench }[] = [
   { key: 'setup', label: 'Set up', icon: Wrench },
@@ -64,7 +65,7 @@ export function EventApprovalCard() {
           <>
             {status === 'CHANGES_REQUESTED' && a?.reviewNote && <Alert kind="warning"><strong>Changes requested:</strong> {a.reviewNote}</Alert>}
             <p className="text-sm text-slate-700">
-              This festival isn’t public yet. Set up slots, prices, venue and volunteers, then submit it for review.
+              This festival isn’t public yet. Set up slots, prices, venue and programme, then submit it for review.
               {a ? <> Registration fee: <strong>{fmtMoney(a.quote.fee)}</strong>.</> : null}
             </p>
             {a?.customFestival && <p className="text-xs text-violet-800">New event type “{a.customFestival.label}” ({a.customFestival.group}) will be reviewed with it.</p>}
@@ -92,6 +93,7 @@ export function EventApprovalCard() {
             )}
           </>
         )}
+        {!rejected && <p className="text-xs text-slate-600">{NOT_LIVE_NOTE}</p>}
         {rejected && (
           <p className="flex items-start gap-2 text-sm text-red-900">
             <XCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />

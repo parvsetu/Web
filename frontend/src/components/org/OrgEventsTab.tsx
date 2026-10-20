@@ -80,13 +80,16 @@ export function OrgEventsTab() {
       <Modal open={creating} onClose={() => setCreating(false)} title="New festival" wide>
         <EventForm
           festivalTypes={org.org?.festivalTypes}
-          submitLabel="Create festival"
+          submitLabel="Create & submit for review"
+          declaration
           onSubmit={async (body) => {
             const created = await api.post<EventDetail>(`/organizations/${org.orgId}/events`, body);
+            // Straight into platform review (super admins are emailed). If this step fails the
+            // festival stays a draft and its dashboard offers "Submit for review".
+            if (created?.id) await api.post(`/events/${created.id}/submit`, { declarationAccepted: true }).catch(() => undefined);
             setCreating(false);
             await refresh();
             q.reload();
-            // New festivals start as a draft for platform review: the dashboard shows "Submit for review".
             if (created?.id) router.push(`/e/${created.id}/admin#slots`);
           }}
         />

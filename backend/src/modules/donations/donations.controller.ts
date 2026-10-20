@@ -5,7 +5,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Access, CurrentUser, Public } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
 import { AccessContext } from '../../common/access/access.service';
-import { RequireEventPermission } from '../../common/access/permission.guard';
+import { RequireEventPermission, RequireLiveEvent } from '../../common/access/permission.guard';
 import { DonationsService } from './donations.service';
 import { CreateDonationDto, DonationListQuery, UpdateDonationDto } from './donations.dto';
 
@@ -32,6 +32,7 @@ export class DonationsController {
   }
 
   @RequireEventPermission('DONATION_CREATE')
+  @RequireLiveEvent('record donations')
   @Post('events/:eventId/donations')
   create(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Body() dto: CreateDonationDto) {
     return this.donations.create(user, a.event!, dto, a.perms);
@@ -44,6 +45,7 @@ export class DonationsController {
   }
 
   @RequireEventPermission('DONATION_UPDATE')
+  @RequireLiveEvent('edit donations')
   @Patch('events/:eventId/donations/:id')
   update(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Param('id') id: string, @Body() dto: UpdateDonationDto) {
     return this.donations.update(user, a.event!, id, dto, a.perms);

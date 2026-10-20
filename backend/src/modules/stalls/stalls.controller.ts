@@ -3,7 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Access, CurrentUser, Public } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
 import { AccessContext } from '../../common/access/access.service';
-import { RequireEventPermission, SuperAdminOnly } from '../../common/access/permission.guard';
+import { RequireEventPermission, SuperAdminOnly, RequireLiveEvent } from '../../common/access/permission.guard';
 import { StallsService } from './stalls.service';
 import { VendorsService } from './vendors.service';
 import { CurrentVendor, VendorCtx, VendorRoute } from './vendor.guard';
@@ -99,24 +99,28 @@ export class EventStallsController {
   }
 
   @RequireEventPermission('STALL_MANAGE')
+  @RequireLiveEvent('manage stalls')
   @Patch('stalls')
   settings(@CurrentUser() u: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Body() dto: StallSettingsDto) {
     return this.stalls.updateSettings(u.id, a.organizationId, eventId, dto);
   }
 
   @RequireEventPermission('STALL_MANAGE')
+  @RequireLiveEvent('manage stalls')
   @Post('stall-types')
   createType(@CurrentUser() u: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Body() dto: CreateStallTypeDto) {
     return this.stalls.createType(u.id, a.organizationId, eventId, dto);
   }
 
   @RequireEventPermission('STALL_MANAGE')
+  @RequireLiveEvent('manage stalls')
   @Patch('stall-types/:id')
   updateType(@CurrentUser() u: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Param('id') id: string, @Body() dto: UpdateStallTypeDto) {
     return this.stalls.updateType(u.id, a.organizationId, eventId, id, dto);
   }
 
   @RequireEventPermission('STALL_MANAGE')
+  @RequireLiveEvent('manage stalls')
   @Delete('stall-types/:id')
   deleteType(@CurrentUser() u: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Param('id') id: string) {
     return this.stalls.deleteType(u.id, a.organizationId, eventId, id);
@@ -129,12 +133,14 @@ export class EventStallsController {
   }
 
   @RequireEventPermission('STALL_MANAGE')
+  @RequireLiveEvent('manage stalls')
   @Patch('stall-bookings/:id')
   updateBooking(@CurrentUser() u: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Param('id') id: string, @Body() dto: UpdateStallBookingDto) {
     return this.stalls.updateBooking(u.id, a.organizationId, eventId, id, dto);
   }
 
   @RequireEventPermission('STALL_MANAGE')
+  @RequireLiveEvent('manage stalls')
   @Post('stall-bookings/:id/cancel')
   @HttpCode(200)
   cancelBooking(@CurrentUser() u: RequestUser, @Access() a: AccessContext, @Param('eventId') eventId: string, @Param('id') id: string, @Body() dto: CancelStallBookingDto) {

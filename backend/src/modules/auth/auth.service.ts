@@ -278,7 +278,7 @@ export class AuthService {
         ? {}
         : { OR: [{ organizationId: { in: [...orgPerms.keys()] } }, { id: { in: [...assignmentPerms.keys()] } }] },
       select: {
-        id: true, name: true, festivalType: true, status: true, startDate: true, endDate: true, timezone: true,
+        id: true, name: true, festivalType: true, status: true, approvalStatus: true, startDate: true, endDate: true, timezone: true,
         organization: { select: { id: true, name: true } },
       },
       orderBy: { startDate: 'desc' },

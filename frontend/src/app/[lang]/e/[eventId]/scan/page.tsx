@@ -74,7 +74,7 @@ export default function ScanPage() {
       }
     >
       <div className="p-4">
-        <EventGate anyOf={['TOKEN_SCAN']}>
+        <EventGate anyOf={['TOKEN_SCAN']} liveOnly>
           <InstallPrompt variant="scanner" className="mb-3" />
           <Scanner />
         </EventGate>

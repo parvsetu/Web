@@ -125,6 +125,21 @@ describe('Mandal registration, review & event fee (e2e)', () => {
     const issue = await ctx.http().post(api(`/events/${ganesh.id}/tokens`)).set('Authorization', auth).send({ durationHours: 3 });
     expect(issue.status).toBe(409);
     expect(issue.body.code).toBe('EVENT_NOT_LIVE');
+    // Festival operations stay locked until LIVE too (set-up above stays open).
+    const ops: [string, string, object][] = [
+      ['post', `/events/${ganesh.id}/tokens/bulk`, { count: 2 }],
+      ['post', `/events/${ganesh.id}/donations`, { donorName: 'A', amount: '101', method: 'CASH' }],
+      ['post', `/events/${ganesh.id}/expenses`, { category: 'Decor', description: 'Flowers', amount: '500', expenseDate: '2026-09-01' }],
+      ['post', `/organizations/${orgId}/expenses`, { eventId: ganesh.id, category: 'Decor', description: 'Flowers', amount: '500', expenseDate: '2026-09-01' }],
+      ['post', `/events/${ganesh.id}/competitions`, { name: 'Rangoli', date: '2026-09-02' }],
+      ['post', `/events/${ganesh.id}/stall-types`, { name: 'Food', price: '1000', count: 5 }],
+      ['patch', `/events/${ganesh.id}/stalls`, { stallBookingEnabled: true }],
+      ['post', `/events/${ganesh.id}/assignments`, { userId: me.id, roleKey: 'GATE_VOLUNTEER' }],
+    ];
+    for (const [method, path, body] of ops) {
+      const r = await (ctx.http() as unknown as Record<string, (u: string) => import('supertest').Test>)[method](api(path)).set('Authorization', auth).send(body);
+      expect([path, r.status, r.body.code]).toEqual([path, 409, 'EVENT_NOT_LIVE']);
+    }
     const booking = (await ctx.http().get(api('/public/booking/events'))).body as { id: string }[];
     expect(booking.some((e) => e.id === ganesh.id)).toBe(false);
     expect((await ctx.http().get(api(`/public/booking/events/${ganesh.id}`))).status).toBe(404);

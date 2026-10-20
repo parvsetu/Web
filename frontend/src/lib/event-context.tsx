@@ -5,7 +5,7 @@ import { api } from './api';
 import { useAuth } from './auth';
 import { DEFAULT_TZ } from './format';
 import { ALL_PERMISSIONS } from './permissions';
-import type { EventDetail, EventStatus } from './types';
+import type { ApprovalStatus, EventDetail, EventStatus } from './types';
 
 export interface EventCtx {
   eventId: string;
@@ -15,6 +15,13 @@ export interface EventCtx {
   name: string;
   festivalType: string;
   status: EventStatus | null;
+  approvalStatus: ApprovalStatus | null;
+  /**
+   * Reviewed and fee paid. Until then only set-up works (details, slots,
+   * programme, photos); the API refuses passes, donations, stalls, volunteers,
+   * competitions and expenses with EVENT_NOT_LIVE.
+   */
+  live: boolean;
   startDate: string;
   endDate: string;
   timezone: string;
@@ -53,12 +60,16 @@ export function EventProvider({ eventId, children }: { eventId: string; children
     const fromMe = me?.events.find((e) => e.id === eventId) ?? null;
     const perms = me?.isSuperAdmin ? ALL_PERMISSIONS : (detail?.myPermissions ?? fromMe?.permissions ?? []);
     const base = detail ?? fromMe;
+    const approvalStatus = detail?.approvalStatus ?? fromMe?.approvalStatus ?? null;
     return {
       eventId,
       slug: detail?.slug ?? null,
       name: base?.name ?? 'Festival',
       festivalType: base?.festivalType ?? '',
       status: base?.status ?? null,
+      approvalStatus,
+      // Unknown (not loaded yet) counts as live so nothing flickers away; the API is the real gate.
+      live: approvalStatus ? approvalStatus === 'LIVE' : true,
       startDate: base?.startDate ?? '',
       endDate: base?.endDate ?? '',
       timezone: base?.timezone || DEFAULT_TZ,

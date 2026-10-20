@@ -28,7 +28,7 @@ import {
 } from "@/lib/permissions";
 import type { MySummary } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { EventGate } from "@/components/EventGate";
+import { EventGate, NOT_LIVE_NOTE } from "@/components/EventGate";
 import { FestivalBanner } from "@/components/FestivalBanner";
 import { SponsorStrip, type SponsorPublic } from "@/components/SponsorStrip";
 import {
@@ -58,8 +58,9 @@ export default function VolunteerHome() {
 function Home() {
   const ev = useEvent();
   const { me } = useAuth();
-  const canScan = can(ev.perms, "TOKEN_SCAN");
-  const canIssue = can(ev.perms, "TOKEN_CREATE");
+  // Passes, scanning and check-in only exist once the festival is LIVE.
+  const canScan = ev.live && can(ev.perms, "TOKEN_SCAN");
+  const canIssue = ev.live && can(ev.perms, "TOKEN_CREATE");
   const summary = useAsync(
     () => api.get<MySummary>(`/events/${ev.eventId}/my-summary`),
     [ev.eventId],
@@ -70,7 +71,7 @@ function Home() {
     [ev.eventId],
   );
   // Competition check-in is offered only when the festival has competitions.
-  const canCheckInCompetitions = canScan || can(ev.perms, "EVENT_UPDATE");
+  const canCheckInCompetitions = ev.live && (canScan || can(ev.perms, "EVENT_UPDATE"));
   const competitions = useAsync(
     () => api.get<{ id: string }[]>(`/events/${ev.eventId}/competitions`),
     [ev.eventId],
@@ -117,6 +118,11 @@ function Home() {
         }
       />
 
+      {!ev.live && (
+        <Alert kind="warning">
+          <strong>Waiting for approval.</strong> {NOT_LIVE_NOTE}
+        </Alert>
+      )}
       {canIssue && <CreditBanner status={credit.data} orgId={orgId} />}
       {ev.status && ev.status !== "ACTIVE" && canScan && (
         <Alert kind="warning">
@@ -252,7 +258,7 @@ function Home() {
             </Card>
           )}
 
-          {!canScan && !canIssue && !isAdmin && (
+          {ev.live && !canScan && !canIssue && !isAdmin && (
             <Alert kind="info">You have no tasks for this festival yet.</Alert>
           )}
 
