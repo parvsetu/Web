@@ -12,12 +12,14 @@ export interface OutgoingMail {
 /**
  * Email delivery. Transport, first match wins:
  *   MAIL_TRANSPORT=memory → kept in `outbox` (tests read OTPs from it)
+ *   MAIL_RELAY_URL        → POST to the frontend's /api/mail on Vercel, which
+ *                           sends over SMTP (Gmail app password) — free
  *   BREVO_API_KEY         → Brevo transactional API over HTTPS
  *   RESEND_API_KEY        → Resend API over HTTPS
  *   SMTP_HOST             → SMTP (Gmail app password, Brevo/SES relay…)
  *   otherwise             → logged to the server console (local development)
  * HTTPS APIs exist because hosts like Render's free plan block outgoing SMTP
- * ports (25/465/587): SMTP then hangs until the connection timeout and nothing
+ * ports (25/465/587) — Gmail included: SMTP then hangs until the connection timeout and nothing
  * is delivered.
  *
  * Sending never holds up the request: real deliveries run in the background
@@ -55,11 +57,12 @@ export class MailService implements OnModuleDestroy {
     }
   }
 
-  private get httpProvider(): 'brevo' | 'resend' | null {
+  private get httpProvider(): 'relay' | 'brevo' | 'resend' | null {
+    if (process.env.MAIL_RELAY_URL) return 'relay';
     return process.env.BREVO_API_KEY ? 'brevo' : process.env.RESEND_API_KEY ? 'resend' : null;
   }
 
-  get mode(): 'smtp' | 'memory' | 'log' | 'brevo' | 'resend' {
+  get mode(): 'smtp' | 'memory' | 'log' | 'relay' | 'brevo' | 'resend' {
     if (process.env.MAIL_TRANSPORT === 'memory') return 'memory';
     return this.httpProvider ?? (this.transporter ? 'smtp' : 'log');
   }
@@ -86,13 +89,20 @@ export class MailService implements OnModuleDestroy {
     await Promise.allSettled([...this.inFlight]);
   }
 
-  private async deliver(mode: 'smtp' | 'brevo' | 'resend', mail: OutgoingMail) {
+  private async deliver(mode: 'smtp' | 'relay' | 'brevo' | 'resend', mail: OutgoingMail) {
     const from = parseFrom(process.env.MAIL_FROM) ?? parseFrom(process.env.SMTP_USER) ?? { name: 'Parvsetu', email: 'no-reply@parvsetu.app' };
     if (mode === 'smtp') {
       await this.transporter!.sendMail({ from: `${from.name} <${from.email}>`, ...mail });
       return;
     }
-    const req: { url: string; headers: Record<string, string>; body: unknown } = mode === 'brevo'
+    const req: { url: string; headers: Record<string, string>; body: unknown } = mode === 'relay'
+      ? {
+        // The relay sends as its own MAIL_FROM; only the message travels.
+        url: process.env.MAIL_RELAY_URL!,
+        headers: { authorization: `Bearer ${process.env.MAIL_RELAY_SECRET ?? ''}` },
+        body: mail,
+      }
+      : mode === 'brevo'
       ? {
         url: 'https://api.brevo.com/v3/smtp/email',
         headers: { 'api-key': process.env.BREVO_API_KEY! },

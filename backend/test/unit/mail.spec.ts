@@ -1,7 +1,7 @@
 import { MailService } from '../../src/common/mail/mail.service';
 
 const mail = { to: 'a@b.dev', subject: '123456 is your code', text: 'code 123456', html: '<p>123456</p>' };
-const keys = ['MAIL_TRANSPORT', 'BREVO_API_KEY', 'RESEND_API_KEY', 'SMTP_HOST', 'SMTP_PORT', 'MAIL_FROM'] as const;
+const keys = ['MAIL_TRANSPORT', 'MAIL_RELAY_URL', 'MAIL_RELAY_SECRET', 'BREVO_API_KEY', 'RESEND_API_KEY', 'SMTP_HOST', 'SMTP_PORT', 'MAIL_FROM'] as const;
 
 describe('MailService delivery', () => {
   const saved: Record<string, string | undefined> = {};
@@ -39,6 +39,25 @@ describe('MailService delivery', () => {
     expect(JSON.parse(calls[0][1].body as string)).toMatchObject({ sender: { name: 'Parvsetu', email: 'no-reply@parvsetu.app' }, to: [{ email: 'a@b.dev' }], subject: mail.subject });
     release();
     await m.flush();
+  });
+
+  it('hands mail to the Vercel relay with the shared secret, ahead of the other providers', async () => {
+    process.env.MAIL_RELAY_URL = 'https://parvsetu.example/api/mail';
+    process.env.MAIL_RELAY_SECRET = 's3cret';
+    process.env.BREVO_API_KEY = 'relay-wins';
+    process.env.SMTP_HOST = 'smtp.gmail.com';
+    const calls: [string, RequestInit][] = [];
+    global.fetch = jest.fn(async (url: string, init: RequestInit) => {
+      calls.push([url, init]);
+      return new Response('{"ok":true}', { status: 200 });
+    }) as unknown as typeof fetch;
+    const m = new MailService();
+    expect(m.mode).toBe('relay');
+    await m.send(mail);
+    await m.flush();
+    expect(calls[0][0]).toBe('https://parvsetu.example/api/mail');
+    expect((calls[0][1].headers as Record<string, string>).authorization).toBe('Bearer s3cret');
+    expect(JSON.parse(calls[0][1].body as string)).toEqual(mail);
   });
 
   it('uses Resend when that key is set, and logs (never throws) an API error', async () => {

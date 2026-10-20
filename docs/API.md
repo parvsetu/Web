@@ -1078,7 +1078,14 @@ and submit as soon as the 6th digit is entered.
 ## Email delivery
 
 `MailService.send()` queues the email and returns at once; delivery runs in the background (15 s HTTP timeout, 10/10/20 s SMTP
-timeouts) and failures are only logged. Transport, first match: `MAIL_TRANSPORT=memory` (tests) → `BREVO_API_KEY` (Brevo HTTPS API)
+timeouts) and failures are only logged. Transport, first match: `MAIL_TRANSPORT=memory` (tests) → `MAIL_RELAY_URL` (frontend relay,
+below) → `BREVO_API_KEY` (Brevo HTTPS API)
 → `RESEND_API_KEY` (Resend HTTPS API) → `SMTP_HOST` → log only. Use an HTTPS API on hosts that block outgoing SMTP ports (Render's free
 plan blocks 25/465/587 — SMTP then hangs until the timeout and nothing is delivered). `MAIL_FROM` ("Name <email>") must be a sender
 the provider has verified.
+
+**Gmail via the Vercel relay (production setup, free).** Vercel allows outgoing SMTP, Render's free plan doesn't, so the frontend
+exposes `POST /api/mail` (`frontend/src/app/api/mail/route.ts`): `Authorization: Bearer <MAIL_RELAY_SECRET>`, body
+`{ to, subject, text, html }`, sent from the relay's own `MAIL_FROM`. Set on **Vercel**: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
+`SMTP_USER`, `SMTP_PASS` (Gmail app password), `MAIL_FROM`, `MAIL_RELAY_SECRET`. On **Render**:
+`MAIL_RELAY_URL=https://<frontend domain>/api/mail` and the same `MAIL_RELAY_SECRET`. Gmail allows ~500 recipients/day.
