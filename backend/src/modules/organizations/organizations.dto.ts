@@ -52,6 +52,7 @@ export class UpdateRoleDto {
 
 export class OrgListQuery extends SearchPageQuery {
   @IsOptional() @IsString() @MaxLength(80) state?: string;
+  @IsOptional() @IsString() @MaxLength(80) city?: string;
 }
 
 export class AuditQuery extends SearchPageQuery {

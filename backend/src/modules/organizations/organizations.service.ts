@@ -30,12 +30,13 @@ export class OrganizationsService {
     private readonly catalog: FestivalCatalogService,
   ) {}
 
-  async list(actor: RequestUser, q: SearchPageQuery & { state?: string } = {}) {
+  async list(actor: RequestUser, q: SearchPageQuery & { state?: string; city?: string } = {}) {
     const { page, pageSize, skip, take } = paging(q, 20);
     const t = searchTerm(q.q);
     const where: Prisma.OrganizationWhereInput = {
       ...(actor.isSuperAdmin ? {} : { members: { some: { userId: actor.id, status: 'ACTIVE' } } }),
       state: q.state || undefined,
+      ...(q.city ? { city: { equals: q.city, mode: 'insensitive' as const } } : {}),
       ...(t ? { OR: [{ name: { contains: t, mode: 'insensitive' } }, { city: { contains: t, mode: 'insensitive' } }, { slug: { contains: t.toLowerCase() } }] } : {}),
     };
     const [items, total] = await Promise.all([

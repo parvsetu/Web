@@ -8,9 +8,10 @@ import { isApplicantOnly, isAwaitingApproval, useAuth } from '@/lib/auth';
 import { fmtDate, humanize } from '@/lib/format';
 import { ORG_ADMIN_PERMS, canAny } from '@/lib/permissions';
 import type { MeUser, PublicEvent } from '@/lib/types';
-import { Building2, CalendarDays, ChevronRight, ClipboardCheck, PartyPopper, Send, ShieldCheck, Sparkles } from 'lucide-react';
+import { BookOpen, Building2, CalendarDays, ChevronRight, ClipboardCheck, PartyPopper, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { AppShell } from '@/components/AppShell';
+import { SuperAdminHome } from '@/components/platform/SuperAdminHome';
 import { FestivalArt, Mandala } from '@/components/FestivalArt';
 import { Alert, Badge, Button, Card, Empty, Field, Select, SectionTitle } from '@/components/ui';
 
@@ -56,8 +57,8 @@ export default function DashboardPage() {
   }, [loading, me, router]);
 
   return (
-    <AppShell title="My festivals" subtitle={me ? `Hello, ${me.name}` : undefined}>
-      {me && !me.partner && !me.agent && !me.vendor && !me.blogger && <Picker me={me} />}
+    <AppShell title={me?.isSuperAdmin ? 'Home' : 'My festivals'} subtitle={me ? `Hello, ${me.name}` : undefined} wide={me?.isSuperAdmin}>
+      {me?.isSuperAdmin ? <SuperAdminHome me={me} /> : me && !me.partner && !me.agent && !me.vendor && !me.blogger && <Picker me={me} />}
     </AppShell>
   );
 }
@@ -98,6 +99,12 @@ function Picker({ me }: { me: MeUser }) {
           ))}
         </div>
       )}
+
+      <Link href="/guide" className="flex min-h-[52px] items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 text-sm font-semibold text-sky-900 hover:bg-sky-100">
+        <BookOpen aria-hidden className="h-5 w-5 shrink-0" />
+        <span className="min-w-0 flex-1">My role — what I can do here, and how</span>
+        <ChevronRight aria-hidden className="h-5 w-5" />
+      </Link>
 
       <SectionTitle icon={PartyPopper}>Choose a festival</SectionTitle>
       {me.events.length === 0 ? (

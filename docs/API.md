@@ -1067,6 +1067,19 @@ nothing is announced twice; the very first round only sets the marker (no flood 
   the "Waiting for you" strip.
 - `GET` / `PUT /platform/alert-settings` `{ alertEmails }` — extra comma-separated addresses (e.g. a team inbox).
 
+### Super admin directory (home screen)
+
+The super admin home (`/dashboard`) is a searchable directory instead of one long list, so it stays usable at thousands of rows.
+A festival's place is its venue's state/city, falling back to its mandal's.
+
+- `GET /platform/directory/overview` → `{ totals: { mandals, festivals, liveNow, upcoming, drafts, waitingReview }, states: [{ state, mandals, festivals }] }`
+  (states that have data, busiest first). "Today" is the IST calendar date.
+- `GET /platform/directory/cities?state` → `[{ city, count }]` — cities with mandals or festivals, busiest first.
+- `GET /platform/directory/events?q&state&city&festivalType&status&approvalStatus&when=live|upcoming|past&organizationId&sort=recent|soonest|name&page&pageSize`
+  → paged `{ id, name, slug, festivalType, status, approvalStatus, startDate, endDate, city, state, organization: { id, name, city, state } }`.
+- `GET /organizations` also takes `city` (case-insensitive) next to `state`.
+- `GET /auth/me` events carry `assignmentRole: { id, key, name } | null` — the festival-level role from a volunteer assignment (used by `/guide`).
+
 ## One-time codes (email)
 
 The OTP email puts the code in the subject and the hidden preview line, shows it large (long-press to copy) and has a

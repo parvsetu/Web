@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, errorMessage, setToken } from '@/lib/api';
 import { useAuth, useRequireAuth } from '@/lib/auth';
-import { ArrowLeft, BriefcaseBusiness, CalendarHeart, ClipboardCheck, Handshake, HelpCircle, KeyRound, LogOut, Megaphone, ShieldCheck, Store, UserRound } from 'lucide-react';
+import { ArrowLeft, BookOpen, BriefcaseBusiness, CalendarHeart, ClipboardCheck, Handshake, HelpCircle, KeyRound, LogOut, Megaphone, ShieldCheck, Store, UserRound } from 'lucide-react';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { LogoMark } from './FestivalArt';
 import { PlatformBell } from './platform/PlatformBell';
@@ -123,7 +123,7 @@ function UserMenu() {
               </Link>
             ) : (
               <Link href="/dashboard" className={menuItem} onClick={() => setOpen(false)}>
-                <CalendarHeart aria-hidden className="h-5 w-5 text-orange-500" /> My festivals
+                <CalendarHeart aria-hidden className="h-5 w-5 text-orange-500" /> {me.isSuperAdmin ? 'Home' : 'My festivals'}
               </Link>
             )}
             {(me.mandalRegistrations?.length ?? 0) > 0 && (
@@ -134,6 +134,11 @@ function UserMenu() {
             <Link href="/profile" className={menuItem} onClick={() => setOpen(false)}>
               <UserRound aria-hidden className="h-5 w-5 text-fuchsia-500" /> My profile
             </Link>
+            {!me.partner && !me.agent && !me.vendor && !me.blogger && (
+              <Link href="/guide" className={menuItem} onClick={() => setOpen(false)}>
+                <BookOpen aria-hidden className="h-5 w-5 text-emerald-600" /> My role &amp; how-to
+              </Link>
+            )}
             <Link href="/faq" className={menuItem} onClick={() => setOpen(false)}>
               <HelpCircle aria-hidden className="h-5 w-5 text-sky-500" /> Help &amp; FAQ
             </Link>

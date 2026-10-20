@@ -254,7 +254,7 @@ export class AuthService {
         },
         assignments: {
           where: { status: 'ACTIVE' },
-          select: { eventId: true, role: { select: { permissions: { select: { permissionKey: true } } } } },
+          select: { eventId: true, role: { select: { id: true, key: true, name: true, permissions: { select: { permissionKey: true } } } } },
         },
       },
     });
@@ -273,6 +273,7 @@ export class AuthService {
     }
 
     const assignmentPerms = new Map(user.assignments.map((a) => [a.eventId, a.role.permissions.map((p) => p.permissionKey)]));
+    const assignmentRoles = new Map(user.assignments.map((a) => [a.eventId, { id: a.role.id, key: a.role.key, name: a.role.name }]));
     const events = await this.prisma.event.findMany({
       where: user.isSuperAdmin
         ? {}
@@ -289,7 +290,8 @@ export class AuthService {
         const perms = user.isSuperAdmin
           ? new Set<string>(ALL_PERMISSIONS)
           : new Set([...(orgPerms.get(e.organization.id) ?? []), ...(assignmentPerms.get(e.id) ?? [])]);
-        return { ...e, startDate: ymd(e.startDate), endDate: ymd(e.endDate), permissions: [...perms].sort() };
+        // assignmentRole: this person's festival-level role (volunteers), null when access comes only from the mandal.
+        return { ...e, startDate: ymd(e.startDate), endDate: ymd(e.endDate), permissions: [...perms].sort(), assignmentRole: assignmentRoles.get(e.id) ?? null };
       })
       .filter((e) => e.permissions.length > 0);
 

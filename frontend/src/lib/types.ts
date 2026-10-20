@@ -63,6 +63,8 @@ export interface MeEvent {
   timezone: string;
   organization: IdName;
   permissions: string[];
+  /** Festival-level role from a volunteer assignment; null when access comes only from the mandal. */
+  assignmentRole?: RoleRef | null;
 }
 
 export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | string;

@@ -73,19 +73,19 @@ export default function PlatformPage() {
           <PlatformAlertsBar counts={pending} onOpen={change} />
           <SideTabsLayout
             tabs={[
-              { key: 'registrations', badge: pending?.registrations, label: 'Registrations', icon: ClipboardCheck },
-              { key: 'reviews', badge: pending?.reviews, label: 'Event reviews', icon: Ticket },
-              { key: 'reported', badge: pending?.reported, label: 'Reported visitor reviews', icon: Flag },
-              { key: 'agents', label: 'Agents', icon: BriefcaseBusiness },
-              { key: 'fees', label: 'Event fees', icon: BadgeIndianRupee },
-              { key: 'billing', label: 'Billing & earnings', icon: Wallet },
-              { key: 'payouts', badge: pending?.payouts, label: 'Payouts & KYC', icon: Landmark },
-              { key: 'tax', badge: pending?.tax, label: '80G verification', icon: BadgePercent },
-              { key: 'partners', badge: pending?.partners, label: 'Promotional partners', icon: Handshake },
-              { key: 'vendors', label: 'Stall vendors', icon: Store },
-              { key: 'bloggers', badge: pending?.bloggers, label: 'Bloggers', icon: Megaphone },
-              { key: 'orgs', label: 'Mandals', icon: Building2 },
-              { key: 'users', label: 'Users', icon: Users2 },
+              { group: 'Approvals', key: 'registrations', badge: pending?.registrations, label: 'Registrations', icon: ClipboardCheck },
+              { group: 'Approvals', key: 'reviews', badge: pending?.reviews, label: 'Event reviews', icon: Ticket },
+              { group: 'Approvals', key: 'reported', badge: pending?.reported, label: 'Reported visitor reviews', icon: Flag },
+              { group: 'Approvals', key: 'payouts', badge: pending?.payouts, label: 'Payouts & KYC', icon: Landmark },
+              { group: 'Approvals', key: 'tax', badge: pending?.tax, label: '80G verification', icon: BadgePercent },
+              { group: 'Money', key: 'fees', label: 'Event fees', icon: BadgeIndianRupee },
+              { group: 'Money', key: 'billing', label: 'Billing & earnings', icon: Wallet },
+              { group: 'People', key: 'agents', label: 'Agents', icon: BriefcaseBusiness },
+              { group: 'People', key: 'partners', badge: pending?.partners, label: 'Promotional partners', icon: Handshake },
+              { group: 'People', key: 'vendors', label: 'Stall vendors', icon: Store },
+              { group: 'People', key: 'bloggers', badge: pending?.bloggers, label: 'Bloggers', icon: Megaphone },
+              { group: 'Directory', key: 'orgs', label: 'Mandals', icon: Building2 },
+              { group: 'Directory', key: 'users', label: 'Users', icon: Users2 },
             ]}
             active={tab}
             onChange={change}
@@ -99,7 +99,8 @@ export default function PlatformPage() {
 }
 
 function Orgs() {
-  const q = usePagedList<Organization>('/organizations', {}, { pageSize: 20 });
+  const [place, setPlace] = useState({ state: '', city: '' });
+  const q = usePagedList<Organization>('/organizations', { state: place.state || undefined, city: place.city || undefined }, { pageSize: 20 });
   const [creating, setCreating] = useState(false);
   const [crediting, setCrediting] = useState<Organization | null>(null);
   return (
@@ -109,11 +110,12 @@ function Orgs() {
       </div>
       <p className="text-xs text-slate-500">Mandals can also register themselves or through a field agent — see Registrations. Mandals you create here are verified; their festivals still go through review and the per-event fee.</p>
       <SearchBar value={q.search} onChange={q.setSearch} placeholder="Search mandal name or city" total={q.total} />
+      <StateCityPicker state={place.state} city={place.city} onChange={setPlace} />
       {q.error && <Alert>{q.error}</Alert>}
       {q.loading && !q.data ? (
         <SkeletonList />
       ) : q.items.length === 0 ? (
-        <Empty title={q.searching ? 'No mandals match your search' : 'No organisations yet'} />
+        <Empty title={q.searching || place.state ? 'No mandals match your search' : 'No organisations yet'} />
       ) : (
         q.items.map((o) => (
           <Card key={o.id} className="flex flex-wrap items-center justify-between gap-3">

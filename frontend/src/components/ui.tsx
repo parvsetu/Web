@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { Fragment, useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, Info, Inbox, X, XCircle } from 'lucide-react';
@@ -349,6 +349,8 @@ export interface TabDef {
   icon?: LucideIcon;
   /** Small count pill (e.g. items waiting); hidden when 0 / undefined. */
   badge?: number;
+  /** SideTabsLayout: a heading is shown above the first tab of each group. */
+  group?: string;
 }
 
 export function Tabs({ tabs, active, onChange }: { tabs: TabDef[]; active: string; onChange: (k: string) => void }) {
@@ -387,9 +389,14 @@ export function SideTabsLayout({ tabs, active, onChange, children }: { tabs: Tab
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
       <nav aria-label="Sections" className="no-print lg:sticky lg:top-20 lg:w-56 lg:shrink-0">
         <div role="tablist" aria-orientation="vertical" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:flex-col lg:gap-1 lg:rounded-2xl lg:border lg:border-orange-100 lg:bg-white lg:p-2 lg:shadow-sm">
-          {tabs.map((t) => {
+          {tabs.map((t, i) => {
             const on = active === t.key;
+            const heading = t.group && t.group !== tabs[i - 1]?.group ? t.group : null;
             return (
+              <Fragment key={t.key}>
+              {heading && (
+                <div className="col-span-full px-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 first:pt-0 lg:px-3">{heading}</div>
+              )}
               <button
                 key={t.key}
                 type="button"
@@ -411,6 +418,7 @@ export function SideTabsLayout({ tabs, active, onChange, children }: { tabs: Tab
                   </span>
                 )}
               </button>
+              </Fragment>
             );
           })}
         </div>
