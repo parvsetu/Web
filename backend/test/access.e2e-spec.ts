@@ -25,6 +25,19 @@ describe('Access control, volunteers, configuration, reports (e2e)', () => {
 
   // ─── 19. Token validity configuration ───────────────────────────────
 
+  it('a LIVE festival still in Draft cannot issue tokens until it is made Active', async () => {
+    const { event: draft, admin: draftAdmin } = await makeOrgWithEvent(ctx.prisma, { status: 'DRAFT' });
+    const auth = bearer(ctx, draftAdmin);
+    const refused = await ctx.http().post(api(`/events/${draft.id}/tokens`)).set('Authorization', auth).send({ durationHours: 3 });
+    expect(refused.status).toBe(409);
+    expect(refused.body.code).toBe('EVENT_NOT_ACTIVE');
+    const bulk = await ctx.http().post(api(`/events/${draft.id}/tokens/bulk`)).set('Authorization', auth).send({ durationHours: 3, count: 2 });
+    expect(bulk.status).toBe(409);
+    expect(await ctx.prisma.token.count({ where: { eventId: draft.id } })).toBe(0);
+    expect((await ctx.http().patch(api(`/events/${draft.id}`)).set('Authorization', auth).send({ status: 'ACTIVE' })).status).toBe(200);
+    expect((await ctx.http().post(api(`/events/${draft.id}/tokens`)).set('Authorization', auth).send({ durationHours: 3 })).status).toBe(201);
+  });
+
   describe('19. admin configures token validity', () => {
     it('creates slots, issues a slot token with the right concrete window, and handles midnight-crossing slots', async () => {
       const slot = await ctx.http().post(api(`/events/${event.id}/time-slots`)).set('Authorization', adminAuth)

@@ -100,7 +100,11 @@ export class TokensService {
 
   private assertCanIssue(event: EventRef) {
     assertLive(event, 'issue passes');
-    if (event.status !== 'DRAFT' && event.status !== 'ACTIVE') {
+    // A Draft festival is still being set up: no passes until the mandal admin makes it Active.
+    if (event.status === 'DRAFT') {
+      throw new ConflictException({ message: 'Tokens can be issued only after the mandal admin makes this festival Active.', code: 'EVENT_NOT_ACTIVE' });
+    }
+    if (event.status !== 'ACTIVE') {
       throw new ConflictException({ message: `Tokens cannot be issued for a ${event.status.toLowerCase()} event.`, code: 'EVENT_CLOSED' });
     }
   }

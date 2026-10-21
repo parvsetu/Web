@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import { useEvent } from '@/lib/event-context';
+import { humanize } from '@/lib/format';
 import { useAsync } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
 import type { TimeSlot, TokenWithQr } from '@/lib/types';
@@ -28,7 +30,16 @@ export default function IssuePage() {
   return (
     <AppShell festivalType={ev.festivalType} title="Issue token" subtitle={ev.name} back={`/e/${ev.eventId}`}>
       <EventGate anyOf={['TOKEN_CREATE']} liveOnly>
-        <IssueForm />
+        {ev.status && ev.status !== 'ACTIVE' ? (
+          <Alert kind="warning">
+            {ev.status === 'DRAFT'
+              ? 'Tokens can be issued only after the mandal admin makes this festival Active.'
+              : `Tokens cannot be issued for a ${humanize(ev.status).toLowerCase()} festival.`}{' '}
+            <Link href={`/e/${ev.eventId}`} className="underline">Go back</Link>
+          </Alert>
+        ) : (
+          <IssueForm />
+        )}
       </EventGate>
     </AppShell>
   );
@@ -127,9 +138,6 @@ function IssueForm() {
       <CreditBanner status={credit.data} orgId={ev.organization?.id} />
       <IssueAllowance data={credit.data} />
       {slots.error && <Alert>{slots.error}</Alert>}
-      {ev.status && ev.status !== 'ACTIVE' && ev.status !== 'DRAFT' && (
-        <Alert kind="warning">Tokens can only be issued for Draft or Active festivals.</Alert>
-      )}
       <SectionTitle icon={Clock}>When can they enter?</SectionTitle>
       <Card>
         <ValidityPicker
