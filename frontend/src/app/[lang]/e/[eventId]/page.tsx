@@ -59,8 +59,12 @@ function Home() {
   const ev = useEvent();
   const { me } = useAuth();
   // Passes, scanning and check-in only exist once the festival is LIVE.
-  const canScan = ev.live && can(ev.perms, "TOKEN_SCAN");
-  const canIssue = ev.live && can(ev.perms, "TOKEN_CREATE");
+  // Tokens also stay hidden until the mandal admin makes the festival Active.
+  const active = !ev.status || ev.status === "ACTIVE";
+  const tokenPerms =
+    can(ev.perms, "TOKEN_SCAN") || can(ev.perms, "TOKEN_CREATE");
+  const canScan = ev.live && active && can(ev.perms, "TOKEN_SCAN");
+  const canIssue = ev.live && active && can(ev.perms, "TOKEN_CREATE");
   const summary = useAsync(
     () => api.get<MySummary>(`/events/${ev.eventId}/my-summary`),
     [ev.eventId],
@@ -124,10 +128,19 @@ function Home() {
         </Alert>
       )}
       {canIssue && <CreditBanner status={credit.data} orgId={orgId} />}
-      {ev.status && ev.status !== "ACTIVE" && canScan && (
+      {ev.live && !active && tokenPerms && (
         <Alert kind="warning">
-          Scanning works only while the festival is Active. It is currently{" "}
-          {humanize(ev.status)}.
+          <strong>Tokens are not open yet.</strong> Passes can be issued and
+          scanned once the mandal admin makes this festival Active. It is
+          currently {humanize(ev.status ?? "")}.
+          {isAdmin && (
+            <>
+              {" "}
+              <Link href={`/e/${ev.eventId}/admin`} className="underline">
+                Open the festival dashboard
+              </Link>
+            </>
+          )}
         </Alert>
       )}
 
@@ -258,7 +271,7 @@ function Home() {
             </Card>
           )}
 
-          {ev.live && !canScan && !canIssue && !isAdmin && (
+          {ev.live && (active || !tokenPerms) && !canScan && !canIssue && !isAdmin && (
             <Alert kind="info">You have no tasks for this festival yet.</Alert>
           )}
 
