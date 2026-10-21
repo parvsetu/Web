@@ -324,7 +324,7 @@ export const CAPABILITIES: Capability[] = [
   {
     id: 'f-donations', area: 'festival', anyOf: ['DONATION_VIEW'], link: { kind: 'event', tab: 'donations' }, title: 'Donations & receipts',
     what: 'Every donation gets a numbered receipt you can share on WhatsApp or print. 80G is shown on it when verified.',
-    steps: ['Festival dashboard → Donations → Record donation (needs “Record donations”).', 'Enter donor name, amount and method; add PAN / ID and address for 80G donors.', 'Choose “Already received (cash / UPI)” or Promise if the money is still to come.', 'Tick “Give entry passes to this donor” to issue passes with the receipt.', 'Later, update a promise to received (needs “Update donation payment status”).'],
+    steps: ['Festival dashboard → Donations → Record donation (needs “Record donations”).', 'Enter donor name, amount and method; add PAN / ID and address for 80G donors.', 'Choose “Already received (cash / UPI)” or Promise if the money is still to come.', 'Tick “Give entry passes to this donor” to issue passes with the receipt.', 'Later, update a promise to received (needs “Update donation payment status”).', 'Online: tick “Online donations” in the festival settings (payout account must be verified). Visitors then donate from the festival page; their donations arrive here already paid, with a “Website” badge.'],
   },
   {
     id: 'f-expenses', area: 'festival', anyOf: ['EXPENSE_VIEW'], link: { kind: 'event', tab: 'expenses' }, title: 'Expenses',

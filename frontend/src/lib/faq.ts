@@ -487,6 +487,22 @@ export const FAQ: FaqSection[] = [
         a: ['Yes. While recording a donation, tick “Give entry passes to this donor” and choose how many people — the passes are issued with the receipt.'],
       },
       {
+        id: 'donation-online',
+        q: 'Can people donate online from our festival page?',
+        a: [
+          'Yes. Festival settings → tick “Online donations”. A Donate button then appears on your festival page: donors pick an amount, give their name (or donate anonymously as gupt daan) and pay online. The receipt is created at once with your usual receipt number and shows in Festival admin → Donations with a “Website” badge.',
+          'Your payout account must be verified first — online donations are collected by Parvsetu and paid out to your bank, like online pass sales. Parvsetu takes no commission on donations; only the payment gateway fee is deducted. If your 80G is verified, donors can add their PAN for an 80G receipt.',
+        ],
+      },
+      {
+        id: 'donate-visitor',
+        q: 'How do I donate to a festival?',
+        a: [
+          'Open the festival’s page and tap “Donate”. Pick or type an amount, add your name (or tick gupt daan to stay anonymous) and pay. Your receipt opens straight away — print it or save it as a PDF. If you gave an email, it is sent there too.',
+          'Want an 80G tax deduction? If the mandal has a verified 80G registration, tick the 80G option and add your PAN and address. Anonymous donations can’t get 80G.',
+        ],
+      },
+      {
         id: 'expenses',
         q: 'Can we track expenses and profit or loss?',
         a: ['Yes. Mandal → Accounts records expenses by category (decoration, sound, prasad…) per festival or general, and shows the yearly income, expenses and profit or loss.'],
