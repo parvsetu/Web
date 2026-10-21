@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
@@ -7,7 +7,8 @@ import { RequestUser } from '../../common/auth/request-user';
 import { AccessContext } from '../../common/access/access.service';
 import { RequireEventPermission, RequireLiveEvent } from '../../common/access/permission.guard';
 import { DonationsService } from './donations.service';
-import { CreateDonationDto, DonationListQuery, UpdateDonationDto } from './donations.dto';
+import { PublicDonationsService } from './public-donations.service';
+import { CreateDonationDto, CreatePublicDonationDto, DemoPayDonationDto, DonationKeyQuery, DonationListQuery, UpdateDonationDto } from './donations.dto';
 
 @Controller()
 export class DonationsController {
@@ -77,5 +78,37 @@ export class DonationsController {
   @Get('events/:eventId/donations/:id/receipt')
   receipt(@Param('eventId') eventId: string, @Param('id') id: string) {
     return this.donations.receipt(eventId, id);
+  }
+}
+
+/** Donating on the public festival page — no login, rate limited per IP. */
+@Public()
+@Controller('public/donations')
+export class PublicDonationsController {
+  constructor(private readonly donations: PublicDonationsService) {}
+
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get('events/:eventId')
+  event(@Param('eventId', new ParseUUIDPipe()) eventId: string) {
+    return this.donations.eventInfo(eventId);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post()
+  create(@Body() dto: CreatePublicDonationDto) {
+    return this.donations.create(dto);
+  }
+
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get(':id')
+  get(@Param('id', new ParseUUIDPipe()) id: string, @Query() q: DonationKeyQuery) {
+    return this.donations.get(id, q.k);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post(':id/demo-pay')
+  @HttpCode(200)
+  demoPay(@Param('id', new ParseUUIDPipe()) id: string, @Body() dto: DemoPayDonationDto) {
+    return this.donations.demoPay(id, dto.k, dto.outcome);
   }
 }

@@ -27,6 +27,7 @@ export class CreateEventDto extends VenueFields {
   @IsOptional() @Matches(/^[A-Z0-9]{2,6}$/, { message: 'tokenPrefix must be 2-6 uppercase letters/digits' }) tokenPrefix?: string;
   @IsOptional() @IsBoolean() volunteerRegistrationOpen?: boolean;
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
+  @IsOptional() @IsBoolean() publicDonationsEnabled?: boolean;
   /** ISO date-time; null clears (sales open as soon as the festival is live). */
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsISO8601() bookingOpensAt?: string | null;
   /** ISO date-time; null clears (each slot sells until it ends). */
@@ -58,6 +59,7 @@ export class UpdateEventDto extends VenueFields {
   @IsOptional() @Matches(/^[A-Z0-9]{2,6}$/) tokenPrefix?: string;
   @IsOptional() @IsBoolean() volunteerRegistrationOpen?: boolean;
   @IsOptional() @IsBoolean() publicBookingEnabled?: boolean;
+  @IsOptional() @IsBoolean() publicDonationsEnabled?: boolean;
   /** ISO date-time; null clears (sales open as soon as the festival is live). */
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsISO8601() bookingOpensAt?: string | null;
   /** ISO date-time; null clears (each slot sells until it ends). */

@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsIn, IsISO8601, IsOptional, IsString, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsISO8601, IsOptional, IsString, IsUUID, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IssueTokenDto } from '../tokens/tokens.dto';
 import { DonorIdDto } from '../tax/tax.dto';
@@ -42,4 +42,26 @@ export class DonationListQuery extends PageQuery {
   @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) from?: string;
   @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) to?: string;
   @IsOptional() @IsString() @MaxLength(100) q?: string;
+}
+
+/** A visitor donating on the public festival page (no login). Method, provider and status are the server's. */
+export class CreatePublicDonationDto {
+  @IsUUID() eventId: string;
+  /** Required unless isAnonymous; never stored for an anonymous donation. */
+  @IsOptional() @IsString() @Length(2, 150) donorName?: string;
+  @IsOptional() @IsBoolean() isAnonymous?: boolean;
+  @IsOptional() @IsString() @Length(10, 20) donorMobile?: string;
+  @IsOptional() @IsEmail() @MaxLength(200) donorEmail?: string;
+  @MoneyField() amount: string;
+  /** PAN / ID for an 80G receipt (named donations only). Eligibility is decided by the server. */
+  @IsOptional() @ValidateNested() @Type(() => DonorIdDto) taxId?: DonorIdDto;
+}
+
+export class DonationKeyQuery {
+  @IsString() @Matches(/^[A-Za-z0-9_-]{20,64}$/) k: string;
+}
+
+export class DemoPayDonationDto {
+  @IsString() @Matches(/^[A-Za-z0-9_-]{20,64}$/) k: string;
+  @IsIn(['success', 'fail']) outcome: 'success' | 'fail';
 }

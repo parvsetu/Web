@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { VenueCard } from '@/components/VenueDetails';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CalendarDays, Clock, HandHeart, MapPin, Store, Ticket } from 'lucide-react';
+import { CalendarDays, Clock, HandCoins, HandHeart, MapPin, Store, Ticket } from 'lucide-react';
 import { FestivalBanner } from '@/components/FestivalBanner';
 import { PublicShell } from '@/components/booking/PublicShell';
 import { ShareButtons } from '@/components/ShareButtons';
@@ -108,6 +108,22 @@ export default async function FestivalPage({ params }: Props) {
           >
             <Ticket aria-hidden className="h-7 w-7" /> {allFree ? t('festival.bookFree') : prices.includes(0) ? t('festival.bookFreePaid') : t('festival.bookFrom', { price: minPaid })}
           </SalesGate>
+        )}
+
+        {f.status === 'ACTIVE' && f.publicDonationsEnabled && (
+          <Link
+            href={`/donate/${f.id}`}
+            className="flex min-h-[64px] items-center justify-between gap-3 rounded-2xl border-2 border-rose-200 bg-gradient-to-r from-rose-50 to-amber-50 px-4 py-3 text-rose-900"
+          >
+            <span className="flex items-center gap-3">
+              <HandCoins aria-hidden className="h-7 w-7 shrink-0 text-rose-600" />
+              <span>
+                <span className="block font-extrabold">{t('festival.donateTitle', { org: f.organization.name })}</span>
+                <span className="block text-sm">{t('festival.donateSub')}</span>
+              </span>
+            </span>
+            <span className="shrink-0 rounded-xl bg-rose-600 px-3 py-2 text-sm font-bold text-white">{t('festival.donate')}</span>
+          </Link>
         )}
 
         {programme && <PublicProgramme eventId={f.id} programme={programme} accent={th.ink} canBook={f.status === 'ACTIVE' && f.publicBookingEnabled} salesOpensAt={f.bookingOpensAt ?? null} salesClosesAt={f.bookingClosesAt ?? null} />}

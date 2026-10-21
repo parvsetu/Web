@@ -346,6 +346,8 @@ model Event {
   volunteerRegistrationOpen Boolean             @default(false)
   // Visitors can buy/book passes on the public site (prices live on time slots).
   publicBookingEnabled      Boolean             @default(false)
+  // Visitors can donate online from the public festival page (/donate/<event>).
+  publicDonationsEnabled    Boolean             @default(false)
   /// Online pass sales window (null = open as soon as the festival is live / until each slot ends).
   /// Lets a mandal announce "passes on sale from 1 Oct, 10 am" for a festival that starts later.
   bookingOpensAt            DateTime?

@@ -35,7 +35,7 @@ export class PublicController {
       where: { id: eventId, status: { in: ['ACTIVE', 'COMPLETED'] }, ...LIVE_WHERE },
       select: {
         id: true, slug: true, name: true, festivalType: true, description: true, ...VENUE_SELECT,
-        startDate: true, endDate: true, timezone: true, status: true, publicBookingEnabled: true, volunteerRegistrationOpen: true, bookingOpensAt: true, bookingClosesAt: true,
+        startDate: true, endDate: true, timezone: true, status: true, publicBookingEnabled: true, publicDonationsEnabled: true, volunteerRegistrationOpen: true, bookingOpensAt: true, bookingClosesAt: true,
         organization: { select: { name: true, city: true, state: true, ...ORG_BRAND_SELECT } },
         timeSlots: { where: { isActive: true }, select: { label: true, startTime: true, endTime: true, price: true }, orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }] },
       },

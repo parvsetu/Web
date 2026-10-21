@@ -22,6 +22,8 @@ export interface PublicFestival {
   timezone: string;
   status: 'ACTIVE' | 'COMPLETED';
   publicBookingEnabled: boolean;
+  /** Visitors can donate online (/donate/<id>); payment readiness is checked on that page. */
+  publicDonationsEnabled?: boolean;
   volunteerRegistrationOpen: boolean;
   bookingOpensAt: string | null;
   bookingClosesAt: string | null;

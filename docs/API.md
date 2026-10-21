@@ -312,6 +312,26 @@ number. An online provider → `PENDING` and response includes
 webhook. Donation: `{ id, receiptNo, donorName, donorMobile, donorEmail, amount, currency, method, paymentStatus, paymentProvider, paymentReference, donatedAt, notes, createdBy }`.
 Receipt: `{ receiptNo, organization: {name, city, address}, event: {name}, donorName, amount, amountInWords, method, paymentReference, donatedAt }` (409 unless SUCCESS).
 
+### Public donations (no login)
+
+A visitor donates from the festival page (`/donate/<eventId>`). Open only when
+the event is ACTIVE + LIVE and `publicDonationsEnabled` (event setting); paying
+also needs an online gateway and the mandal's verified payout account.
+
+| GET | `/public/donations/events/:eventId` | public → `{ id, name, organization, onlinePayments, deduction80G: 50\|100\|null, minAmount, maxAmount, suggestedAmounts, holdMinutes }` (404 `DONATIONS_CLOSED`) |
+|---|---|---|
+| POST | `/public/donations` `{ eventId, donorName?, isAnonymous?, donorMobile?, donorEmail?, amount, taxId?: { idType, idNumber, address? } }` | public, 10/min → PENDING donation + `accessKey` |
+| GET | `/public/donations/:id?k=` | public → `{ id, status, amount, donorName, isAnonymous, receiptNo, expiresAt, payment: { provider, demo }, receiptPath, event }` |
+| POST | `/public/donations/:id/demo-pay` `{ k, outcome: "success"\|"fail" }` | public; only with `BOOKING_DEMO_PAYMENTS=true` |
+
+Method is always `ONLINE`, amount ₹10–₹10,00,000. Paid → receipt number, 80G
+re-check, a `PaymentSettlement` (`sourceType: DONATION`, no platform
+commission) and the receipt emailed if an email was given; `receiptPath` is the
+public receipt `/r/<id>?k=<accessKey>`. Unpaid after 30 minutes → `FAILED`.
+Errors: `AMOUNT_OUT_OF_RANGE`, `DONOR_NAME_REQUIRED`, `ANONYMOUS_NO_TAX_ID`,
+`PAYOUTS_NOT_READY` (409), `PAYMENTS_UNAVAILABLE` (503), `DONATION_CLOSED` /
+`DONATION_EXPIRED` (409).
+
 ## Expenses
 
 | GET | `/events/:eventId/expenses?category&from&to&page` | EXPENSE_VIEW@event |

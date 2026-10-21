@@ -76,6 +76,7 @@ export function DonationsTab() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold">{d.donorName ?? 'Anonymous donor'}</span>
                   {d.isAnonymous && <Badge className="bg-violet-100 text-violet-800">Gupt daan</Badge>}
+                  {!d.createdBy && d.method === 'ONLINE' && <Badge className="bg-sky-100 text-sky-800">Website</Badge>}
                   {d.tax?.eligibleFor80G && <Badge className="bg-emerald-100 text-emerald-800">80G {d.tax.deductionPercent}%</Badge>}
                   <Badge value={d.paymentStatus} />
                 </div>

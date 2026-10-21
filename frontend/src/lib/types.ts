@@ -246,6 +246,7 @@ export interface EventDetail {
   tokenPrefix: string;
   volunteerRegistrationOpen: boolean;
   publicBookingEnabled?: boolean;
+  publicDonationsEnabled?: boolean;
   bookingOpensAt?: string | null;
   bookingClosesAt?: string | null;
   tokenDurationOptions?: number[];
@@ -287,6 +288,7 @@ export interface EventBody {
   tokenPrefix?: string;
   volunteerRegistrationOpen?: boolean;
   publicBookingEnabled?: boolean;
+  publicDonationsEnabled?: boolean;
   bookingOpensAt?: string | null;
   bookingClosesAt?: string | null;
   tokenDurationOptions?: number[];

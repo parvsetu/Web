@@ -58,7 +58,7 @@ export class DonationsService {
   }
 
   /** Receipt numbers come from an atomic per-event counter, assigned only when money is confirmed. */
-  private async nextReceipt(tx: Prisma.TransactionClient, eventId: string) {
+  async nextReceipt(tx: Prisma.TransactionClient, eventId: string) {
     const rows = await tx.$queryRaw<{ donationReceiptSeq: number; tokenPrefix: string; startDate: Date }[]>`
       UPDATE events SET "donationReceiptSeq" = "donationReceiptSeq" + 1 WHERE id = ${eventId}
       RETURNING "donationReceiptSeq", "tokenPrefix", "startDate"`;
@@ -229,7 +229,7 @@ export class DonationsService {
     return { path: `/r/${id}?k=${key}`, url: `${siteUrl()}/r/${id}?k=${key}` };
   }
 
-  async emailReceipt(actorId: string, event: EventRef, id: string) {
+  async emailReceipt(actorId: string | null, event: Pick<EventRef, 'id' | 'name' | 'organizationId'>, id: string) {
     const d = await this.prisma.donation.findFirst({ where: { id, eventId: event.id }, select: { donorEmail: true, donorName: true, amount: true, receiptNo: true } });
     const greet = d?.donorName ? `Namaste ${d.donorName}` : 'Namaste';
     const thanks = d?.donorName ? `Thank you, ${d.donorName.replace(/[<>&]/g, '')}` : 'Thank you for your gupt daan';
@@ -319,7 +319,7 @@ export class DonationsService {
 }
 
 /** Name fields for a new donation: an anonymous one never stores a name, a named one needs it. */
-function donorIdentity(dto: CreateDonationDto) {
+export function donorIdentity(dto: { isAnonymous?: boolean; donorName?: string }) {
   if (dto.isAnonymous) return { donorName: null, isAnonymous: true };
   const name = dto.donorName?.trim();
   if (!name) throw new BadRequestException({ statusCode: 400, code: 'DONOR_NAME_REQUIRED', message: 'Enter the donor name, or mark the donation as anonymous.' });

@@ -59,6 +59,7 @@ export function EventForm({
     tokenPrefix: initial?.tokenPrefix ?? '',
     volunteerRegistrationOpen: initial?.volunteerRegistrationOpen ?? false,
     publicBookingEnabled: initial?.publicBookingEnabled ?? false,
+    publicDonationsEnabled: initial?.publicDonationsEnabled ?? false,
     bookingOpensAt: toLocalInput(initial?.bookingOpensAt),
     bookingClosesAt: toLocalInput(initial?.bookingClosesAt),
     tokenDurationOptions: initial?.tokenDurationOptions ?? [],
@@ -118,6 +119,7 @@ export function EventForm({
       tokenPrefix: form.tokenPrefix || undefined,
       volunteerRegistrationOpen: form.volunteerRegistrationOpen,
       publicBookingEnabled: form.publicBookingEnabled,
+      publicDonationsEnabled: form.publicDonationsEnabled,
       bookingOpensAt: form.bookingOpensAt ? new Date(form.bookingOpensAt).toISOString() : null,
       bookingClosesAt: form.bookingClosesAt ? new Date(form.bookingClosesAt).toISOString() : null,
       tokenDurationOptions: form.tokenDurationOptions,
@@ -306,6 +308,11 @@ export function EventForm({
           />
         </div>
       )}
+      <Checkbox
+        label={<span>Online donations <span className="text-sm text-slate-500">— visitors can donate from the festival page and get the receipt instantly (needs a verified payout account)</span></span>}
+        checked={form.publicDonationsEnabled}
+        onChange={(v) => setForm((x) => ({ ...x, publicDonationsEnabled: v }))}
+      />
       <div className="flex flex-col gap-3 rounded-2xl border border-orange-200 bg-orange-50/40 p-3">
         <Checkbox
           label={<span className="font-semibold">Charge GST on online pass sales</span>}
