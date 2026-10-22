@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Award, CheckCircle2, Clock3, CreditCard, Medal, RotateCcw, XCircle } from 'lucide-react';
+import { Award, CheckCircle2, Clock3, CreditCard, Download, Medal, Printer, RotateCcw, XCircle } from 'lucide-react';
 import { PublicShell } from '@/components/booking/PublicShell';
-import { QrImage } from '@/components/QrImage';
+import { QrImage, qrCardPng } from '@/components/QrImage';
+import { saveBlob } from '@/lib/api';
 import { Alert, Button, Skeleton } from '@/components/ui';
 import { BookingError, publicApi } from '@/lib/booking';
 import { fmtDateL, fmtHHmmL } from '@/lib/i18n/format';
@@ -38,6 +39,8 @@ function Entry() {
   const { t, locale } = useT();
   const [e, setE] = useState<EntryView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState<'success' | 'fail' | null>(null);
   const left = useCountdown(e?.status === 'PENDING' ? e.expiresAt : null);
@@ -67,6 +70,27 @@ function Entry() {
       await load();
     } finally {
       setBusy(null);
+    }
+  }
+
+  /** Same QR card image as event passes: QR + bib, name, competition, category, date/time. */
+  async function downloadPass(v: EntryView) {
+    if (!v.qrPayload) return;
+    setSaving(true);
+    setSaveError(false);
+    try {
+      const blob = await qrCardPng(v.qrPayload, [
+        v.bibNo !== null ? `${t('comp.entry.bib')} ${v.bibNo}` : '',
+        v.participantName,
+        `${v.competition.name} · ${v.category.name}`,
+        `${fmtDateL(v.competition.date, locale)} · ${fmtHHmmL(v.competition.startTime, locale)}${v.competition.venue ? ` · ${v.competition.venue}` : ''}`,
+        v.event.name,
+      ].filter(Boolean));
+      saveBlob(blob, `parvsetu-entry-${v.bibNo ?? v.id.slice(0, 8)}.png`);
+    } catch {
+      setSaveError(true);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -121,6 +145,15 @@ function Entry() {
             <>
               <QrImage payload={e.qrPayload} size={220} alt={t('comp.entry.showQr')} />
               <p className="text-sm text-slate-600">{t('comp.entry.showQr')}</p>
+              <div className="no-print grid w-full grid-cols-2 gap-2">
+                <Button variant="primary" loading={saving} onClick={() => void downloadPass(e)}>
+                  {!saving && <Download aria-hidden className="h-5 w-5" />} {t('passCard.downloadPng')}
+                </Button>
+                <Button variant="secondary" onClick={() => window.print()}>
+                  <Printer aria-hidden className="h-5 w-5" /> {t('common.print')}
+                </Button>
+              </div>
+              {saveError && <p className="no-print text-sm text-red-700">{t('passCard.imgFailed')}</p>}
             </>
           ) : null}
           {e.result && (
