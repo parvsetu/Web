@@ -10,6 +10,7 @@ import { useAsync, useDebounced } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
 import type { Assignment, Paged, Role, Volunteer, VolunteerActivity } from '@/lib/types';
 import { ScanRowCard } from '../ScanRow';
+import { PendingApplicationsNotice } from '../org/PendingApplicationsNotice';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SectionTitle, SkeletonList, Stat } from '../ui';
 import { Pencil, Save, Trash2, UserPlus } from 'lucide-react';
 
@@ -57,6 +58,7 @@ export function VolunteersTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PendingApplicationsNotice orgId={orgId} />
       <SearchBar value={q.search} onChange={q.setSearch} placeholder="Search volunteer name, mobile or email" total={q.total}>
         {canAssign && <Button onClick={() => setAdding(true)}><UserPlus aria-hidden className="h-4 w-4" /> Assign volunteer</Button>}
       </SearchBar>

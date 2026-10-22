@@ -111,7 +111,7 @@ function OrgAdmin() {
       </section>
       <SideTabsLayout tabs={visible} active={tab} onChange={change}>
       {tab === 'events' && <OrgEventsTab />}
-      {tab === 'volunteers' && <OrgVolunteersTab />}
+      {tab === 'volunteers' && <OrgVolunteersTab onShowApplications={() => change('applications')} />}
       {tab === 'applications' && <ApplicationsTab />}
       {tab === 'members' && <MembersTab />}
       {tab === 'roles' && <RolesTab />}

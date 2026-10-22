@@ -9,9 +9,10 @@ import type { Volunteer } from '@/lib/types';
 import { RoleSelect } from '../admin/VolunteersTab';
 import { Alert, Badge, Button, Card, Empty, LabeledInput, LabeledSelect, Modal, Pager, SkeletonList } from '../ui';
 import { TempPassword, useOrgEvents, useRoles } from './shared';
+import { PendingApplicationsNotice } from './PendingApplicationsNotice';
 import { Pencil, Save, UserCheck, UserPlus, UserX } from 'lucide-react';
 
-export function OrgVolunteersTab() {
+export function OrgVolunteersTab({ onShowApplications }: { onShowApplications?: () => void }) {
   const org = useOrg();
   const [f, setF] = useState({ eventId: '', status: '' });
   const list = usePagedList<Volunteer>(`/organizations/${org.orgId}/volunteers`, { eventId: f.eventId || undefined, status: f.status || undefined });
@@ -35,6 +36,7 @@ export function OrgVolunteersTab() {
 
   return (
     <div className="flex flex-col gap-3">
+      <PendingApplicationsNotice orgId={org.orgId} onOpen={onShowApplications} />
       <Card className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="col-span-2">
           <LabeledInput label="Search" type="search" value={list.search} onChange={(e) => list.setSearch(e.target.value)} placeholder="Name, mobile or email" />
