@@ -11,6 +11,12 @@ import { Button, cx } from '../ui';
 import { PassActions, PassCard } from './PassCard';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const center = (n: HTMLElement) => {
+  const r = n.getBoundingClientRect();
+  return r.left + r.width / 2;
+};
+/** Centre of the track's visible area (its padding is part of the scroll box). */
+const trackCenter = (el: HTMLElement) => el.getBoundingClientRect().left + el.clientWidth / 2;
 
 /**
  * Several passes on one order (one QR per person): a swipeable row on screen,
@@ -27,23 +33,30 @@ export function PassCarousel({ order, passes }: { order: PassOrder; passes: Pass
   useEffect(() => {
     const el = track.current;
     if (!el) return;
+    // Measured on screen, not via offsetLeft: that is relative to the nearest
+    // positioned ancestor (the page here), not to the scrolling track.
     const onScroll = () => {
       const slides = Array.from(el.children) as HTMLElement[];
-      const mid = el.scrollLeft + el.clientWidth / 2;
+      const mid = trackCenter(el);
       let best = 0;
       slides.forEach((s, i) => {
-        if (Math.abs(s.offsetLeft + s.offsetWidth / 2 - mid) < Math.abs(slides[best].offsetLeft + slides[best].offsetWidth / 2 - mid)) best = i;
+        if (Math.abs(center(s) - mid) < Math.abs(center(slides[best]) - mid)) best = i;
       });
       setActive(best);
     };
+    onScroll();
     el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
   }, []);
 
   function go(i: number) {
     const el = track.current;
     const slide = el?.children[Math.max(0, Math.min(total - 1, i))] as HTMLElement | undefined;
-    if (el && slide) el.scrollTo({ left: slide.offsetLeft - (el.clientWidth - slide.offsetWidth) / 2, behavior: 'smooth' });
+    if (el && slide) el.scrollBy({ left: center(slide) - trackCenter(el), behavior: 'smooth' });
   }
 
   async function downloadAll() {
