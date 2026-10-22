@@ -197,7 +197,7 @@ function RuleForm({ rule, slots, days, onClose, onSaved }: { rule: PriceRule | n
   return (
     <Modal open onClose={onClose} title={rule ? 'Edit price rule' : 'New price rule'} wide>
       <div className="flex flex-col gap-4">
-        <LabeledInput label="Name" value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Ashtami peak, Weekend rush" />
+        <LabeledInput label="Name" required value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Ashtami peak, Weekend rush" />
         <Field label="Which days?">
           <div className="flex flex-wrap gap-2">
             <button type="button" className={pill(kind === 'DATES')} onClick={() => setKind('DATES')}>Pick dates</button>
@@ -233,7 +233,7 @@ function RuleForm({ rule, slots, days, onClose, onSaved }: { rule: PriceRule | n
         {mode === 'PERCENT' ? (
           <LabeledInput label="Increase by (%)" inputMode="numeric" value={percent} onChange={(e) => setPercent(e.target.value.replace(/\D/g, ''))} hint={slots[0] && Number(slots[0].price) > 0 ? `${slots[0].label}: ${fmtMoney(slots[0].price)} → ${fmtMoney(Math.round(Number(slots[0].price) * (100 + Number(percent || 0))) / 100)}` : 'Free slots stay free with a percentage rule.'} />
         ) : (
-          <LabeledInput label="Price per person (₹)" inputMode="decimal" value={fixed} onChange={(e) => setFixed(e.target.value.replace(/[^\d.]/g, ''))} placeholder="e.g. 150" />
+          <LabeledInput label="Price per person (₹)" required inputMode="decimal" value={fixed} onChange={(e) => setFixed(e.target.value.replace(/[^\d.]/g, ''))} placeholder="e.g. 150" />
         )}
         <Checkbox label="Rule is active" checked={active} onChange={setActive} />
         {error && <Alert>{error}</Alert>}

@@ -407,7 +407,7 @@ function PayoutForm({ account, onCancel, onSaved }: { account: PayoutAccount | n
         {reg ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
-              <LabeledSelect label="Type of registration" value={f.registeredType} onChange={(e) => set('registeredType', e.target.value as RegisteredType | '')}>
+              <LabeledSelect required label="Type of registration" value={f.registeredType} onChange={(e) => set('registeredType', e.target.value as RegisteredType | '')}>
                 <option value="">— Choose —</option>
                 {(Object.keys(REGISTERED_TYPE_LABEL) as RegisteredType[]).map((k) => (
                   <option key={k} value={k}>{REGISTERED_TYPE_LABEL[k]}</option>
@@ -415,9 +415,9 @@ function PayoutForm({ account, onCancel, onSaved }: { account: PayoutAccount | n
               </LabeledSelect>
               {errors.registeredType && <p className="text-sm text-red-700">{errors.registeredType}</p>}
             </div>
-            <LabeledInput label="Legal name (as registered)" maxLength={150} {...text('legalName')} />
-            <LabeledInput label="Registration number" maxLength={60} {...text('registrationNumber')} />
-            <LabeledInput label="Organisation PAN" placeholder="AAATS1234Z" maxLength={10} autoCapitalize="characters" autoComplete="off" {...text('orgPan', upper)} />
+            <LabeledInput required label="Legal name (as registered)" maxLength={150} {...text('legalName')} />
+            <LabeledInput required label="Registration number" maxLength={60} {...text('registrationNumber')} />
+            <LabeledInput required label="Organisation PAN" placeholder="AAATS1234Z" maxLength={10} autoCapitalize="characters" autoComplete="off" {...text('orgPan', upper)} />
             <LabeledInput label="GSTIN (optional)" placeholder="19AAATS1234Z1Z5" maxLength={15} autoCapitalize="characters" {...text('gstin', upper)} />
             <LabeledInput label="80G registration no. (optional)" maxLength={60} hint="Printed on donation receipts" {...text('reg80G')} />
             <LabeledInput label="12A registration no. (optional)" maxLength={60} {...text('reg12A')} />
@@ -425,23 +425,23 @@ function PayoutForm({ account, onCancel, onSaved }: { account: PayoutAccount | n
         ) : (
           <>
             <Alert kind="info">Use the authorised committee member&apos;s PAN and an account in their (or a joint) name.</Alert>
-            <LabeledInput label="Mandal name" maxLength={150} {...text('legalName')} />
+            <LabeledInput required label="Mandal name" maxLength={150} {...text('legalName')} />
           </>
         )}
       </Card>
 
       <Card className="flex flex-col gap-3">
         <SectionTitle icon={Users}>Address &amp; contact</SectionTitle>
-        <LabeledInput label="Address" maxLength={300} placeholder="Building, street, area" {...text('addressLine')} />
+        <LabeledInput required label="Address" maxLength={300} placeholder="Building, street, area" {...text('addressLine')} />
         <StateCityPicker required state={f.state} city={f.city} onChange={(p) => { set('state', p.state); set('city', p.city); }} />
         {(errors.state || errors.city) && <p className="-mt-2 text-sm text-red-700">{errors.state ?? errors.city}</p>}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <LabeledInput label="PIN code" inputMode="numeric" maxLength={6} {...text('pincode', (v) => v.replace(/\D/g, ''))} />
-          <LabeledInput label="Contact person" maxLength={100} {...text('contactName')} />
-          <LabeledInput label="Their role" placeholder="Secretary / Treasurer" maxLength={60} {...text('contactRole')} />
-          <LabeledInput label="Mobile" type="tel" inputMode="numeric" maxLength={10} placeholder="98XXXXXXXX" {...text('contactPhone', (v) => v.replace(/\D/g, ''))} />
-          <LabeledInput label="Email" type="email" maxLength={150} {...text('contactEmail')} />
-          <LabeledInput
+          <LabeledInput required label="PIN code" inputMode="numeric" maxLength={6} {...text('pincode', (v) => v.replace(/\D/g, ''))} />
+          <LabeledInput required label="Contact person" maxLength={100} {...text('contactName')} />
+          <LabeledInput required label="Their role" placeholder="Secretary / Treasurer" maxLength={60} {...text('contactRole')} />
+          <LabeledInput required label="Mobile" type="tel" inputMode="numeric" maxLength={10} placeholder="98XXXXXXXX" {...text('contactPhone', (v) => v.replace(/\D/g, ''))} />
+          <LabeledInput required label="Email" type="email" maxLength={150} {...text('contactEmail')} />
+          <LabeledInput required
             label="Authorised signatory PAN"
             placeholder="ABCDE1234F"
             maxLength={10}
@@ -457,10 +457,10 @@ function PayoutForm({ account, onCancel, onSaved }: { account: PayoutAccount | n
         <SectionTitle icon={Landmark}>Bank account</SectionTitle>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <LabeledInput label="Account holder name" maxLength={150} hint="Must match the PAN name exactly, as printed on the cheque." {...text('bankHolderName')} />
+            <LabeledInput required label="Account holder name" maxLength={150} hint="Must match the PAN name exactly, as printed on the cheque." {...text('bankHolderName')} />
           </div>
-          <LabeledInput label="Account number" inputMode="numeric" autoComplete="off" maxLength={18} {...text('bankAccount', (v) => v.replace(/\D/g, ''))} />
-          <LabeledInput
+          <LabeledInput required label="Account number" inputMode="numeric" autoComplete="off" maxLength={18} {...text('bankAccount', (v) => v.replace(/\D/g, ''))} />
+          <LabeledInput required
             label="Re-enter account number"
             inputMode="numeric"
             autoComplete="off"
@@ -469,7 +469,7 @@ function PayoutForm({ account, onCancel, onSaved }: { account: PayoutAccount | n
             hint={f.bankAccount2 && f.bankAccount2 === f.bankAccount ? '✓ Matches' : 'Type it again (paste is off)'}
             {...text('bankAccount2', (v) => v.replace(/\D/g, ''))}
           />
-          <LabeledInput label="IFSC" placeholder="SBIN0001234" maxLength={11} autoCapitalize="characters" hint="11 characters — on your cheque book" {...text('ifsc', upper)} />
+          <LabeledInput required label="IFSC" placeholder="SBIN0001234" maxLength={11} autoCapitalize="characters" hint="11 characters — on your cheque book" {...text('ifsc', upper)} />
           <LabeledSelect label="Account type" value={f.accountType} onChange={(e) => set('accountType', e.target.value as BankAccountType)}>
             <option value="SAVINGS">Savings</option>
             <option value="CURRENT">Current</option>

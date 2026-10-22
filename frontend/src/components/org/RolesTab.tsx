@@ -184,7 +184,7 @@ function RoleForm({
   return (
     <Modal open onClose={onClose} title={role ? `Edit ${role.name}` : 'New custom role'} wide>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Role name" value={name} onChange={(e) => setName(e.target.value)} />
+        <LabeledInput label="Role name" required value={name} onChange={(e) => setName(e.target.value)} />
         <Field label="Description (optional)">
           <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>

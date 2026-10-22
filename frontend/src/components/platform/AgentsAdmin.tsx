@@ -143,10 +143,10 @@ function CreateAgent({ onClose, onDone }: { onClose: () => void; onDone: () => v
         </div>
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-4">
-          <LabeledInput label="Name" value={form.name} onChange={set('name')} maxLength={100} />
+          <LabeledInput label="Name" required value={form.name} onChange={set('name')} maxLength={100} />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <LabeledInput label="Mobile" inputMode="numeric" value={form.phone} onChange={set('phone')} />
-            <LabeledInput label="Email" type="email" value={form.email} onChange={set('email')} />
+            <LabeledInput label="Mobile" required inputMode="numeric" value={form.phone} onChange={set('phone')} />
+            <LabeledInput label="Email" required type="email" value={form.email} onChange={set('email')} />
           </div>
           <LabeledInput label="Referral code (optional)" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') }))} maxLength={12} hint="4–12 letters/digits; generated from the name if empty" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -211,9 +211,9 @@ function ManageAgent({ a, onClose, onChanged }: { a: AgentRow; onClose: () => vo
 
         <SectionTitle icon={Wallet}>Record a payout</SectionTitle>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <LabeledInput label={`Amount (₹)${o ? ` — up to ${fmtMoney(o.earnings.due)}` : ''}`} inputMode="decimal" value={pay.amount} onChange={(e) => setPay((p) => ({ ...p, amount: e.target.value.replace(/[^\d.]/g, '') }))} />
+          <LabeledInput label={`Amount (₹)${o ? ` — up to ${fmtMoney(o.earnings.due)}` : ''}`} required inputMode="decimal" value={pay.amount} onChange={(e) => setPay((p) => ({ ...p, amount: e.target.value.replace(/[^\d.]/g, '') }))} />
           <LabeledInput label="Paid on" type="date" value={pay.paidOn} onChange={(e) => setPay((p) => ({ ...p, paidOn: e.target.value }))} />
-          <LabeledInput label="Reference (UTR / UPI)" value={pay.reference} onChange={(e) => setPay((p) => ({ ...p, reference: e.target.value }))} maxLength={200} />
+          <LabeledInput label="Reference (UTR / UPI)" required value={pay.reference} onChange={(e) => setPay((p) => ({ ...p, reference: e.target.value }))} maxLength={200} />
           <LabeledInput label="Note (optional)" value={pay.note} onChange={(e) => setPay((p) => ({ ...p, note: e.target.value }))} maxLength={500} />
         </div>
         <Button loading={busy} disabled={!pay.amount || pay.reference.trim().length < 2} onClick={() => void run(async () => {

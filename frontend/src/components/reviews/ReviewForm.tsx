@@ -187,13 +187,13 @@ function ReviewForm({ orderId, k, state, existing, onCancel, onSaved }: {
         <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900"><MessageSquareHeart aria-hidden className="h-5 w-5 text-orange-500" /> {t('review.title')}</h2>
         <p className="text-sm text-slate-600">{t('review.intro', { event: state.event.name })}</p>
       </div>
-      <Field label={t('review.rating')}>
+      <Field label={t('review.rating')} required>
         <StarInput value={rating} onChange={setRating} disabled={busy} />
       </Field>
       <Field label={t('review.text')} hint={t('review.chars', { n: chars, max: maxText })}>
         <Textarea rows={4} value={text} maxLength={maxText} placeholder={t('review.textPlaceholder')} onChange={(e) => setText(e.target.value)} disabled={busy} />
       </Field>
-      <Field label={t('review.name')} hint={t('review.nameHint')}>
+      <Field label={t('review.name')} hint={t('review.nameHint')} required>
         <Input value={name} maxLength={maxDisplayName} required onChange={(e) => setName(e.target.value)} disabled={busy} />
       </Field>
       <Field label={t('review.photos', { n: maxPhotos })}>

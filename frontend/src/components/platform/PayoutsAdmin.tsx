@@ -224,7 +224,7 @@ function ReviewModal({ a, decision, onClose, onDone }: { a: PlatformPayoutAccoun
         {decision === 'VERIFIED' && (
           <LabeledInput label="Gateway linked-account id (optional)" placeholder="acc_XXXXXXXXXXXX" value={gateway} onChange={(e) => setGateway(e.target.value)} maxLength={80} />
         )}
-        <Field label={needsNote ? 'Note to the mandal (required)' : 'Note (optional)'}>
+        <Field label={needsNote ? 'Note to the mandal (required)' : 'Note (optional)'} required={needsNote}>
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder={needsNote ? 'e.g. The account holder name does not match the PAN.' : ''} />
         </Field>
         {error && <Alert>{error}</Alert>}
@@ -426,7 +426,7 @@ function PayoutModal({ org, onClose, onDone }: { org: IdName; onClose: () => voi
               <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
               Make the bank transfer first, then record its UTR here. This marks every pending settlement of this mandal as paid.
             </p>
-            <LabeledInput label="Bank UTR / reference" value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} maxLength={80} placeholder="e.g. HDFCN52026100112345" autoComplete="off" />
+            <LabeledInput label="Bank UTR / reference" required value={reference} onChange={(e) => setReference(e.target.value.toUpperCase())} maxLength={80} placeholder="e.g. HDFCN52026100112345" autoComplete="off" />
             <Field label="Note (optional)">
               <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
             </Field>

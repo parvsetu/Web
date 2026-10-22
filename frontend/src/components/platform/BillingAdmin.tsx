@@ -278,7 +278,7 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
           <LabeledSelect label="Extend by" value={grantYears} onChange={(e) => setGrantYears(e.target.value)}>
             {[1, 2, 3, 5].map((y) => <option key={y} value={y}>{y} year{y > 1 ? 's' : ''}</option>)}
           </LabeledSelect>
-          <LabeledInput label="Reason" value={grantReason} onChange={(e) => setGrantReason(e.target.value)} placeholder="Launch partner / paid by cheque" />
+          <LabeledInput label="Reason" required value={grantReason} onChange={(e) => setGrantReason(e.target.value)} placeholder="Launch partner / paid by cheque" />
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" loading={busy} disabled={grantReason.trim().length < 3} onClick={() => void run(() => api.post(`/platform/landing-pages/${m.id}/grant`, { years: Number(grantYears), reason: grantReason.trim() }))}>
@@ -292,8 +292,8 @@ function ManageMandal({ m, onClose, onSaved }: { m: MandalRow; onClose: () => vo
         </div>
         <SectionTitle icon={Handshake}>Add or deduct credit</SectionTitle>
         <div className="grid grid-cols-2 gap-3">
-          <LabeledInput label="Amount (₹, use − to deduct)" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.-]/g, ''))} placeholder="e.g. 1000" />
-          <LabeledInput label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="UPI ref / correction" />
+          <LabeledInput label="Amount (₹, use − to deduct)" required value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.-]/g, ''))} placeholder="e.g. 1000" />
+          <LabeledInput label="Reason" required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="UPI ref / correction" />
         </div>
         <Button loading={busy} disabled={!amount || reason.trim().length < 3} onClick={() => void run(() => api.post(`/platform/billing/mandals/${m.id}/adjust`, { amount, reason: reason.trim() }))}>
           <Coins aria-hidden className="h-4 w-4" /> Apply

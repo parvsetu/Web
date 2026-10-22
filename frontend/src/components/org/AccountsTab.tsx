@@ -331,10 +331,10 @@ function OrgExpenseModal({
             ))}
           </LabeledSelect>
         )}
-        <LabeledInput label="Category" list="expense-cats" value={form.category} onChange={set('category')} placeholder="e.g. Rent" />
-        <LabeledInput label="Description" value={form.description} onChange={set('description')} />
+        <LabeledInput label="Category" required list="expense-cats" value={form.category} onChange={set('category')} placeholder="e.g. Rent" />
+        <LabeledInput label="Description" required value={form.description} onChange={set('description')} />
         <div className="grid grid-cols-2 gap-3">
-          <LabeledInput label="Amount (₹)" inputMode="decimal" value={form.amount} onChange={(e) => setForm((x) => ({ ...x, amount: e.target.value.replace(/[^\d.]/g, '') }))} />
+          <LabeledInput label="Amount (₹)" required inputMode="decimal" value={form.amount} onChange={(e) => setForm((x) => ({ ...x, amount: e.target.value.replace(/[^\d.]/g, '') }))} />
           <LabeledInput label="Date" type="date" value={form.expenseDate} onChange={set('expenseDate')} />
         </div>
         <LabeledInput label="Vendor (optional)" value={form.vendor} onChange={set('vendor')} />

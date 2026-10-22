@@ -311,7 +311,7 @@ function CancelModal({ base, b, onClose, onSaved }: { base: string; b: StallBook
           {b.quantity} × {b.stallType.name}, paid {fmtMoney(b.amount)}. The stalls become free at once. The refund goes back to the vendor; Parvsetu returns its fee on the refunded part and the rest is taken from your next payout.
           {b.invoiceNo && Number(b.gst) > 0 ? ' A GST credit note is issued for the refunded part.' : ''}
         </p>
-        <Field label="Reason (shown to the vendor)">
+        <Field label="Reason (shown to the vendor)" required>
           <Textarea rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
         </Field>
         <LabeledInput label="Refund to vendor (₹)" inputMode="decimal" value={refund} onChange={(e) => setRefund(e.target.value.replace(/[^\d.]/g, ''))} hint={`Up to ${fmtMoney(b.amount)}. Enter 0 for no refund.`} />

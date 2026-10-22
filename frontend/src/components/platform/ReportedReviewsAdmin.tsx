@@ -94,7 +94,7 @@ function Reported({ r, onDone }: { r: ReportedReview; onDone: () => void }) {
       {removing && (
         <Modal open onClose={() => setRemoving(false)} title="Remove review">
           <div className="flex flex-col gap-3">
-            <Field label="Reason" hint="Kept in the mandal’s audit log.">
+            <Field label="Reason" hint="Kept in the mandal’s audit log." required>
               <Textarea rows={3} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
             </Field>
             {error && <Alert>{error}</Alert>}

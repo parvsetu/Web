@@ -188,9 +188,9 @@ function ArtworkForm({ a, onClose, onSaved }: { a: AdminArtwork | null; onClose:
             <p className="text-xs text-slate-500">A clear, straight photo of the whole piece. Resized on your phone before upload.</p>
           </div>
           <div className="flex flex-1 flex-col gap-3">
-            <LabeledInput label="Title" value={title} maxLength={140} onChange={(e) => setTitle(e.target.value)} placeholder="Maa Durga in Kalighat style" />
+            <LabeledInput label="Title" required value={title} maxLength={140} onChange={(e) => setTitle(e.target.value)} placeholder="Maa Durga in Kalighat style" />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <LabeledInput label="Artist" value={artistName} maxLength={100} onChange={(e) => setArtist(e.target.value)} placeholder="Sudipta Pal" />
+              <LabeledInput label="Artist" required value={artistName} maxLength={100} onChange={(e) => setArtist(e.target.value)} placeholder="Sudipta Pal" />
               <LabeledInput label="Artist’s Instagram (optional)" value={artistInstagram} maxLength={200} onChange={(e) => setIg(e.target.value)} placeholder="@artistname" />
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -218,7 +218,7 @@ function ArtworkForm({ a, onClose, onSaved }: { a: AdminArtwork | null; onClose:
         </Field>
         {mode === 'SALE' && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <LabeledInput label="Price ₹" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ''))} placeholder="18000" hint="Buyers pay you or the artist directly; Parvsetu takes no payment or fee on artworks." />
+            <LabeledInput label="Price ₹" required inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ''))} placeholder="18000" hint="Buyers pay you or the artist directly; Parvsetu takes no payment or fee on artworks." />
             <LabeledSelect label="Status" value={saleStatus} onChange={(e) => setSaleStatus(e.target.value as SaleStatus)}>
               <option value="AVAILABLE">Available</option><option value="RESERVED">Reserved</option><option value="SOLD">Sold</option>
             </LabeledSelect>

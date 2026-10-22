@@ -116,14 +116,14 @@ export default function BloggerSignupPage() {
             <fieldset className="flex flex-col gap-4 border-t border-pink-100 pt-5">
               <legend className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-pink-700"><UserRound aria-hidden className="h-4 w-4" /> You &amp; your login</legend>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <LabeledInput label="Name" autoComplete="name" value={form.name} onChange={set('name')} error={errors.name} maxLength={100} />
+                <LabeledInput label="Name" required autoComplete="name" value={form.name} onChange={set('name')} error={errors.name} maxLength={100} />
                 <LabeledInput label="City (optional)" value={form.city} onChange={set('city')} maxLength={80} />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <LabeledInput label="Email" type="email" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} error={errors.email} hint="We send a code to activate it." />
-                <LabeledInput label="Mobile number" type="tel" inputMode="numeric" autoComplete="tel" value={form.mobile} onChange={set('mobile')} error={errors.mobile} placeholder="9876543210" />
+                <LabeledInput label="Email" required type="email" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} error={errors.email} hint="We send a code to activate it." />
+                <LabeledInput label="Mobile number" required type="tel" inputMode="numeric" autoComplete="tel" value={form.mobile} onChange={set('mobile')} error={errors.mobile} placeholder="9876543210" />
               </div>
-              <LabeledInput label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} hint="At least 8 characters" />
+              <LabeledInput label="Password" required type="password" autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} hint="At least 8 characters" />
             </fieldset>
             {error && <Alert>{error}</Alert>}
             <Button type="submit" size="lg" loading={busy}>

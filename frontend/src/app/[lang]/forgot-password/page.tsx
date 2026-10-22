@@ -72,6 +72,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={request} className="flex flex-col gap-4" noValidate>
           <LabeledInput
             label="Mobile number or email"
+            required
             autoComplete="username"
             inputMode="email"
             autoCapitalize="none"
@@ -93,8 +94,8 @@ export default function ForgotPasswordPage() {
             If an account matches <span className="font-semibold">{identifier}</span> and has an email address, a 6-digit code has been sent to that email.
           </Alert>
           <OtpInput value={code} onChange={setCode} disabled={busy} />
-          <LabeledInput label="New password" type="password" autoComplete="new-password" hint="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <LabeledInput label="Confirm new password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+          <LabeledInput label="New password" required type="password" autoComplete="new-password" hint="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <LabeledInput label="Confirm new password" required type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
           {error && <Alert>{error}</Alert>}
           <Button type="submit" size="lg" loading={busy}>
             {!busy && <KeyRound aria-hidden className="h-5 w-5" />}

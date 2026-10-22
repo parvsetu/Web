@@ -44,8 +44,8 @@ function SetPasswordForm() {
   }
   return (
     <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-      <LabeledInput label="New password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} hint="At least 8 characters" />
-      <LabeledInput label="Confirm password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+      <LabeledInput label="New password" required type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} hint="At least 8 characters" />
+      <LabeledInput label="Confirm password" required type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
       {error && <Alert>{error}</Alert>}
       <Button type="submit" size="lg" loading={busy}>
         {!busy && <KeyRound aria-hidden className="h-6 w-6" />}

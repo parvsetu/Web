@@ -16,7 +16,7 @@ export function TextActionModal({
   return (
     <Modal open onClose={onClose} title={title}>
       <div className="flex flex-col gap-4">
-        <Field label={label}>
+        <Field required label={label}>
           <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} maxLength={1000} autoFocus />
         </Field>
         {error && <Alert>{error}</Alert>}
@@ -59,7 +59,7 @@ export function MarkPaidModal({ eventId, eventName, amount, onClose, onDone }: {
           <option value="BANK_TRANSFER">Bank transfer / UPI</option>
           <option value="CASH">Cash</option>
         </LabeledSelect>
-        <LabeledInput label="Reference (UTR / receipt no.)" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={200} />
+        <LabeledInput required label="Reference (UTR / receipt no.)" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={200} />
         <LabeledInput label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
         {error && <Alert>{error}</Alert>}
         <Button

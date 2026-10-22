@@ -115,7 +115,7 @@ export default function PartnerSignupPage() {
               <legend className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-orange-700">
                 <Building2 aria-hidden className="h-4 w-4" /> Brand
               </legend>
-              <LabeledInput label="Brand name" value={form.brandName} onChange={set('brandName')} error={errors.brandName} placeholder="e.g. Tanishq Jewellers" maxLength={120} />
+              <LabeledInput required label="Brand name" value={form.brandName} onChange={set('brandName')} error={errors.brandName} placeholder="e.g. Tanishq Jewellers" maxLength={120} />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <LabeledInput label="GSTIN (optional)" autoCapitalize="characters" value={form.gstin} onChange={set('gstin')} error={errors.gstin} maxLength={15} placeholder="27AAACT1234A1Z5" />
                 <LabeledInput label="Website (optional)" type="url" value={form.websiteUrl} onChange={set('websiteUrl')} error={errors.websiteUrl} placeholder="https://" />
@@ -125,12 +125,12 @@ export default function PartnerSignupPage() {
               <legend className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-orange-700">
                 <UserRound aria-hidden className="h-4 w-4" /> Contact &amp; login
               </legend>
-              <LabeledInput label="Contact person" autoComplete="name" value={form.contactName} onChange={set('contactName')} error={errors.contactName} />
+              <LabeledInput required label="Contact person" autoComplete="name" value={form.contactName} onChange={set('contactName')} error={errors.contactName} />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <LabeledInput label="Email" type="email" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} error={errors.email} hint="We send a code to activate it." />
-                <LabeledInput label="Mobile number" type="tel" inputMode="numeric" autoComplete="tel" value={form.mobile} onChange={set('mobile')} error={errors.mobile} placeholder="9876543210" />
+                <LabeledInput required label="Email" type="email" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} error={errors.email} hint="We send a code to activate it." />
+                <LabeledInput required label="Mobile number" type="tel" inputMode="numeric" autoComplete="tel" value={form.mobile} onChange={set('mobile')} error={errors.mobile} placeholder="9876543210" />
               </div>
-              <LabeledInput label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} hint="At least 8 characters" />
+              <LabeledInput required label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} hint="At least 8 characters" />
             </fieldset>
             {error && <Alert>{error}</Alert>}
             <Button type="submit" size="lg" loading={busy}>

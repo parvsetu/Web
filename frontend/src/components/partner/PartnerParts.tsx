@@ -185,7 +185,7 @@ export function PartnerRechargeModal({ onClose, onDone }: { onClose: () => void;
               </button>
             ))}
           </div>
-          <LabeledInput label="Amount (₹)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} />
+          <LabeledInput required label="Amount (₹)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} />
           {error && <Alert>{error}</Alert>}
           <Button size="lg" loading={busy} onClick={() => void start()}>
             <CreditCard aria-hidden className="h-5 w-5" /> Continue to payment

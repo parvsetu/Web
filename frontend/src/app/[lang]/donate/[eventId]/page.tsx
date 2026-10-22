@@ -201,6 +201,7 @@ export default function DonatePage() {
               </div>
               <LabeledInput
                 label={t('donate.amountOther')}
+                required
                 inputMode="decimal"
                 value={amount}
                 maxLength={10}
@@ -232,6 +233,7 @@ export default function DonatePage() {
               {!anonymous && (
                 <LabeledInput
                   label={t('book.fullName')}
+                  required
                   autoComplete="name"
                   value={name}
                   maxLength={150}
@@ -301,6 +303,7 @@ export default function DonatePage() {
                       </LabeledSelect>
                       <LabeledInput
                         label={t('donate.idNumber')}
+                        required
                         autoCapitalize="characters"
                         autoComplete="off"
                         value={idNumber}

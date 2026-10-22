@@ -114,12 +114,12 @@ function DetailsCard({ me }: { me: MeUser }) {
     <Card>
       <CardTitle icon={UserCog} tone="bg-orange-100 text-orange-600">Personal details</CardTitle>
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <LabeledInput label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+        <LabeledInput label="Full name" required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
         <LabeledInput label="Mobile number (used to log in)" value={mobile} onChange={(e) => setMobile(e.target.value)} inputMode="tel" autoComplete="tel" />
         <LabeledInput label="Email (used to log in and reset password)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
         {loginChanged && (
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">Current password</span>
+            <span className="text-sm font-semibold text-slate-700">Current password<span aria-hidden className="ml-0.5 text-red-600">*</span></span>
             <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
             <span className="text-xs text-slate-500">Needed because your login details are changing.</span>
           </label>
@@ -265,17 +265,17 @@ function SecurityCard() {
       <CardTitle icon={KeyRound} tone="bg-amber-100 text-amber-600">Password &amp; security</CardTitle>
       <form onSubmit={changePassword} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-semibold text-slate-700">Current password</span>
+          <span className="text-sm font-semibold text-slate-700">Current password<span aria-hidden className="ml-0.5 text-red-600">*</span></span>
           <PasswordInput value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">New password</span>
+            <span className="text-sm font-semibold text-slate-700">New password<span aria-hidden className="ml-0.5 text-red-600">*</span></span>
             <PasswordInput value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
             <span className="text-xs text-slate-500">At least 8 characters</span>
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">Confirm new password</span>
+            <span className="text-sm font-semibold text-slate-700">Confirm new password<span aria-hidden className="ml-0.5 text-red-600">*</span></span>
             <PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
           </label>
         </div>

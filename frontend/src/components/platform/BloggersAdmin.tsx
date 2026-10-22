@@ -285,9 +285,9 @@ function ManageBlogger({ id, name, onClose, onChanged }: { id: string; name: str
 
         <SectionTitle icon={Wallet}>Record a payout</SectionTitle>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <LabeledInput label={`Amount (₹)${o ? ` — up to ${fmtMoney(o.earnings.due)}` : ''}`} inputMode="decimal" value={pay.amount} onChange={(e) => setPay((p) => ({ ...p, amount: e.target.value.replace(/[^\d.]/g, '') }))} />
+          <LabeledInput label={`Amount (₹)${o ? ` — up to ${fmtMoney(o.earnings.due)}` : ''}`} required inputMode="decimal" value={pay.amount} onChange={(e) => setPay((p) => ({ ...p, amount: e.target.value.replace(/[^\d.]/g, '') }))} />
           <LabeledInput label="Paid on" type="date" value={pay.paidOn} onChange={(e) => setPay((p) => ({ ...p, paidOn: e.target.value }))} />
-          <LabeledInput label="Reference (UTR / UPI)" value={pay.reference} onChange={(e) => setPay((p) => ({ ...p, reference: e.target.value }))} maxLength={200} />
+          <LabeledInput label="Reference (UTR / UPI)" required value={pay.reference} onChange={(e) => setPay((p) => ({ ...p, reference: e.target.value }))} maxLength={200} />
           <LabeledInput label="Note (optional)" value={pay.note} onChange={(e) => setPay((p) => ({ ...p, note: e.target.value }))} maxLength={500} />
         </div>
         <Button loading={busy} disabled={!pay.amount || pay.reference.trim().length < 2} onClick={() => void run(async () => {

@@ -209,7 +209,7 @@ function CompetitionForm({ c, onClose, onSaved }: { c: AdminCompetition | null; 
   return (
     <Modal open onClose={notice ? onSaved : onClose} title={c ? 'Edit competition' : 'Add competition'} wide>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="Swimming championship" />
+        <LabeledInput required label="Name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="Swimming championship" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <LabeledSelect label="Kind" value={kind} onChange={(e) => pickKind(e.target.value as CompetitionKind)}>
             {COMPETITION_KINDS.map((k) => <option key={k} value={k}>{KIND_EMOJI[k]} {KIND_LABEL[k]}</option>)}
@@ -222,7 +222,7 @@ function CompetitionForm({ c, onClose, onSaved }: { c: AdminCompetition | null; 
           <LabeledSelect label="Day" value={date} onChange={(e) => setDate(e.target.value)}>
             {days.map((d, i) => <option key={d} value={d}>Day {i + 1} · {fmtDate(d)}</option>)}
           </LabeledSelect>
-          <LabeledInput label="Starts" type="time" value={startTime} onChange={(e) => setStart(e.target.value)} />
+          <LabeledInput required label="Starts" type="time" value={startTime} onChange={(e) => setStart(e.target.value)} />
           <LabeledInput label="Venue" value={venue} maxLength={120} onChange={(e) => setVenue(e.target.value)} placeholder="Municipal pool" />
           <LabeledInput label="Lanes (heats)" type="number" min={2} max={12} value={lanes} onChange={(e) => setLanes(e.target.value)} placeholder="none" hint="Swimming / running" />
         </div>
@@ -254,7 +254,7 @@ function CompetitionForm({ c, onClose, onSaved }: { c: AdminCompetition | null; 
           )}
           {cats.map((x) => (
             <div key={x.key} className={cx('grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-2 sm:grid-cols-[2fr_1fr_0.7fr_0.7fr_0.8fr_0.8fr_auto]', !x.isActive && 'opacity-60')}>
-              <LabeledInput label="Name" value={x.name} maxLength={100} onChange={(e) => patch(x.key, { name: e.target.value })} placeholder="50 m freestyle · Under 14 · Girls" />
+              <LabeledInput required label="Name" value={x.name} maxLength={100} onChange={(e) => patch(x.key, { name: e.target.value })} placeholder="50 m freestyle · Under 14 · Girls" />
               <LabeledSelect label="Who" value={x.gender} onChange={(e) => patch(x.key, { gender: e.target.value as CategoryGender })}>
                 <option value="ANY">Anyone</option><option value="FEMALE">Girls / women</option><option value="MALE">Boys / men</option>
               </LabeledSelect>
@@ -370,7 +370,7 @@ function EntriesPanel({ c, onBack, onChanged }: { c: AdminCompetition; onBack: (
       </Card>
 
       <form onSubmit={checkInBib} className="flex flex-wrap items-end gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-        <div className="w-36"><LabeledInput label="Check in bib no." inputMode="numeric" value={bib} onChange={(e) => setBib(e.target.value.replace(/\D/g, ''))} /></div>
+        <div className="w-36"><LabeledInput required label="Check in bib no." inputMode="numeric" value={bib} onChange={(e) => setBib(e.target.value.replace(/\D/g, ''))} /></div>
         <Button type="submit" disabled={!bib}><CheckCircle2 aria-hidden className="h-4 w-4" /> Check in</Button>
         <a href={`/e/${ev.eventId}/competition-checkin?c=${c.id}`} className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold text-emerald-800 underline">
           <ScanLine aria-hidden className="h-4 w-4" /> Scan QR codes
@@ -535,7 +535,7 @@ function CancelForm({ e, onClose, onDone }: { e: AdminEntry; onClose: () => void
   return (
     <Modal open onClose={onClose} title={`Cancel entry — ${e.participantName}`}>
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <LabeledInput label="Reason (shown to the entrant)" value={reason} onChange={(x) => setReason(x.target.value)} maxLength={300} placeholder="Category cancelled — not enough entries" />
+        <LabeledInput required label="Reason (shown to the entrant)" value={reason} onChange={(x) => setReason(x.target.value)} maxLength={300} placeholder="Category cancelled — not enough entries" />
         <div className="grid grid-cols-2 gap-3">
           <LabeledInput label={`Refund ₹ (paid ₹${e.amount})`} inputMode="decimal" value={refund} onChange={(x) => setRefund(x.target.value.replace(/[^\d.]/g, ''))} />
           <LabeledInput label="Refund reference (UPI / bank)" value={ref} onChange={(x) => setRef(x.target.value)} maxLength={100} />

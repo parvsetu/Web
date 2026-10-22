@@ -159,7 +159,7 @@ export function EventForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <LabeledInput label="Festival name" value={form.name} onChange={set('name')} placeholder="e.g. Sarvajanik Utsav 2026" />
+      <LabeledInput label="Festival name" required value={form.name} onChange={set('name')} placeholder="e.g. Sarvajanik Utsav 2026" />
       {!initial && (
         <div role="radiogroup" aria-label="Festival type source" className="grid grid-cols-2 gap-2">
           {[{ v: false, label: 'From our list' }, { v: true, label: 'My event isn’t listed' }].map((o) => (
@@ -173,8 +173,8 @@ export function EventForm({
       {custom.on ? (
         <div className="flex flex-col gap-3 rounded-2xl bg-violet-50/60 p-3 ring-1 ring-violet-200">
           <p className="text-xs text-violet-900">The Parvsetu team reviews a new event type together with this festival before it can go live.</p>
-          <LabeledInput label="Event type name" value={custom.name} onChange={(e) => setCustom((c) => ({ ...c, name: e.target.value }))} maxLength={80} placeholder="e.g. Marbat procession" />
-          <LabeledSelect label="Category" value={custom.group} onChange={(e) => setCustom((c) => ({ ...c, group: e.target.value }))}>
+          <LabeledInput label="Event type name" required value={custom.name} onChange={(e) => setCustom((c) => ({ ...c, name: e.target.value }))} maxLength={80} placeholder="e.g. Marbat procession" />
+          <LabeledSelect label="Category" required value={custom.group} onChange={(e) => setCustom((c) => ({ ...c, group: e.target.value }))}>
             <option value="">— Choose a category —</option>
             {groups.map((g) => <option key={g} value={g}>{g}</option>)}
           </LabeledSelect>
@@ -197,8 +197,8 @@ export function EventForm({
       )}
       {types.error && <Alert kind="warning">Could not load festival types: {types.error}</Alert>}
       <div className="grid grid-cols-2 gap-3">
-        <LabeledInput label="Start date" type="date" value={form.startDate} onChange={set('startDate')} />
-        <LabeledInput label="End date" type="date" value={form.endDate} onChange={set('endDate')} />
+        <LabeledInput label="Start date" required type="date" value={form.startDate} onChange={set('startDate')} />
+        <LabeledInput label="End date" required type="date" value={form.endDate} onChange={set('endDate')} />
       </div>
       <StateCityPicker state={form.state} city={form.city} onChange={(p) => setForm((x) => ({ ...x, ...p }))} />
       <div className="flex flex-col gap-3 rounded-2xl border border-sky-200 bg-sky-50/40 p-3">
@@ -278,7 +278,7 @@ export function EventForm({
           placeholder={selectedType?.defaultPrefix ?? 'AUTO'}
           hint="2–6 letters/digits. Empty = default for the festival type."
         />
-        <LabeledInput label="Max visitors per token" type="number" min={1} value={form.maxVisitorsPerToken} onChange={set('maxVisitorsPerToken')} />
+        <LabeledInput label="Max visitors per token" required type="number" min={1} value={form.maxVisitorsPerToken} onChange={set('maxVisitorsPerToken')} />
       </div>
       <Checkbox
         label="Open for volunteer sign-up"

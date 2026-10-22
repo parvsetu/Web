@@ -75,7 +75,7 @@ function Review({ p, onClose, onDone }: { p: Row; onClose: () => void; onDone: (
                 <option value="100">100% (specified funds)</option>
               </LabeledSelect>
             )}
-            <LabeledInput label={p.status === 'SUBMITTED' ? 'Note (required to reject)' : 'Why is the verification withdrawn?'} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+            <LabeledInput required={p.status !== 'SUBMITTED'} label={p.status === 'SUBMITTED' ? 'Note (required to reject)' : 'Why is the verification withdrawn?'} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
             {error && <Alert>{error}</Alert>}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {p.status === 'SUBMITTED' && <Button variant="success" loading={busy} onClick={() => void decide('VERIFY')}><Check aria-hidden className="h-4 w-4" /> Verify</Button>}

@@ -47,7 +47,7 @@ function LoginForm() {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-      <LabeledInput
+      <LabeledInput required
         label="Mobile number or email"
         autoComplete="username"
         inputMode="email"
@@ -57,7 +57,7 @@ function LoginForm() {
         placeholder="9876543210"
       />
       <div className="flex flex-col gap-1">
-        <LabeledInput label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <LabeledInput required label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         <Link href="/forgot-password" className="self-end py-1 text-sm font-semibold text-orange-700 hover:underline">
           Forgot password?
         </Link>

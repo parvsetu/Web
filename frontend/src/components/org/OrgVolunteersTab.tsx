@@ -178,8 +178,8 @@ function CreateVolunteer({ onClose, onCreated }: { onClose: () => void; onCreate
         </div>
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-4">
-          <LabeledInput label="Name" value={form.name} onChange={set('name')} />
-          <LabeledInput label="Mobile" type="tel" inputMode="numeric" value={form.mobile} onChange={set('mobile')} />
+          <LabeledInput label="Name" required value={form.name} onChange={set('name')} />
+          <LabeledInput label="Mobile" required type="tel" inputMode="numeric" value={form.mobile} onChange={set('mobile')} />
           <LabeledInput label="Email (optional)" type="email" value={form.email} onChange={set('email')} />
           <LabeledInput
             label="Password (optional)"
@@ -189,7 +189,7 @@ function CreateVolunteer({ onClose, onCreated }: { onClose: () => void; onCreate
             onChange={set('password')}
             hint="Leave empty and a temporary password will be generated."
           />
-          <LabeledSelect label="Festival" value={form.eventId} onChange={set('eventId')}>
+          <LabeledSelect label="Festival" required value={form.eventId} onChange={set('eventId')}>
             <option value="">— Choose —</option>
             {(events.data ?? []).map((e) => (
               <option key={e.id} value={e.id}>
@@ -235,7 +235,7 @@ function EditVolunteer({ v, onClose, onDone }: { v: Volunteer; onClose: () => vo
   return (
     <Modal open onClose={onClose} title={`Edit ${v.name}`}>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <LabeledInput label="Name" required value={name} onChange={(e) => setName(e.target.value)} />
         <LabeledInput label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <p className="text-xs text-slate-500">Mobile number: {v.mobile ?? '—'} (cannot be changed here)</p>
         {error && <Alert>{error}</Alert>}

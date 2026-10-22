@@ -288,7 +288,7 @@ function CancelForm({ token, onDone, onCancel }: { token: Token; onDone: () => v
   return (
     <ActionBox title="Cancel this token">
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <Field label="Reason">
+        <Field label="Reason" required>
           <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Visitor lost the printed token" />
         </Field>
         {error && <Alert>{error}</Alert>}
@@ -334,7 +334,7 @@ function ValidityForm({ token, slots, onDone, onCancel }: { token: Token; slots:
     <ActionBox title="Change validity">
       <form onSubmit={submit} className="flex flex-col gap-3">
         <ValidityPicker value={v} onChange={setV} slots={slots} allowCustom startDate={ev.startDate} endDate={ev.endDate} tz={ev.timezone} />
-        <Field label="Reason">
+        <Field label="Reason" required>
           <Textarea value={reason} onChange={(e) => setReason(e.target.value)} />
         </Field>
         {error && <Alert>{error}</Alert>}
@@ -382,10 +382,10 @@ function ReactivateForm({ token, onDone, onCancel }: { token: Token; onDone: () 
         scanned again. Only do this when an entry was recorded by mistake. Your name and reason will be saved in the audit log.
       </p>
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <Field label={`Type the token code to confirm: ${token.tokenCode}`}>
+        <Field label={`Type the token code to confirm: ${token.tokenCode}`} required>
           <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} className="font-mono" autoComplete="off" spellCheck={false} />
         </Field>
-        <Field label="Reason (at least 10 characters)">
+        <Field label="Reason (at least 10 characters)" required>
           <Textarea value={reason} onChange={(e) => setReason(e.target.value)} />
         </Field>
         {error && <Alert>{error}</Alert>}

@@ -174,7 +174,7 @@ export function NewCampaignTab({ o, onCreated }: { o: PartnerOverview; onCreated
             <LabeledInput label="From" type="date" min={today} value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} />
             <LabeledInput label="To" type="date" min={form.startDate} value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} />
           </div>
-          <Field label="Promo line printed on each pass" hint={`${form.message.length}/120 · e.g. “Show this pass for 10% off making charges”`}>
+          <Field required label="Promo line printed on each pass" hint={`${form.message.length}/120 · e.g. “Show this pass for 10% off making charges”`}>
             <Textarea value={form.message} maxLength={120} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} className="min-h-[72px]" />
           </Field>
           <LabeledInput label="Max passes (cap)" inputMode="numeric" value={form.maxPasses} onChange={(e) => setForm((f) => ({ ...f, maxPasses: e.target.value.replace(/\D/g, '') }))} hint="Leave empty for no cap — printing still stops when your wallet runs out." />
@@ -381,16 +381,16 @@ export function ProfileTab({ o, onSaved }: { o: PartnerOverview; onSaved: () => 
       </Card>
       <Card className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <LabeledInput label="Brand name" value={form.name} onChange={set('name')} maxLength={120} />
+          <LabeledInput required label="Brand name" value={form.name} onChange={set('name')} maxLength={120} />
           <LabeledInput label="Legal name (optional)" value={form.legalName} onChange={set('legalName')} maxLength={200} />
           <LabeledInput label="GSTIN (optional)" value={form.gstin} onChange={set('gstin')} maxLength={15} />
           <LabeledInput label="Website" type="url" value={form.websiteUrl} onChange={set('websiteUrl')} placeholder="https://" />
         </div>
         <LabeledInput label="Tagline" value={form.tagline} onChange={set('tagline')} maxLength={120} hint="Shown under your name; also the default promo line for new campaigns." />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <LabeledInput label="Contact person" value={form.contactName} onChange={set('contactName')} />
-          <LabeledInput label="Contact email" type="email" value={form.contactEmail} onChange={set('contactEmail')} />
-          <LabeledInput label="Contact phone" type="tel" value={form.contactPhone} onChange={set('contactPhone')} />
+          <LabeledInput required label="Contact person" value={form.contactName} onChange={set('contactName')} />
+          <LabeledInput required label="Contact email" type="email" value={form.contactEmail} onChange={set('contactEmail')} />
+          <LabeledInput required label="Contact phone" type="tel" value={form.contactPhone} onChange={set('contactPhone')} />
         </div>
         {error && <Alert>{error}</Alert>}
         {ok && <Alert kind="success">Profile saved.</Alert>}

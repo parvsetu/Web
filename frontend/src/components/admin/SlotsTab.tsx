@@ -155,10 +155,10 @@ function SlotForm({ slot, nextSort, onClose, onSaved }: { slot: TimeSlot | null;
   return (
     <Modal open onClose={onClose} title={slot ? 'Edit slot' : 'Add slot'}>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Evening aarti" />
+        <LabeledInput label="Label" required value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Evening aarti" />
         <div className="grid grid-cols-2 gap-3">
-          <LabeledInput label="Start (HH:mm)" type="time" value={startTime} onChange={(e) => setStart(e.target.value)} />
-          <LabeledInput label="End (HH:mm)" type="time" value={endTime} onChange={(e) => setEnd(e.target.value)} />
+          <LabeledInput label="Start (HH:mm)" required type="time" value={startTime} onChange={(e) => setStart(e.target.value)} />
+          <LabeledInput label="End (HH:mm)" required type="time" value={endTime} onChange={(e) => setEnd(e.target.value)} />
         </div>
         {crosses && <p className="text-sm text-indigo-800">This slot crosses midnight — it ends the next day.</p>}
         <div className="grid grid-cols-2 gap-3">

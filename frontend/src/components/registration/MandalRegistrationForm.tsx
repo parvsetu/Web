@@ -143,7 +143,7 @@ export function MandalRegistrationForm({
   return (
     <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
       <Section icon={PartyPopper} title="Your mandal / organisation" tone="from-amber-400 to-orange-500">
-        <LabeledInput label="Organisation name" value={form.orgName} onChange={set('orgName')} error={errors.orgName} placeholder="e.g. Shiv Shakti Mitra Mandal" maxLength={150} />
+        <LabeledInput label="Organisation name" required value={form.orgName} onChange={set('orgName')} error={errors.orgName} placeholder="e.g. Shiv Shakti Mitra Mandal" maxLength={150} />
         <StateCityPicker state={form.state} city={form.city} onChange={(p) => setForm((f) => ({ ...f, ...p }))} />
         <Field label="Address (optional)">
           <Textarea value={form.address} onChange={set('address')} maxLength={500} placeholder="Area, landmark, PIN" className="min-h-[72px]" />
@@ -152,13 +152,13 @@ export function MandalRegistrationForm({
 
       {showContact && (
         <Section icon={UserRound} title={mode === 'agent' ? 'Mandal contact person' : 'Contact person (you)'} tone="from-sky-400 to-blue-600">
-          <LabeledInput label="Name" autoComplete={mode === 'self' ? 'name' : 'off'} value={form.contactName} onChange={set('contactName')} error={errors.contactName} maxLength={100} />
+          <LabeledInput label="Name" required autoComplete={mode === 'self' ? 'name' : 'off'} value={form.contactName} onChange={set('contactName')} error={errors.contactName} maxLength={100} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <LabeledInput label="Mobile number" type="tel" inputMode="numeric" autoComplete={mode === 'self' ? 'tel' : 'off'} value={form.mobile} onChange={set('mobile')} error={errors.mobile} placeholder="9876543210" />
-            <LabeledInput label="Email" type="email" autoCapitalize="none" autoComplete={mode === 'self' ? 'email' : 'off'} value={form.email} onChange={set('email')} error={errors.email}
+            <LabeledInput label="Mobile number" required type="tel" inputMode="numeric" autoComplete={mode === 'self' ? 'tel' : 'off'} value={form.mobile} onChange={set('mobile')} error={errors.mobile} placeholder="9876543210" />
+            <LabeledInput label="Email" required type="email" autoCapitalize="none" autoComplete={mode === 'self' ? 'email' : 'off'} value={form.email} onChange={set('email')} error={errors.email}
               hint={mode === 'agent' ? 'They get a link to set their password.' : 'We send a 6-digit code to verify it.'} />
           </div>
-          {mode === 'self' && <LabeledInput label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} hint="At least 8 characters" />}
+          {mode === 'self' && <LabeledInput label="Password" required type="password" autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} hint="At least 8 characters" />}
         </Section>
       )}
 
@@ -270,8 +270,8 @@ function EventCard({ row, index, groups, error, canRemove, onChange, onRemove }:
       {row.custom ? (
         <div className="flex flex-col gap-3 rounded-xl bg-violet-50/60 p-3 ring-1 ring-violet-200">
           <p className="text-xs text-violet-900">Tell us about it — the Parvsetu team reviews new event types before they go live, and may add yours to the list for everyone.</p>
-          <LabeledInput label="Event type name" value={row.customName} onChange={(e) => onChange({ customName: e.target.value })} placeholder="e.g. Tanha Pola" maxLength={80} />
-          <LabeledSelect label="Category" value={row.customGroup} onChange={(e) => onChange({ customGroup: e.target.value })}>
+          <LabeledInput label="Event type name" required value={row.customName} onChange={(e) => onChange({ customName: e.target.value })} placeholder="e.g. Tanha Pola" maxLength={80} />
+          <LabeledSelect label="Category" required value={row.customGroup} onChange={(e) => onChange({ customGroup: e.target.value })}>
             <option value="">— Choose a category —</option>
             {groups.map((g) => <option key={g} value={g}>{g}</option>)}
           </LabeledSelect>
@@ -281,7 +281,7 @@ function EventCard({ row, index, groups, error, canRemove, onChange, onRemove }:
         </div>
       ) : (
         <div className="flex flex-col gap-1">
-          <FestivalTypeSelect value={row.festivalType} onChange={pickType} label="Festival" />
+          <FestivalTypeSelect value={row.festivalType} onChange={pickType} label="Festival" required />
           {def && (
             <p className="text-xs text-slate-500">
               {def.group}{def.months ? ` · usually ${def.months}` : ''} · pass codes start with <span className="font-mono font-semibold">{def.defaultPrefix}</span>
@@ -290,10 +290,10 @@ function EventCard({ row, index, groups, error, canRemove, onChange, onRemove }:
           )}
         </div>
       )}
-      <LabeledInput label="Name for this edition" value={row.name} onChange={(e) => onChange({ name: e.target.value })} placeholder="e.g. Shiv Shakti Ganeshotsav 2026" maxLength={150} />
+      <LabeledInput label="Name for this edition" required value={row.name} onChange={(e) => onChange({ name: e.target.value })} placeholder="e.g. Shiv Shakti Ganeshotsav 2026" maxLength={150} />
       <div className="grid grid-cols-2 gap-3">
-        <LabeledInput label="Start date" type="date" value={row.startDate} onChange={(e) => onChange({ startDate: e.target.value })} />
-        <LabeledInput label="End date" type="date" value={row.endDate} min={row.startDate || undefined} onChange={(e) => onChange({ endDate: e.target.value })} />
+        <LabeledInput label="Start date" required type="date" value={row.startDate} onChange={(e) => onChange({ startDate: e.target.value })} />
+        <LabeledInput label="End date" required type="date" value={row.endDate} min={row.startDate || undefined} onChange={(e) => onChange({ endDate: e.target.value })} />
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <LabeledInput label="Venue / pandal (optional)" value={row.location} onChange={(e) => onChange({ location: e.target.value })} maxLength={300} placeholder="e.g. Itwari chowk pandal" />

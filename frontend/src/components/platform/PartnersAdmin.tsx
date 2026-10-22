@@ -152,7 +152,7 @@ function ApproveModal({ c, onClose, onDone }: { c: PartnerCampaign; onClose: () 
           <strong>{c.partner?.name}</strong> on passes of <strong>{c.organization.name}</strong> ({c.event?.name ?? 'all festivals'}), {c.startDate} to {c.endDate}
           {c.maxPasses ? `, up to ${c.maxPasses.toLocaleString('en-IN')} passes` : ', no cap'}.
         </p>
-        <LabeledInput label="Rate per pass (₹)" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))} hint={`Quoted ${fmtMoney(c.rate)} from the mandal's partner rate. Locked once approved.`} />
+        <LabeledInput required label="Rate per pass (₹)" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ''))} hint={`Quoted ${fmtMoney(c.rate)} from the mandal's partner rate. Locked once approved.`} />
         {est !== null && <p className="rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-900">Maximum spend at this rate: <strong>{fmtMoney(est)}</strong></p>}
         <LabeledInput label="Note to the partner (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
         {error && <Alert>{error}</Alert>}
@@ -290,8 +290,8 @@ function AdjustModal({ p, onClose, onDone }: { p: AdminPartnerRow; onClose: () =
       <div className="flex flex-col gap-4">
         <SectionTitle icon={Wallet}>Balance {fmtMoney(p.walletBalance)}</SectionTitle>
         <div className="grid grid-cols-2 gap-3">
-          <LabeledInput label="Amount (₹, use − to deduct)" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.-]/g, ''))} placeholder="e.g. 5000" />
-          <LabeledInput label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="NEFT ref / correction" />
+          <LabeledInput required label="Amount (₹, use − to deduct)" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.-]/g, ''))} placeholder="e.g. 5000" />
+          <LabeledInput required label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="NEFT ref / correction" />
         </div>
         <p className="text-xs text-slate-500">Every adjustment is written to the partner&apos;s wallet history and the audit log. The wallet can never go below zero.</p>
         {error && <Alert>{error}</Alert>}

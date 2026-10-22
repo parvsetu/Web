@@ -142,11 +142,11 @@ function AddMember({ onClose, onCreated }: { onClose: () => void; onCreated: () 
         </div>
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-4">
-          <LabeledInput label="Name" value={form.name} onChange={set('name')} />
-          <LabeledInput label="Mobile" type="tel" inputMode="numeric" value={form.mobile} onChange={set('mobile')} hint="If this mobile already has an account, it is attached." />
+          <LabeledInput label="Name" required value={form.name} onChange={set('name')} />
+          <LabeledInput label="Mobile" required type="tel" inputMode="numeric" value={form.mobile} onChange={set('mobile')} hint="If this mobile already has an account, it is attached." />
           <LabeledInput label="Email (optional)" type="email" value={form.email} onChange={set('email')} />
           <LabeledInput label="Password (optional)" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} hint="Leave empty to generate a temporary password." />
-          <RoleSelect roles={roles.data ?? []} value={form.roleId} onChange={(v) => setForm((x) => ({ ...x, roleId: v }))} />
+          <RoleSelect roles={roles.data ?? []} value={form.roleId} onChange={(v) => setForm((x) => ({ ...x, roleId: v }))} required />
           {roles.error && <Alert kind="warning">Could not load roles: {roles.error}</Alert>}
           {error && <Alert>{error}</Alert>}
           <Button type="submit" loading={busy}>

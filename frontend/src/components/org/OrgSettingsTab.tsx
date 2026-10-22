@@ -58,7 +58,7 @@ function Form() {
   return (
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Mandal name" value={name} onChange={(e) => setName(e.target.value)} />
+        <LabeledInput label="Mandal name" required value={name} onChange={(e) => setName(e.target.value)} />
         <StateCityPicker state={place.state} city={place.city} onChange={setPlace} />
         <Field label="Address (printed on receipts)">
           <Textarea value={address} onChange={(e) => setAddress(e.target.value)} />

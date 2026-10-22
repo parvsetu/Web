@@ -208,7 +208,7 @@ function AssignModal({
             })
           )}
         </div>
-        <RoleSelect roles={roles} value={roleId || volunteerRole?.id || ''} onChange={setRoleId} />
+        <RoleSelect roles={roles} value={roleId || volunteerRole?.id || ''} onChange={setRoleId} required />
         {rolesError && <Alert kind="warning">Could not load roles: {rolesError}</Alert>}
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy}>
@@ -219,9 +219,9 @@ function AssignModal({
   );
 }
 
-export function RoleSelect({ roles, value, onChange, label = 'Role' }: { roles: Role[]; value: string; onChange: (v: string) => void; label?: string }) {
+export function RoleSelect({ roles, value, onChange, label = 'Role', required }: { roles: Role[]; value: string; onChange: (v: string) => void; label?: string; required?: boolean }) {
   return (
-    <LabeledSelect label={label} value={value} onChange={(e) => onChange(e.target.value)}>
+    <LabeledSelect label={label} required={required} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">— Choose role —</option>
       {roles.map((r) => (
         <option key={r.id} value={r.id}>

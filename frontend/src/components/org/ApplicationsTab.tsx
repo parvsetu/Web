@@ -123,7 +123,7 @@ function ApproveModal({ app, onClose, onDone }: { app: Application; onClose: () 
   return (
     <Modal open onClose={onClose} title={`Approve ${app.user?.name ?? 'applicant'}`}>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledSelect label="Festival" value={eventId} onChange={(e) => setEventId(e.target.value)}>
+        <LabeledSelect label="Festival" required value={eventId} onChange={(e) => setEventId(e.target.value)}>
           <option value="">— Choose —</option>
           {(events.data ?? []).map((ev) => (
             <option key={ev.id} value={ev.id}>
@@ -131,7 +131,7 @@ function ApproveModal({ app, onClose, onDone }: { app: Application; onClose: () 
             </option>
           ))}
         </LabeledSelect>
-        <RoleSelect roles={roles.data ?? []} value={roleId || defaultRole?.id || ''} onChange={setRoleId} />
+        <RoleSelect roles={roles.data ?? []} value={roleId || defaultRole?.id || ''} onChange={setRoleId} required />
         {roles.error && <Alert kind="warning">Could not load roles: {roles.error}</Alert>}
         {error && <Alert>{error}</Alert>}
         <Button type="submit" variant="success" loading={busy}>

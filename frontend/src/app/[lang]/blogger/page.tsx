@@ -341,8 +341,8 @@ function ProfileTab({ b, canEdit, onSaved }: { b: Blogger; canEdit: boolean; onS
     <Card>
       <form onSubmit={save} className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <LabeledInput label="Name" value={f.name} onChange={set('name')} maxLength={100} disabled={!canEdit} />
-          <LabeledInput label="Contact mobile" value={f.phone} onChange={set('phone')} disabled={!canEdit} hint="Bookings with this number don’t earn commission." />
+          <LabeledInput label="Name" required value={f.name} onChange={set('name')} maxLength={100} disabled={!canEdit} />
+          <LabeledInput label="Contact mobile" required value={f.phone} onChange={set('phone')} disabled={!canEdit} hint="Bookings with this number don’t earn commission." />
           <LabeledInput label="YouTube channel link" value={f.youtubeUrl} onChange={set('youtubeUrl')} disabled={!canEdit} placeholder="https://youtube.com/@…" />
           <LabeledInput label="Instagram handle" value={f.instagramHandle} onChange={set('instagramHandle')} disabled={!canEdit} placeholder="@yourname" />
           <LabeledInput label="Blog / website" value={f.blogUrl} onChange={set('blogUrl')} disabled={!canEdit} placeholder="https://…" />

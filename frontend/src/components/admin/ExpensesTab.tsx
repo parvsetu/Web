@@ -151,11 +151,11 @@ function ExpenseForm({ expense, onClose, onDone }: { expense: Expense | null; on
   return (
     <Modal open onClose={onClose} title={expense ? 'Edit expense' : 'Add expense'}>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Category" list="expense-cats" value={form.category} onChange={set('category')} placeholder="e.g. Lighting" />
-        <LabeledInput label="Description" value={form.description} onChange={set('description')} />
+        <LabeledInput required label="Category" list="expense-cats" value={form.category} onChange={set('category')} placeholder="e.g. Lighting" />
+        <LabeledInput required label="Description" value={form.description} onChange={set('description')} />
         <div className="grid grid-cols-2 gap-3">
-          <LabeledInput label="Amount (₹)" inputMode="decimal" value={form.amount} onChange={set('amount')} />
-          <LabeledInput label="Date" type="date" value={form.expenseDate} onChange={set('expenseDate')} />
+          <LabeledInput required label="Amount (₹)" inputMode="decimal" value={form.amount} onChange={set('amount')} />
+          <LabeledInput required label="Date" type="date" value={form.expenseDate} onChange={set('expenseDate')} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <LabeledInput label="Vendor (optional)" value={form.vendor} onChange={set('vendor')} />

@@ -168,7 +168,7 @@ function CreditAgent({ org, onClose, onDone }: { org: Organization; onClose: () 
           <option value="">— No agent —</option>
           {(agents.data?.items ?? []).map((a) => <option key={a.id} value={a.id}>{a.name} ({a.code}){a.status !== 'ACTIVE' ? ' · suspended' : ''}</option>)}
         </LabeledSelect>
-        <LabeledInput label="Reason (audited)" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Visited by Rakesh in August" />
+        <LabeledInput label="Reason (audited)" required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Visited by Rakesh in August" />
         <p className="text-xs text-slate-500">Only festival fees paid from now on earn for the agent.</p>
         {error && <Alert>{error}</Alert>}
         <Button loading={busy} disabled={reason.trim().length < 3} onClick={async () => {
@@ -220,7 +220,7 @@ function CreateOrg({ onClose, onDone }: { onClose: () => void; onDone: () => voi
   return (
     <Modal open onClose={onClose} title="New organisation" wide>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Name" value={form.name} onChange={set('name')} />
+        <LabeledInput label="Name" required value={form.name} onChange={set('name')} />
         <StateCityPicker state={form.state} city={form.city} onChange={(p) => setForm((x) => ({ ...x, ...p }))} />
         <Field label="Address (optional)">
           <Textarea value={form.address} onChange={set('address')} />

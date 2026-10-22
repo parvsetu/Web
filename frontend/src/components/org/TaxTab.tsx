@@ -91,11 +91,11 @@ function ProfileCard({ orgId, p, manage, onSaved }: { orgId: string; p: TaxProfi
         <form onSubmit={save} className="flex flex-col gap-3">
           {!p && <p className="text-sm text-slate-600">Enter the details from your 80G approval order (Form 10AC / 10AD). Parvsetu verifies them before receipts mention 80G.</p>}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <LabeledInput label="80G URN (Unique Registration Number)" value={f.urn} onChange={(e) => setF((x) => ({ ...x, urn: e.target.value.toUpperCase().replace(/\s/g, '') }))} maxLength={30} placeholder="AAATS1234AF20214" />
-            <LabeledInput label="URN issued on" type="date" value={f.urnIssuedOn} onChange={set('urnIssuedOn')} />
-            <LabeledInput label="Valid from" type="date" value={f.validFrom} onChange={set('validFrom')} />
+            <LabeledInput required label="80G URN (Unique Registration Number)" value={f.urn} onChange={(e) => setF((x) => ({ ...x, urn: e.target.value.toUpperCase().replace(/\s/g, '') }))} maxLength={30} placeholder="AAATS1234AF20214" />
+            <LabeledInput required label="URN issued on" type="date" value={f.urnIssuedOn} onChange={set('urnIssuedOn')} />
+            <LabeledInput required label="Valid from" type="date" value={f.validFrom} onChange={set('validFrom')} />
             <LabeledInput label="Valid to (blank if no end date)" type="date" value={f.validTo} onChange={set('validTo')} />
-            <LabeledInput label="Mandal / trust PAN" value={f.pan} onChange={(e) => setF((x) => ({ ...x, pan: e.target.value.toUpperCase().replace(/\s/g, '') }))} maxLength={10} placeholder={p ? `${p.pan} — re-enter to change` : 'AAATS1234F'} hint="Stored encrypted; shown masked." />
+            <LabeledInput required label="Mandal / trust PAN" value={f.pan} onChange={(e) => setF((x) => ({ ...x, pan: e.target.value.toUpperCase().replace(/\s/g, '') }))} maxLength={10} placeholder={p ? `${p.pan} — re-enter to change` : 'AAATS1234F'} hint="Stored encrypted; shown masked." />
             <LabeledInput label="Section code (Form 10BD)" value={f.sectionCode} onChange={set('sectionCode')} maxLength={40} />
           </div>
           {error && <Alert>{error}</Alert>}
@@ -219,7 +219,7 @@ function FileModal({ orgId, fy, onClose, onDone }: { orgId: string; fy: string; 
     <Modal open onClose={onClose} title={`Form 10BD filed — FY ${fy}`}>
       <form onSubmit={save} className="flex flex-col gap-3">
         <p className="text-sm text-slate-600">Record this after uploading the statement on the income-tax portal. It covers every 80G-eligible donation of the year as it stands now.</p>
-        <LabeledInput label="Acknowledgement number" value={ack} onChange={(e) => setAck(e.target.value)} maxLength={60} />
+        <LabeledInput required label="Acknowledgement number" value={ack} onChange={(e) => setAck(e.target.value)} maxLength={60} />
         <LabeledInput label="Filed on" type="date" value={on} onChange={(e) => setOn(e.target.value)} />
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy} disabled={ack.trim().length < 4}>Save filing</Button>
@@ -250,7 +250,7 @@ function IssueModal({ orgId, fy, donor, onClose, onDone }: { orgId: string; fy: 
     <Modal open onClose={onClose} title={`Form 10BE — ${donor.name}`}>
       <form onSubmit={save} className="flex flex-col gap-3">
         <p className="text-sm text-slate-600">{donor.donorId} · {fmtMoney(donor.total)} in FY {fy}. Enter the certificate number from the Form 10BE you downloaded from the portal.</p>
-        <LabeledInput label="Certificate number" value={cert} onChange={(e) => setCert(e.target.value)} maxLength={60} />
+        <LabeledInput required label="Certificate number" value={cert} onChange={(e) => setCert(e.target.value)} maxLength={60} />
         <LabeledInput label="Given to the donor on" type="date" value={on} onChange={(e) => setOn(e.target.value)} />
         {error && <Alert>{error}</Alert>}
         <Button type="submit" loading={busy} disabled={cert.trim().length < 4}>Save</Button>

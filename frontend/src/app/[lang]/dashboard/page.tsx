@@ -196,7 +196,7 @@ function NoEvents({ me }: { me: MeUser }) {
       ))}
       {events && events.length > 0 && (
         <Card>
-          <Field label="Request to volunteer at" htmlFor="apply-ev">
+          <Field required label="Request to volunteer at" htmlFor="apply-ev">
             <Select id="apply-ev" value={eventId} onChange={(e) => setEventId(e.target.value)}>
               <option value="">— Choose a festival —</option>
               {events.map((ev) => (

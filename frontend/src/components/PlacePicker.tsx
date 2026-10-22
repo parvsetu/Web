@@ -31,7 +31,7 @@ export function StateCityPicker({
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <LabeledSelect label={required ? 'State' : 'State (optional)'} value={state} onChange={(e) => onChange({ state: e.target.value, city: '' })}>
+      <LabeledSelect label={required ? 'State' : 'State (optional)'} required={required} value={state} onChange={(e) => onChange({ state: e.target.value, city: '' })}>
         <option value="">— Select state —</option>
         <optgroup label="States">
           {list.filter((s) => s.type === 'STATE').map((s) => (
@@ -47,6 +47,7 @@ export function StateCityPicker({
       <div className="flex flex-col gap-2">
         <LabeledSelect
           label="City"
+          required={required}
           value={other ? OTHER : city}
           disabled={!state}
           onChange={(e) => {
@@ -75,14 +76,14 @@ export function StateCityPicker({
 
 /** Festival type dropdown grouped by tradition, with the usual months as a hint. */
 /** `only`: the mandal's chosen festivals (empty/undefined = all). The current value always stays listed. */
-export function FestivalTypeSelect({ value, onChange, label = 'Festival type', only }: { value: string; onChange: (v: string) => void; label?: string; only?: string[] }) {
+export function FestivalTypeSelect({ value, onChange, label = 'Festival type', only, required }: { value: string; onChange: (v: string) => void; label?: string; only?: string[]; required?: boolean }) {
   const types = useFestivalTypes();
   const all = types.data ?? [];
   const list = only?.length ? all.filter((t) => only.includes(t.key) || t.key === value) : all;
   const groups = [...new Set(list.map((t) => t.group))];
   const sel = list.find((t) => t.key === value);
   return (
-    <LabeledSelect label={label} value={value} onChange={(e) => onChange(e.target.value)} hint={sel?.months ? `Usually: ${sel.months}` : undefined}>
+    <LabeledSelect label={label} required={required} value={value} onChange={(e) => onChange(e.target.value)} hint={sel?.months ? `Usually: ${sel.months}` : undefined}>
       <option value="">— Choose —</option>
       {groups.map((g) => (
         <optgroup key={g} label={g}>

@@ -68,17 +68,25 @@ export function Field({
   error,
   children,
   htmlFor,
+  required,
 }: {
   label: string;
   hint?: ReactNode;
   error?: string | null;
   children: ReactNode;
   htmlFor?: string;
+  /** Shows a red * after the label (the input itself carries required/aria-required). */
+  required?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-800">
         {label}
+        {required && (
+          <span aria-hidden className="ml-0.5 text-red-600">
+            *
+          </span>
+        )}
       </label>
       {children}
       {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
@@ -130,7 +138,7 @@ export function LabeledInput({
 }: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: ReactNode; error?: string | null }) {
   const id = useId();
   return (
-    <Field label={label} hint={hint} error={error} htmlFor={id}>
+    <Field label={label} hint={hint} error={error} htmlFor={id} required={!!rest.required}>
       <Input id={id} {...rest} />
     </Field>
   );
@@ -144,7 +152,7 @@ export function LabeledSelect({
 }: SelectHTMLAttributes<HTMLSelectElement> & { label: string; hint?: ReactNode }) {
   const id = useId();
   return (
-    <Field label={label} hint={hint} htmlFor={id}>
+    <Field label={label} hint={hint} htmlFor={id} required={!!rest.required}>
       <Select id={id} {...rest}>
         {children}
       </Select>

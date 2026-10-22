@@ -204,7 +204,7 @@ function SponsorModal({ sponsor, events, onClose, onSaved }: { sponsor: Sponsor 
             <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
           </div>
         </div>
-        <LabeledInput label="Partner name" value={form.name} onChange={set('name')} placeholder="e.g. Tanishq" />
+        <LabeledInput label="Partner name" required value={form.name} onChange={set('name')} placeholder="e.g. Tanishq" />
         <LabeledSelect label="Partnership level" value={form.tier} onChange={set('tier')}>
           {TIERS.map((t) => (
             <option key={t.key} value={t.key}>{t.label}</option>

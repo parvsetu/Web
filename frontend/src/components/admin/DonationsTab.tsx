@@ -281,8 +281,8 @@ function CreateDonation({ onClose, onDone }: { onClose: () => void; onDone: () =
           checked={anonymous}
           onChange={setAnonymous}
         />
-        {!anonymous && <LabeledInput label="Donor name" value={form.donorName} onChange={set('donorName')} />}
-        <LabeledInput label="Amount (₹)" inputMode="decimal" value={form.amount} onChange={set('amount')} placeholder="501" />
+        {!anonymous && <LabeledInput label="Donor name" required value={form.donorName} onChange={set('donorName')} />}
+        <LabeledInput label="Amount (₹)" required inputMode="decimal" value={form.amount} onChange={set('amount')} placeholder="501" />
         <div className="grid grid-cols-2 gap-3">
           <LabeledSelect label="Method" value={form.method} onChange={set('method')}>
             {DONATION_METHODS.map((m) => (

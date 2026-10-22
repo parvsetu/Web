@@ -104,7 +104,7 @@ export function ValidityPicker({
       )}
       {value.mode === 'duration' ? (
         <>
-          <Field label="Valid for">
+          <Field required label="Valid for">
             <div className="flex flex-wrap gap-2">
               {presets.map((h) => (
                 <button
@@ -146,7 +146,7 @@ export function ValidityPicker({
               </button>
             ))}
           </div>
-          {!value.startNow && <LabeledInput label="Starts at" type="datetime-local" value={value.startAt} onChange={(e) => set({ startAt: e.target.value })} hint="Your device's local time" />}
+          {!value.startNow && <LabeledInput required label="Starts at" type="datetime-local" value={value.startAt} onChange={(e) => set({ startAt: e.target.value })} hint="Your device's local time" />}
           {value.durationHours > 0 && (
             <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
               Valid for {durationLabel(value.durationHours)} from {value.startNow ? 'the moment it is issued' : 'the chosen start time'}.
@@ -190,7 +190,7 @@ export function ValidityPicker({
               })}
             </div>
           )}
-          <LabeledInput
+          <LabeledInput required
             label="Date"
             type="date"
             value={value.date}
@@ -202,8 +202,8 @@ export function ValidityPicker({
         </>
       ) : (
         <>
-          <LabeledInput label="Valid from" type="datetime-local" value={value.validFrom} onChange={(e) => set({ validFrom: e.target.value })} hint="Your device's local time" />
-          <LabeledInput label="Valid until" type="datetime-local" value={value.validUntil} onChange={(e) => set({ validUntil: e.target.value })} />
+          <LabeledInput required label="Valid from" type="datetime-local" value={value.validFrom} onChange={(e) => set({ validFrom: e.target.value })} hint="Your device's local time" />
+          <LabeledInput required label="Valid until" type="datetime-local" value={value.validUntil} onChange={(e) => set({ validUntil: e.target.value })} />
         </>
       )}
     </div>

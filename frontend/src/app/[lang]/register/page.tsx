@@ -177,10 +177,10 @@ function VolunteerRegister({ onBack }: { onBack: () => void }) {
     <AuthCard title="Create account" subtitle="Sign up to volunteer at a festival.">
       <BackLink onBack={onBack} />
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-        <LabeledInput label="Your name" autoComplete="name" value={form.name} onChange={set('name')} error={errors.name} />
-        <LabeledInput label="Mobile number" type="tel" inputMode="numeric" autoComplete="tel" value={form.mobile} onChange={set('mobile')} error={errors.mobile} placeholder="9876543210" />
-        <LabeledInput label="Email" hint="We will send a 6-digit code to activate your account." type="email" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} error={errors.email} />
-        <LabeledInput label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} hint="At least 8 characters" />
+        <LabeledInput required label="Your name" autoComplete="name" value={form.name} onChange={set('name')} error={errors.name} />
+        <LabeledInput required label="Mobile number" type="tel" inputMode="numeric" autoComplete="tel" value={form.mobile} onChange={set('mobile')} error={errors.mobile} placeholder="9876543210" />
+        <LabeledInput required label="Email" hint="We will send a 6-digit code to activate your account." type="email" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} error={errors.email} />
+        <LabeledInput required label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} hint="At least 8 characters" />
         <Field label="Which festival do you want to volunteer for? (optional)" htmlFor="reg-event">
           <Select id="reg-event" value={form.eventId} onChange={set('eventId')}>
             <option value="">— Not now —</option>
