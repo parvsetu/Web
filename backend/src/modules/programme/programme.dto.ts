@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested,
+  ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested,
 } from 'class-validator';
 import { HHMM, YMD } from '../../common/time/validity';
 import { MAX_GUESTS_PER_ITEM, PROGRAMME_CATEGORIES, PROGRAMME_SETTINGS, PROGRAMME_STATUSES } from './programme.rules';
@@ -38,6 +38,12 @@ export class CreateProgrammeItemDto {
   @IsOptional() @IsString() @MaxLength(300) statusNote?: string;
   @IsOptional() @IsBoolean() isPublished?: boolean;
   @IsOptional() @IsInt() @Min(0) @Max(1000) sortOrder?: number;
+  /** Sell this programme as its own ticket (needs an end time: the pass is valid start–end). */
+  @IsOptional() @IsBoolean() ticketed?: boolean;
+  /** Per person, rupees; 0 = free. */
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100000) ticketPrice?: number;
+  /** null / omitted = unlimited. */
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsInt() @Min(1) @Max(1000000) ticketCapacity?: number | null;
   /** The full guest list; on update it replaces the old one (guests keep their photo by id). */
   @IsOptional() @IsArray() @ArrayMaxSize(MAX_GUESTS_PER_ITEM) @ValidateNested({ each: true }) @Type(() => ProgrammeGuestDto) guests?: ProgrammeGuestDto[];
 }

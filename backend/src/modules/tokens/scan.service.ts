@@ -49,7 +49,12 @@ const TOKEN_FOR_SCAN = {
   visitorCount: true, usedAt: true,
   usedBy: { select: { id: true, name: true } },
   timeSlot: { select: { label: true } },
+  programmeItem: { select: { title: true } },
 } as const;
+
+/** What the gate shows under "Slot": the time slot, or the programme a ticket is for. */
+const slotOf = (t: { timeSlot: { label: string } | null; programmeItem: { title: string } | null }) =>
+  t.timeSlot ?? (t.programmeItem ? { label: t.programmeItem.title } : null);
 
 type ScanToken = Prisma.TokenGetPayload<{ select: typeof TOKEN_FOR_SCAN }>;
 
@@ -169,7 +174,7 @@ export class ScanService {
           body: this.body('SUCCESS', {
             status: 'USED', tokenCode: token!.tokenCode, usedAt: now.toISOString(),
             scannedBy: { id: user.id, name: user.name }, visitorCount: token!.visitorCount,
-            timeSlot: token!.timeSlot, scannedAt: now,
+            timeSlot: slotOf(token!), scannedAt: now,
             validFrom: token!.validFrom, validUntil: token!.validUntil,
           }),
         };
@@ -221,7 +226,7 @@ export class ScanService {
         body: {
           ...this.body('SUCCESS', {
             status: 'USED', tokenCode: log.token.tokenCode, usedAt: log.scanTime.toISOString(), scannedBy: log.user,
-            visitorCount: log.token.visitorCount, timeSlot: log.token.timeSlot, scannedAt: log.scanTime,
+            visitorCount: log.token.visitorCount, timeSlot: slotOf(log.token), scannedAt: log.scanTime,
             validFrom: log.token.validFrom, validUntil: log.token.validUntil,
           }),
           replayed: true,
@@ -238,7 +243,7 @@ export class ScanService {
         status, tokenCode: t.tokenCode, scannedAt: now,
         usedAt: result === 'ALREADY_USED' ? t.usedAt?.toISOString() ?? null : null,
         scannedBy: result === 'ALREADY_USED' ? t.usedBy : null,
-        validFrom: t.validFrom, validUntil: t.validUntil, visitorCount: t.visitorCount, timeSlot: t.timeSlot,
+        validFrom: t.validFrom, validUntil: t.validUntil, visitorCount: t.visitorCount, timeSlot: slotOf(t),
       }),
       replayed,
     };

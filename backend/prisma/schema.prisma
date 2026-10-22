@@ -526,6 +526,8 @@ model Token {
   secureToken        String      @unique
   visitorId          String?
   timeSlotId         String?
+  /// Set for a programme ticket (online order for one programme item).
+  programmeItemId    String?
   visitorCount       Int         @default(1)
   status             TokenStatus @default(ACTIVE)
   validFrom          DateTime
@@ -540,28 +542,30 @@ model Token {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  event              Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  visitor            Visitor?   @relation(fields: [visitorId], references: [id], onDelete: SetNull)
-  timeSlot           TimeSlot?  @relation(fields: [timeSlotId], references: [id], onDelete: SetNull)
-  issuedBy           User?      @relation("TokenIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
-  usedBy             User?      @relation("TokenUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
-  cancelledBy        User?      @relation("TokenCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  event              Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  visitor            Visitor?       @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  timeSlot           TimeSlot?      @relation(fields: [timeSlotId], references: [id], onDelete: SetNull)
+  programmeItem      ProgrammeItem? @relation(fields: [programmeItemId], references: [id], onDelete: SetNull)
+  issuedBy           User?          @relation("TokenIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+  usedBy             User?          @relation("TokenUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  cancelledBy        User?          @relation("TokenCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   scanLogs           ScanLog[]
   // Set when the token was minted by an online pass order / issued for a donation.
   passOrderId        String?
   donationId         String?
-  donation           Donation?  @relation(fields: [donationId], references: [id], onDelete: SetNull)
+  donation           Donation?      @relation(fields: [donationId], references: [id], onDelete: SetNull)
   /// Partners printed on this pass (snapshot of what was paid for).
-  sponsorIds         String[]   @default([])
+  sponsorIds         String[]       @default([])
   /// Platform promotional-partner campaigns printed on this pass (snapshot of what was paid for).
-  partnerCampaignIds String[]   @default([])
-  passOrder          PassOrder? @relation(fields: [passOrderId], references: [id], onDelete: SetNull)
+  partnerCampaignIds String[]       @default([])
+  passOrder          PassOrder?     @relation(fields: [passOrderId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, tokenCode])
   @@index([passOrderId])
   @@index([eventId, status])
   @@index([eventId, validFrom, validUntil])
   @@index([eventId, timeSlotId])
+  @@index([programmeItemId])
   @@map("tokens")
 }
 
@@ -692,7 +696,9 @@ model AuditLog {
 model PassOrder {
   id                  String          @id @default(uuid())
   eventId             String
-  timeSlotId          String
+  /// Exactly one of timeSlotId (day pass) / programmeItemId (programme ticket) is set (CHECK).
+  timeSlotId          String?
+  programmeItemId     String?
   validFrom           DateTime
   validUntil          DateTime
   visitorCount        Int
@@ -727,7 +733,8 @@ model PassOrder {
   updatedAt           DateTime        @updatedAt
 
   event             Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  timeSlot          TimeSlot          @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
+  timeSlot          TimeSlot?         @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
+  programmeItem     ProgrammeItem?    @relation(fields: [programmeItemId], references: [id], onDelete: Restrict)
   tokens            Token[]
   review            VisitorReview?
   pushLinks         PushPassLink[]
@@ -737,6 +744,7 @@ model PassOrder {
   @@unique([eventId, invoiceNo], map: "pass_orders_event_invoice_key")
   @@index([eventId, status])
   @@index([timeSlotId, validFrom, status])
+  @@index([programmeItemId, status])
   @@index([referralPromotionId])
   @@map("pass_orders")
 }
@@ -796,42 +804,42 @@ model Sponsor {
 // fee per person admitted = round(tokenPrice × commissionBps / 10000).
 
 model PlatformSettings {
-  id                          String   @id @default("default")
-  defaultTokenPricePaise      Int      @default(10000)
-  defaultCommissionBps        Int      @default(100)
-  lowCreditThresholdPaise     Int      @default(20000)
-  welcomeCreditPaise          Int      @default(10000)
+  id                          String    @id @default("default")
+  defaultTokenPricePaise      Int       @default(10000)
+  defaultCommissionBps        Int       @default(100)
+  lowCreditThresholdPaise     Int       @default(20000)
+  welcomeCreditPaise          Int       @default(10000)
   /// Default promotional-partner rate per printed pass (paid by the partner, not the mandal).
-  sponsorPassFeePaise         Int      @default(50)
+  sponsorPassFeePaise         Int       @default(50)
   /// Gateway fee deducted from the mandal's share on online payments (bps).
-  gatewayFeeBps               Int      @default(0)
+  gatewayFeeBps               Int       @default(0)
   /// Pass print layout for mandals without an override: AUTO | A4 | THERMAL_80 | THERMAL_58.
   /// AUTO = A4 when a pass carries 2+ ads (sponsors + platform partners), else THERMAL_80.
-  defaultPassPrintFormat      String   @default("AUTO")
+  defaultPassPrintFormat      String    @default("AUTO")
   /// Yearly fee for a mandal landing page at /m/<slug>, for mandals without an override.
-  landingPageYearlyPricePaise Int      @default(99900)
+  landingPageYearlyPricePaise Int       @default(99900)
   /// Registration fee per event (each event is paid separately) when no festival-type / mandal rate applies.
-  defaultEventFeePaise        Int      @default(49900)
+  defaultEventFeePaise        Int       @default(49900)
   /// Field-agent referral: fixed amount per mandal, earned when it pays its first event fee.
-  agentReferralFeePaise       Int      @default(20000)
+  agentReferralFeePaise       Int       @default(20000)
   /// Field-agent commission on every paid event fee (bps of the fee).
-  agentCommissionBps          Int      @default(0)
+  agentCommissionBps          Int       @default(0)
   /// Platform fee on every paid stall booking (bps of the stall rent, before GST).
-  stallCommissionBps          Int      @default(500)
+  stallCommissionBps          Int       @default(500)
   /// Platform fee on every paid competition entry (bps of the entry fee, before GST).
-  competitionCommissionBps    Int      @default(500)
+  competitionCommissionBps    Int       @default(500)
   /// Blogger referral commission on a paid pass booking: PERCENT (bps of the ex-GST ticket value) or FIXED (paise per booking).
-  referralCommissionMode      String   @default("PERCENT")
-  referralCommissionValue     Int      @default(500)
+  referralCommissionMode      String    @default("PERCENT")
+  referralCommissionValue     Int       @default(500)
   /// 80G: cash donations above this (paise) get no deduction (s.80G(5D) — ₹2,000 today). CA review.
-  tax80GCashLimitPaise        Int      @default(200000)
+  tax80GCashLimitPaise        Int       @default(200000)
   /// Form 10BD / 10BE due date after the financial year ends, as MM-DD (31 May today). CA review.
-  tax10BDDueMonthDay          String   @default("05-31")
+  tax10BDDueMonthDay          String    @default("05-31")
   /// Super-admin alerts: everything submitted after this moment is still to be announced (see platform-alerts).
   alertsCheckedAt             DateTime?
   /// Extra addresses (comma-separated) that get the "waiting for review" emails besides every super admin.
   alertEmails                 String?
-  updatedAt                   DateTime @updatedAt
+  updatedAt                   DateTime  @updatedAt
   updatedById                 String?
 
   @@map("platform_settings")
@@ -2192,11 +2200,20 @@ model ProgrammeItem {
   statusNote      String?
   isPublished     Boolean   @default(true)
   sortOrder       Int       @default(0)
+  /// Sold as its own ticket on the booking page (separate from time-slot day passes).
+  /// The pass is valid only from startTime to endTime on this item's date.
+  ticketed        Boolean   @default(false)
+  /// Per person; 0 = free ticket.
+  ticketPrice     Decimal   @default(0) @db.Decimal(10, 2)
+  /// null = unlimited.
+  ticketCapacity  Int?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  event  Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  guests ProgrammeGuest[]
+  event      Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  guests     ProgrammeGuest[]
+  tokens     Token[]
+  passOrders PassOrder[]
 
   @@index([eventId, date])
   @@map("programme_items")
@@ -2422,7 +2439,7 @@ model Artwork {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  event     Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
   enquiries ArtworkEnquiry[]
 
   @@index([eventId, isPublished])

@@ -35,7 +35,7 @@ export class ReportsService {
     const r = this.range(event, q);
     const now = new Date();
     const rows = await this.prisma.$queryRaw<{ timeSlotId: string | null; label: string | null; bucket: string; c: bigint }[]>`
-      SELECT t."timeSlotId", s.label,
+      SELECT coalesce(t."timeSlotId", t."programmeItemId") AS "timeSlotId", coalesce(s.label, p.title) AS label,
         CASE
           WHEN t.status = 'USED' THEN 'used'
           WHEN t.status = 'CANCELLED' THEN 'cancelled'
@@ -44,7 +44,7 @@ export class ReportsService {
           ELSE 'active'
         END AS bucket,
         count(*) AS c
-      FROM tokens t LEFT JOIN time_slots s ON s.id = t."timeSlotId"
+      FROM tokens t LEFT JOIN time_slots s ON s.id = t."timeSlotId" LEFT JOIN programme_items p ON p.id = t."programmeItemId"
       WHERE t."eventId" = ${event.id}
         ${r ? Prisma.sql`AND t."validFrom" >= ${r.gte} AND t."validFrom" < ${r.lt}` : Prisma.empty}
       GROUP BY 1, 2, 3`;
@@ -71,14 +71,15 @@ export class ReportsService {
     const r = this.range(event, q);
     const where = Prisma.sql`t."eventId" = ${event.id} AND t.status = 'USED'
       ${r ? Prisma.sql`AND t."usedAt" >= ${r.gte} AND t."usedAt" < ${r.lt}` : Prisma.empty}
-      ${q.timeSlotId ? Prisma.sql`AND t."timeSlotId" = ${q.timeSlotId}` : Prisma.empty}`;
+      ${q.timeSlotId ? Prisma.sql`AND (t."timeSlotId" = ${q.timeSlotId} OR t."programmeItemId" = ${q.timeSlotId})` : Prisma.empty}`;
     const tz = event.timezone;
     const [totals, bySlot, byDate, byHour] = await Promise.all([
       this.prisma.$queryRaw<{ entries: bigint; visitors: bigint }[]>`
         SELECT count(*) AS entries, coalesce(sum(t."visitorCount"), 0) AS visitors FROM tokens t WHERE ${where}`,
       this.prisma.$queryRaw<{ timeSlotId: string | null; label: string | null; entries: bigint; visitors: bigint }[]>`
-        SELECT t."timeSlotId", s.label, count(*) AS entries, coalesce(sum(t."visitorCount"), 0) AS visitors
-        FROM tokens t LEFT JOIN time_slots s ON s.id = t."timeSlotId" WHERE ${where} GROUP BY 1, 2 ORDER BY 2`,
+        SELECT coalesce(t."timeSlotId", t."programmeItemId") AS "timeSlotId", coalesce(s.label, p.title) AS label, count(*) AS entries, coalesce(sum(t."visitorCount"), 0) AS visitors
+        FROM tokens t LEFT JOIN time_slots s ON s.id = t."timeSlotId" LEFT JOIN programme_items p ON p.id = t."programmeItemId"
+        WHERE ${where} GROUP BY 1, 2 ORDER BY 2`,
       this.prisma.$queryRaw<{ date: string; entries: bigint; visitors: bigint }[]>`
         SELECT to_char(t."usedAt" AT TIME ZONE ${tz}, 'YYYY-MM-DD') AS date, count(*) AS entries, coalesce(sum(t."visitorCount"), 0) AS visitors
         FROM tokens t WHERE ${where} GROUP BY 1 ORDER BY 1`,

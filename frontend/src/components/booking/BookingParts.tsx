@@ -112,12 +112,15 @@ export function SlotCard({
   selected,
   onSelect,
   theme,
+  note: extra,
 }: {
   slot: AvailabilitySlot;
   state: SlotState;
   selected: boolean;
   onSelect: () => void;
   theme: FestivalTheme;
+  /** Extra line under the time (a programme's stage, "cancelled"). */
+  note?: string | null;
 }) {
   const disabled = state === 'ended' || state === 'soldout' || state === 'nopay';
   const free = isFree(slot.price);
@@ -161,6 +164,12 @@ export function SlotCard({
           <Clock aria-hidden className="h-3.5 w-3.5 text-slate-400" />
           {fmtHHmmL(slot.startTime, locale)} – {fmtHHmmL(slot.endTime, locale)}
         </span>
+        {extra && <span className="mt-0.5 block text-sm text-slate-600">{extra}</span>}
+        {!!slot.includes?.length && (
+          <span className="mt-0.5 block text-sm text-slate-600">
+            {t('slot.includes', { list: slot.includes.join(', ') })}
+          </span>
+        )}
         <span
           className={cx(
             'mt-1 inline-block text-xs font-semibold',

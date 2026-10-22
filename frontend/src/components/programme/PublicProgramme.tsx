@@ -142,7 +142,7 @@ export function PublicProgramme({ eventId, programme, accent, canBook, salesOpen
         <ol className="flex flex-col gap-3">
           {items.map((i) => (
             <li key={i.id} id={`prog-${i.id}`}>
-              <ItemCard item={i} accent={accent} />
+              <ItemCard item={i} accent={accent} bookEventId={canBook && sales === 'OPEN' && (!today || day.date >= today) ? eventId : null} />
             </li>
           ))}
         </ol>
@@ -163,7 +163,7 @@ export function PublicProgramme({ eventId, programme, accent, canBook, salesOpen
   );
 }
 
-function ItemCard({ item: i, accent }: { item: ProgrammeItem; accent: string }) {
+function ItemCard({ item: i, accent, bookEventId }: { item: ProgrammeItem; accent: string; /** Set when this item's ticket can be booked now. */ bookEventId: string | null }) {
   const { t, locale } = useT();
   const [more, setMore] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -291,6 +291,14 @@ function ItemCard({ item: i, accent }: { item: ProgrammeItem; accent: string }) 
               </a>
             </div>
           )
+        )}
+        {i.ticket && !cancelled && bookEventId && (
+          <BookLink eventId={bookEventId} date={i.date} item={i.id} className="mt-1 block rounded-xl font-bold text-white shadow-sm">
+            <span className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-3" style={{ background: accent }}>
+              <Ticket aria-hidden className="h-5 w-5" />
+              {Number(i.ticket.price) > 0 ? t('prog.bookTicketPrice', { price: `₹${Number(i.ticket.price)}` }) : t('prog.bookTicketFree')}
+            </span>
+          </BookLink>
         )}
       </div>
     </article>

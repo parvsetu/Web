@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Copy, ExternalLink, EyeOff, ImagePlus, Pencil, Plus, Sparkles, Trash2, UserPlus, X } from 'lucide-react';
+import { CalendarDays, Copy, ExternalLink, EyeOff, ImagePlus, Pencil, Plus, Sparkles, Ticket, Trash2, UserPlus, X } from 'lucide-react';
 import { api, errorMessage, uploadForm } from '@/lib/api';
 import { useEvent } from '@/lib/event-context';
 import { useAsync } from '@/lib/hooks';
@@ -167,6 +167,11 @@ function DayCard({
                     {i.isHeadline && <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-amber-950"><Sparkles aria-hidden className="h-3 w-3" /> Headline</span>}
                     {!i.isPublished && <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-slate-700"><EyeOff aria-hidden className="h-3 w-3" /> Draft</span>}
                     {i.status === 'CANCELLED' && <Badge className="bg-red-100 text-red-800">Cancelled</Badge>}
+                    {i.ticketed && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-orange-900">
+                        <Ticket aria-hidden className="h-3 w-3" /> {Number(i.ticketPrice) > 0 ? `₹${Number(i.ticketPrice)}` : 'Free'} ticket · {i.ticketsSold}{i.ticketCapacity ? `/${i.ticketCapacity}` : ''} booked
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 font-bold">{i.title}</p>
                   {i.guests.length > 0 && <p className="text-sm text-slate-600">{i.guests.map((g) => g.name).join(', ')}</p>}
@@ -289,6 +294,9 @@ function ItemForm({ item, date: initialDate, days, onClose, onSaved }: { item: A
   const [isPublished, setPublished] = useState(item?.isPublished ?? true);
   const [cancelled, setCancelled] = useState(item?.status === 'CANCELLED');
   const [statusNote, setStatusNote] = useState(item?.statusNote ?? '');
+  const [ticketed, setTicketed] = useState(item?.ticketed ?? false);
+  const [ticketPrice, setTicketPrice] = useState(item ? String(Number(item.ticketPrice)) : '');
+  const [ticketCapacity, setTicketCapacity] = useState(item?.ticketCapacity ? String(item.ticketCapacity) : '');
   const [guests, setGuests] = useState<GuestRow[]>(
     item?.guests.map((g) => ({ key: g.id, id: g.id, name: g.name, role: g.role ?? '', bio: g.bio ?? '', instagramUrl: g.instagramUrl ?? '', photoUrl: g.photoUrl, newPhoto: null, removePhoto: false })) ?? [],
   );
@@ -323,11 +331,17 @@ function ItemForm({ item, date: initialDate, days, onClose, onSaved }: { item: A
     if (!HHMM.test(startTime)) return setError('Enter a start time.');
     if (endTime && !HHMM.test(endTime)) return setError('End time must be HH:mm.');
     if (endTime && endTime === startTime) return setError('Start and end time cannot be the same.');
+    if (ticketed && !endTime) return setError('Add an end time to sell tickets — the ticket is valid from start to end.');
+    const price = ticketPrice.trim() === '' ? 0 : Number(ticketPrice);
+    if (ticketed && (!Number.isFinite(price) || price < 0)) return setError('Ticket price must be 0 or more.');
+    const cap = ticketCapacity.trim() === '' ? null : Number(ticketCapacity);
+    if (ticketed && cap !== null && (!Number.isInteger(cap) || cap < 1)) return setError('Seats must be a whole number, or leave it empty for no limit.');
     const named = guests.filter((g) => g.name.trim());
     const body = {
       date, startTime, endTime: endTime || null, title: title.trim(), category, setting: setting || null,
       stage, language, ageLimit, description, videoUrl, isHeadline, isPublished,
       status: cancelled ? 'CANCELLED' : 'SCHEDULED', statusNote: cancelled ? statusNote : '',
+      ticketed, ...(ticketed ? { ticketPrice: Math.round(price * 100) / 100, ticketCapacity: cap } : {}),
       guests: named.map((g) => ({ ...(g.id ? { id: g.id } : {}), name: g.name.trim(), role: g.role, bio: g.bio, instagramUrl: g.instagramUrl })),
     };
     let saving = true;
@@ -368,14 +382,14 @@ function ItemForm({ item, date: initialDate, days, onClose, onSaved }: { item: A
   return (
     <Modal open onClose={onClose} title={item ? 'Edit programme item' : 'Add to programme'} wide>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <LabeledInput label="Title" value={title} maxLength={140} onChange={(e) => setTitle(e.target.value)} placeholder="Navratri Utsav with Falguni Pathak" />
+        <LabeledInput label="Title" required value={title} maxLength={140} onChange={(e) => setTitle(e.target.value)} placeholder="Navratri Utsav with Falguni Pathak" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <LabeledSelect label="Day" value={date} onChange={(e) => setDate(e.target.value)}>
+          <LabeledSelect label="Day" required value={date} onChange={(e) => setDate(e.target.value)}>
             {days.map((d, n) => (
               <option key={d} value={d}>Day {n + 1} · {fmtDate(d)}</option>
             ))}
           </LabeledSelect>
-          <LabeledInput label="Starts" type="time" value={startTime} onChange={(e) => setStart(e.target.value)} />
+          <LabeledInput label="Starts" required type="time" value={startTime} onChange={(e) => setStart(e.target.value)} />
           <LabeledInput label="Ends (optional)" type="time" value={endTime} onChange={(e) => setEnd(e.target.value)} />
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -460,6 +474,22 @@ function ItemForm({ item, date: initialDate, days, onClose, onSaved }: { item: A
           <Checkbox label="Published — show on the public festival page" checked={isPublished} onChange={setPublished} />
           <Checkbox label="Cancelled — keep it listed, marked cancelled" checked={cancelled} onChange={setCancelled} />
         </div>
+        <fieldset className="flex flex-col gap-3 rounded-xl border border-orange-200 bg-orange-50/40 p-3">
+          <Checkbox
+            label={<span><strong>Sell tickets for this programme</strong> — visitors can book this programme on its own. The pass works only from its start to end time.</span>}
+            checked={ticketed}
+            onChange={setTicketed}
+          />
+          {ticketed && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <LabeledInput label="Ticket price per person (₹)" type="number" min={0} step="0.01" inputMode="decimal" value={ticketPrice} onChange={(e) => setTicketPrice(e.target.value)} placeholder="0 = free" />
+              <LabeledInput label="Seats (optional)" type="number" min={1} inputMode="numeric" value={ticketCapacity} onChange={(e) => setTicketCapacity(e.target.value)} placeholder="No limit" hint={item?.ticketsSold ? `${item.ticketsSold} booked so far` : undefined} />
+            </div>
+          )}
+          {ticketed && !endTime && <p className="text-sm text-amber-800">Add an end time above — the ticket is valid from start to end.</p>}
+          {ticketed && !!item?.ticketsSold && <p className="text-xs text-slate-600">Tickets are booked, so this programme’s date and time can’t change any more.</p>}
+        </fieldset>
+
         {cancelled && (
           <LabeledInput label="Note for visitors" value={statusNote} maxLength={300} onChange={(e) => setStatusNote(e.target.value)} placeholder="Cancelled due to rain — moved to Day 7, 8 pm" />
         )}

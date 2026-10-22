@@ -155,18 +155,53 @@ export class TokensService {
     return Math.max(0, capacity - (issued._sum.visitorCount ?? 0) - (held._sum.visitorCount ?? 0));
   }
 
+  /**
+   * Same rule as checkSlotCapacity, for a programme ticket: locks the item row
+   * and counts its issued tokens + unexpired unpaid orders (an item is on one date).
+   */
+  async checkItemCapacity(
+    tx: Prisma.TransactionClient, programmeItemId: string, capacity: number | null, adding: number, excludeOrderId?: string,
+  ) {
+    await tx.$queryRaw`SELECT id FROM programme_items WHERE id = ${programmeItemId} FOR UPDATE`;
+    if (capacity === null) return;
+    const used = await this.itemUsed(tx, programmeItemId, excludeOrderId);
+    if (used + adding > capacity) {
+      throw new ConflictException({
+        message: used >= capacity ? 'This programme is sold out.' : `Only ${capacity - used} ticket(s) left for this programme.`,
+        code: 'SLOT_FULL',
+      });
+    }
+  }
+
+  /** Tickets issued + held for a programme item. */
+  async itemUsed(db: Prisma.TransactionClient | PrismaService, programmeItemId: string, excludeOrderId?: string): Promise<number> {
+    const [issued, held] = await Promise.all([
+      db.token.aggregate({ where: { programmeItemId, status: { not: 'CANCELLED' } }, _sum: { visitorCount: true } }),
+      db.passOrder.aggregate({
+        where: { programmeItemId, status: 'PENDING', expiresAt: { gt: new Date() }, id: excludeOrderId ? { not: excludeOrderId } : undefined },
+        _sum: { visitorCount: true },
+      }),
+    ]);
+    return (issued._sum.visitorCount ?? 0) + (held._sum.visitorCount ?? 0);
+  }
+
+  async itemRemaining(programmeItemId: string, capacity: number | null): Promise<number | null> {
+    if (capacity === null) return null;
+    return Math.max(0, capacity - (await this.itemUsed(this.prisma, programmeItemId)));
+  }
+
   /** Mints one token inside the caller's transaction (online pass orders). */
   async mintToken(
     tx: Prisma.TransactionClient,
     event: { id: string; tokenPrefix: string; startDate: Date },
-    data: { timeSlotId: string; validFrom: Date; validUntil: Date; visitorCount: number; visitorName: string; visitorMobile: string; passOrderId?: string; sponsorIds?: string[]; partnerCampaignIds?: string[] },
+    data: { timeSlotId: string | null; programmeItemId?: string | null; validFrom: Date; validUntil: Date; visitorCount: number; visitorName: string; visitorMobile: string; passOrderId?: string; sponsorIds?: string[]; partnerCampaignIds?: string[] },
   ) {
     const seq = await this.reserveSeq(tx, event.id, 1);
     const visitor = await tx.visitor.create({ data: { eventId: event.id, name: data.visitorName, mobile: data.visitorMobile } });
     return tx.token.create({
       data: {
         eventId: event.id, tokenCode: this.code(event, seq), secureToken: this.qr.newSecureToken(), visitorId: visitor.id,
-        timeSlotId: data.timeSlotId, visitorCount: data.visitorCount, validFrom: data.validFrom, validUntil: data.validUntil,
+        timeSlotId: data.timeSlotId, programmeItemId: data.programmeItemId ?? null, visitorCount: data.visitorCount, validFrom: data.validFrom, validUntil: data.validUntil,
         passOrderId: data.passOrderId ?? null, sponsorIds: data.sponsorIds ?? [], partnerCampaignIds: data.partnerCampaignIds ?? [],
       },
     });

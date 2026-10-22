@@ -87,8 +87,9 @@ export function PassCard({ order, pass, index = 0, total = 1 }: { order: PassOrd
       <dl className="grid gap-3 px-5 pb-5 text-sm">
         {order.timeSlot && (
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('passCard.timeSlot')}</dt>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{order.programme ? t('passCard.programme') : t('passCard.timeSlot')}</dt>
             <dd className="text-lg font-bold text-slate-900">{order.timeSlot.label}</dd>
+            {order.programme?.stage && <dd className="text-sm text-slate-600">{order.programme.stage}</dd>}
           </div>
         )}
         <Row icon={CalendarClock} label={t('passCard.valid')}>

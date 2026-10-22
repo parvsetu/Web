@@ -70,11 +70,22 @@ export interface AvailabilitySlot {
   ended: boolean;
   /** null = unlimited; ended slots report 0. */
   remaining: number | null;
+  /** Day passes: titles of the programmes on during this slot. */
+  includes?: string[];
+}
+
+/** A programme sold as its own ticket (label = programme title). */
+export interface AvailabilityTicket extends AvailabilitySlot {
+  category: string;
+  stage: string | null;
+  cancelled: boolean;
 }
 
 export interface Availability {
   date: string;
   slots: AvailabilitySlot[];
+  /** Programmes on this date sold as their own ticket. */
+  tickets?: AvailabilityTicket[];
 }
 
 export type PassOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
@@ -113,6 +124,8 @@ export interface PassOrder {
     organization: { name: string } & OrgBrand;
   };
   timeSlot: { label: string } | null;
+  /** Set when this is a ticket for one programme (not a day pass). */
+  programme?: { id: string; title: string; date: string; startTime: string; endTime: string | null; stage: string | null } | null;
   /** true = one QR per person; false = one group QR admitting everyone. */
   perPersonPasses?: boolean;
   /** Every pass minted for this order (empty until paid). */
@@ -134,7 +147,9 @@ export type CreatedPassOrder = PassOrder & { accessKey: string };
 
 export interface CreatePassOrderBody {
   eventId: string;
-  timeSlotId: string;
+  /** Exactly one of timeSlotId (day pass) / programmeItemId (programme ticket). */
+  timeSlotId?: string;
+  programmeItemId?: string;
   date: string;
   visitorCount: number;
   buyerName: string;

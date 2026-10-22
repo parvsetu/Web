@@ -47,6 +47,8 @@ export interface ProgrammeItem {
   isHeadline: boolean;
   status: 'SCHEDULED' | 'CANCELLED';
   statusNote: string | null;
+  /** Sold as its own ticket on the booking page (null = covered by the day pass). */
+  ticket?: { price: string } | null;
   guests: ProgrammeGuest[];
 }
 
@@ -54,6 +56,11 @@ export interface AdminProgrammeItem extends ProgrammeItem {
   videoUrl: string | null;
   isPublished: boolean;
   sortOrder: number;
+  ticketed: boolean;
+  ticketPrice: string;
+  ticketCapacity: number | null;
+  /** People holding a ticket (not cancelled). */
+  ticketsSold: number;
 }
 
 export interface PublicProgramme {

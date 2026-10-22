@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { Prisma, ProgrammeGuest, ProgrammeItem } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -38,6 +38,8 @@ function publicItem(i: ItemWithGuests) {
     video: videoLink(i.videoUrl),
     posterUrl: i.posterKey ? `/public/programme/items/${i.id}/poster?v=${i.posterUpdatedAt?.getTime() ?? 0}` : null,
     isHeadline: i.isHeadline, status: i.status, statusNote: i.statusNote,
+    /** Sold as its own ticket on the booking page. */
+    ticket: i.ticketed && i.endTime ? { price: i.ticketPrice.toFixed(2) } : null,
     guests: i.guests.map(guestOut),
   };
 }
@@ -48,10 +50,13 @@ function adminItem(i: ItemWithGuests) {
   const pub = publicItem(i);
   return {
     ...pub, videoUrl: i.videoUrl, isPublished: i.isPublished, sortOrder: i.sortOrder,
+    ticketed: i.ticketed, ticketPrice: i.ticketPrice.toFixed(2), ticketCapacity: i.ticketCapacity,
     posterUrl: i.posterKey ? `${base}/poster/${i.id}?v=${i.posterUpdatedAt?.getTime() ?? 0}` : null,
     guests: i.guests.map((g, n) => ({ ...pub.guests[n], photoUrl: g.photoKey ? `${base}/photo/${g.id}?v=${g.photoUpdatedAt?.getTime() ?? 0}` : null })),
   };
 }
+
+const TICKET_NEEDS_END = 'Add an end time to sell tickets — the ticket is valid from start to end.';
 
 const clean = (s: string | null | undefined) => (s === undefined ? undefined : s?.trim() || null);
 
@@ -87,6 +92,16 @@ export class ProgrammeService {
     return it;
   }
 
+  /** People holding (or holding a pending order for) a ticket to this item. */
+  private async ticketsSold(tx: Prisma.TransactionClient, itemId: string) {
+    await tx.$queryRaw`SELECT id FROM programme_items WHERE id = ${itemId} FOR UPDATE`;
+    const [issued, held] = await Promise.all([
+      tx.token.aggregate({ where: { programmeItemId: itemId, status: { not: 'CANCELLED' } }, _sum: { visitorCount: true } }),
+      tx.passOrder.aggregate({ where: { programmeItemId: itemId, status: 'PENDING', expiresAt: { gt: new Date() } }, _sum: { visitorCount: true } }),
+    ]);
+    return (issued._sum.visitorCount ?? 0) + (held._sum.visitorCount ?? 0);
+  }
+
   // ─── Organiser side ──────────────────────────────────────────────────
 
   async adminView(eventId: string) {
@@ -95,6 +110,10 @@ export class ProgrammeService {
       this.prisma.programmeDay.findMany({ where: { eventId } }),
       this.prisma.programmeItem.findMany({ where: { eventId }, orderBy: ORDER, include: { guests: { orderBy: GUEST_ORDER } } }),
     ]);
+    const sold = new Map(
+      (await this.prisma.token.groupBy({ by: ['programmeItemId'], where: { eventId, programmeItemId: { not: null }, status: { not: 'CANCELLED' } }, _sum: { visitorCount: true } }))
+        .map((r) => [r.programmeItemId as string, r._sum.visitorCount ?? 0]),
+    );
     const dayMap = new Map(days.map((d) => [ymd(d.date), d]));
     const dates = festivalDates(ev.start, ev.end);
     // Items left outside the range after the festival dates moved still show (flagged) so they can be fixed.
@@ -103,7 +122,7 @@ export class ProgrammeService {
       startDate: ev.start, endDate: ev.end, timezone: ev.timezone,
       days: [...dates, ...outside.sort()].map((date) => ({
         date, inRange: dates.includes(date), title: dayMap.get(date)?.title ?? null, subtitle: dayMap.get(date)?.subtitle ?? null,
-        items: items.filter((i) => ymd(i.date) === date).map(adminItem),
+        items: items.filter((i) => ymd(i.date) === date).map((i) => ({ ...adminItem(i), ticketsSold: sold.get(i.id) ?? 0 })),
       })),
     };
   }
@@ -134,6 +153,9 @@ export class ProgrammeService {
       isHeadline: dto.isHeadline, status: dto.status,
       statusNote: dto.status === 'SCHEDULED' ? null : clean(dto.statusNote),
       isPublished: dto.isPublished, sortOrder: dto.sortOrder,
+      ticketed: dto.ticketed,
+      ticketPrice: dto.ticketPrice === undefined ? undefined : new Prisma.Decimal(dto.ticketPrice),
+      ticketCapacity: dto.ticketCapacity === undefined ? undefined : dto.ticketCapacity ?? null,
     } satisfies Prisma.ProgrammeItemUncheckedUpdateInput;
   }
 
@@ -148,6 +170,7 @@ export class ProgrammeService {
     const ev = await this.event(eventId);
     this.assertInRange(ev, dto.date);
     if (dto.endTime && dto.endTime === dto.startTime) throw new BadRequestException('Start and end time cannot be the same.');
+    if (dto.ticketed && !dto.endTime) throw new BadRequestException(TICKET_NEEDS_END);
     const data = this.itemData(dto);
     const guests = this.guestRows(dto.guests ?? []).map(({ id: _id, ...g }) => g);
     return this.prisma.$transaction(async (tx) => {
@@ -169,6 +192,7 @@ export class ProgrammeService {
     const start = dto.startTime ?? before.startTime;
     const end = dto.endTime === undefined ? before.endTime : dto.endTime || null;
     if (end && end === start) throw new BadRequestException('Start and end time cannot be the same.');
+    if ((dto.ticketed ?? before.ticketed) && !end) throw new BadRequestException(TICKET_NEEDS_END);
     const data = this.itemData(dto);
     const guests = dto.guests ? this.guestRows(dto.guests) : null;
     if (guests) {
@@ -189,6 +213,14 @@ export class ProgrammeService {
           else await tx.programmeGuest.create({ data: { ...rest, itemId } });
         }
       }
+      // Sold tickets carry this date and time on their QR: they can't move, and capacity can't drop below them.
+      const sold = await this.ticketsSold(tx, itemId);
+      if (sold > 0) {
+        const moved = (dto.date !== undefined && dto.date !== ymd(before.date)) || start !== before.startTime || end !== before.endTime;
+        if (moved) throw new ConflictException({ code: 'TICKETS_SOLD', message: `${sold} ticket(s) are already booked for this programme, so its date and time can't change. Cancel it and add a new one instead.` });
+        const cap = dto.ticketCapacity === undefined ? before.ticketCapacity : dto.ticketCapacity ?? null;
+        if (cap !== null && cap < sold) throw new BadRequestException(`${sold} ticket(s) are already booked; the limit can't be lower than that.`);
+      }
       await tx.programmeItem.update({ where: { id: itemId }, data });
       const after = await this.item(eventId, itemId, tx);
       await this.audit.log({ organizationId: ev.organizationId, eventId, actorId: actor.id, action: 'programme.item_updated', entityType: 'ProgrammeItem', entityId: itemId, before: adminItem(before), after: adminItem(after) }, tx);
@@ -200,6 +232,9 @@ export class ProgrammeService {
     const ev = await this.event(eventId);
     const it = await this.item(eventId, itemId);
     await this.prisma.$transaction(async (tx) => {
+      if (await tx.passOrder.count({ where: { programmeItemId: itemId } })) {
+        throw new ConflictException({ code: 'TICKETS_SOLD', message: 'Tickets have been booked for this programme, so it can’t be deleted. Mark it Cancelled instead — visitors will see the note.' });
+      }
       await tx.programmeItem.delete({ where: { id: itemId } });
       await this.store.delete([it.posterKey, ...it.guests.map((g) => g.photoKey)], tx);
       await this.audit.log({ organizationId: ev.organizationId, eventId, actorId: actor.id, action: 'programme.item_deleted', entityType: 'ProgrammeItem', entityId: itemId, before: adminItem(it) }, tx);
@@ -223,6 +258,7 @@ export class ProgrammeService {
             eventId, date: dateOnly(to), startTime: s.startTime, endTime: s.endTime, title: s.title, category: s.category,
             description: s.description, setting: s.setting, stage: s.stage, language: s.language, ageLimit: s.ageLimit,
             videoUrl: s.videoUrl, isHeadline: false, isPublished: false, sortOrder: s.sortOrder,
+            ticketed: s.ticketed, ticketPrice: s.ticketPrice, ticketCapacity: s.ticketCapacity,
             guests: { create: s.guests.map((g) => ({ name: g.name, role: g.role, bio: g.bio, instagramUrl: g.instagramUrl, sortOrder: g.sortOrder })) },
           },
         });

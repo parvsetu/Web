@@ -13,7 +13,9 @@ export class AvailabilityQuery {
 
 export class CreatePassOrderDto {
   @IsUUID() eventId: string;
-  @IsUUID() timeSlotId: string;
+  /** Exactly one of timeSlotId (day pass) / programmeItemId (ticket for one programme). */
+  @IsOptional() @IsUUID() timeSlotId?: string;
+  @IsOptional() @IsUUID() programmeItemId?: string;
   @Matches(/^\d{4}-\d{2}-\d{2}$/) date: string;
   @IsInt() @Min(1) @Max(100) visitorCount: number;
   @IsString() @Length(2, 100) buyerName: string;

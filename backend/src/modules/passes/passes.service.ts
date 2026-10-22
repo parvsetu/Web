@@ -8,7 +8,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { QrSigner } from '../../common/qr/qr-signer';
 import { normalizeEmail, normalizeMobile } from '../../common/identity';
 import { paged, paging } from '../../common/http';
-import { formatInZone, slotWindow, ymd } from '../../common/time/validity';
+import { dateOnly, formatInZone, slotWindow, ymd } from '../../common/time/validity';
 import { TokensService } from '../tokens/tokens.service';
 import { effectiveStatus } from '../tokens/token-presenter';
 import { PaymentProvider } from '../donations/payment-provider';
@@ -36,6 +36,7 @@ const BOOKABLE = { publicBookingEnabled: true, status: 'ACTIVE' as const, ...LIV
 const orderInclude = {
   event: { select: { id: true, name: true, festivalType: true, timezone: true, ...VENUE_SELECT, organizationId: true, gstSac: true, organization: { select: { name: true, ...ORG_BRAND_SELECT } } } },
   timeSlot: { select: { label: true } },
+  programmeItem: { select: { id: true, title: true, date: true, startTime: true, endTime: true, stage: true } },
   tokens: {
     select: { tokenCode: true, secureToken: true, status: true, validFrom: true, validUntil: true, usedAt: true, visitorCount: true, sponsorIds: true, partnerCampaignIds: true },
     orderBy: { tokenCode: 'asc' as const },
@@ -146,6 +147,13 @@ export class PassesService {
     });
     const now = new Date();
     const rules = await loadPricingRules(this.prisma, e.id);
+    // The day's published programme: ticketed items are sold on their own, the rest are what a day pass covers.
+    const items = await this.prisma.programmeItem.findMany({
+      where: { eventId, date: dateOnly(date), isPublished: true },
+      orderBy: [{ startTime: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    const itemWindow = (i: { startTime: string; endTime: string | null }) =>
+      i.endTime ? slotWindow(date, i.startTime, i.endTime, e.timezone) : { validFrom: slotWindow(date, i.startTime, i.startTime, e.timezone).validFrom, validUntil: null };
     return {
       date,
       slots: await Promise.all(slots.map(async (s) => {
@@ -158,6 +166,26 @@ export class PassesService {
           price: (p.pricePaise / 100).toFixed(2), basePrice: s.price.toFixed(2), ruleLabel: p.rule?.label ?? null,
           validFrom: w.validFrom, validUntil: w.validUntil, ended,
           remaining: ended ? 0 : await this.tokens.slotRemaining(s.id, w.validFrom, s.capacity),
+          /** Programme on stage during this slot (not the separately ticketed items). */
+          includes: items
+            .filter((i) => !i.ticketed && i.status !== 'CANCELLED')
+            .filter((i) => {
+              const iw = itemWindow(i);
+              return iw.validUntil ? iw.validFrom < w.validUntil && iw.validUntil > w.validFrom : iw.validFrom >= w.validFrom && iw.validFrom < w.validUntil;
+            })
+            .map((i) => i.title),
+        };
+      })),
+      /** Programmes sold as their own ticket on this date. */
+      tickets: await Promise.all(items.filter((i) => i.ticketed && i.endTime).map(async (i) => {
+        const w = slotWindow(date, i.startTime, i.endTime!, e.timezone);
+        const cancelled = i.status === 'CANCELLED';
+        const ended = cancelled || w.validUntil <= now;
+        return {
+          id: i.id, label: i.title, startTime: i.startTime, endTime: i.endTime!, category: i.category, stage: i.stage,
+          price: i.ticketPrice.toFixed(2), basePrice: i.ticketPrice.toFixed(2), ruleLabel: null,
+          validFrom: w.validFrom, validUntil: w.validUntil, ended, cancelled,
+          remaining: ended ? 0 : await this.tokens.itemRemaining(i.id, i.ticketCapacity),
         };
       })),
     };
@@ -179,6 +207,28 @@ export class PassesService {
     }
   }
 
+  /** A day pass: the slot's window on the chosen date, peak rules applied (same decision as availability()). */
+  private async slotTarget(event: { id: string; timezone: string }, timeSlotId: string, date: string) {
+    const slot = await this.prisma.timeSlot.findFirst({ where: { id: timeSlotId, eventId: event.id, isActive: true } });
+    if (!slot) throw new NotFoundException('Time slot not found');
+    const window = slotWindow(date, slot.startTime, slot.endTime, event.timezone);
+    if (window.validUntil <= new Date()) throw new BadRequestException('This time slot has already ended. Pick a later slot.');
+    const price = effectivePrice(decimalToPaise(slot.price), slot.id, date, await loadPricingRules(this.prisma, event.id));
+    return { kind: 'slot' as const, id: slot.id, capacity: slot.capacity, window, price, title: slot.label };
+  }
+
+  /** A programme ticket: only on the item's own date, valid for its start–end; flat price (no peak rules). */
+  private async ticketTarget(event: { id: string; timezone: string }, programmeItemId: string, date: string) {
+    const item = await this.prisma.programmeItem.findFirst({ where: { id: programmeItemId, eventId: event.id, ticketed: true, isPublished: true } });
+    if (!item || !item.endTime) throw new NotFoundException('This programme is not taking bookings.');
+    if (ymd(item.date) !== date) throw new BadRequestException(`This programme is on ${ymd(item.date)}.`);
+    if (item.status === 'CANCELLED') throw new BadRequestException('This programme has been cancelled.');
+    const window = slotWindow(date, item.startTime, item.endTime, event.timezone);
+    if (window.validUntil <= new Date()) throw new BadRequestException('This programme has already ended.');
+    const p = decimalToPaise(item.ticketPrice);
+    return { kind: 'item' as const, id: item.id, capacity: item.ticketCapacity, window, price: { pricePaise: p, basePaise: p, rule: null }, title: item.title };
+  }
+
   // ─── Orders ──────────────────────────────────────────────────────────
 
   async createOrder(dto: CreatePassOrderDto) {
@@ -188,13 +238,10 @@ export class PassesService {
     if (dto.visitorCount > event.maxVisitorsPerToken) {
       throw new BadRequestException(`One pass can admit at most ${event.maxVisitorsPerToken} people.`);
     }
-    const slot = await this.prisma.timeSlot.findFirst({ where: { id: dto.timeSlotId, eventId: event.id, isActive: true } });
-    if (!slot) throw new NotFoundException('Time slot not found');
-    const w = slotWindow(dto.date, slot.startTime, slot.endTime, event.timezone);
-    if (w.validUntil <= new Date()) throw new BadRequestException('This time slot has already ended. Pick a later slot.');
-
-    // The one pricing decision (peak rules), shared with availability().
-    const eff = effectivePrice(decimalToPaise(slot.price), slot.id, dto.date, await loadPricingRules(this.prisma, event.id));
+    if (!dto.timeSlotId === !dto.programmeItemId) throw new BadRequestException('Choose a time slot or a programme.');
+    const target = dto.programmeItemId ? await this.ticketTarget(event, dto.programmeItemId, dto.date) : await this.slotTarget(event, dto.timeSlotId!, dto.date);
+    const w = target.window;
+    const eff = target.price;
     const unitPrice = new Prisma.Decimal(eff.pricePaise).div(100);
     const price = unitPrice.mul(dto.visitorCount);
     const rateBps = event.gstEnabled
@@ -221,10 +268,13 @@ export class PassesService {
     const referral = await this.referrals.resolveForOrder(this.prisma, event.id, dto.referralCode, { mobile: buyer.buyerMobile, email: buyer.buyerEmail });
 
     const orderId = await this.prisma.$transaction(async (tx) => {
-      await this.tokens.checkSlotCapacity(tx, slot.id, w.validFrom, slot.capacity, dto.visitorCount);
+      if (target.kind === 'slot') await this.tokens.checkSlotCapacity(tx, target.id, w.validFrom, target.capacity, dto.visitorCount);
+      else await this.tokens.checkItemCapacity(tx, target.id, target.capacity, dto.visitorCount);
       const order = await tx.passOrder.create({
         data: {
-          eventId: event.id, timeSlotId: slot.id, validFrom: w.validFrom, validUntil: w.validUntil, visitorCount: dto.visitorCount,
+          eventId: event.id,
+          timeSlotId: target.kind === 'slot' ? target.id : null, programmeItemId: target.kind === 'item' ? target.id : null,
+          validFrom: w.validFrom, validUntil: w.validUntil, visitorCount: dto.visitorCount,
           ...buyer, unitPrice, priceRuleLabel: eff.rule?.label ?? null, amount, paymentProvider: free ? 'free' : gateway!.key,
           baseAmount: new Prisma.Decimal(g.basePaise).div(100), gstAmount: new Prisma.Decimal(g.gstPaise).div(100),
           gstRateBps: g.gstPaise > 0 ? rateBps : 0, gstBearer: g.gstPaise > 0 ? event.gstBearer : null,
@@ -249,7 +299,8 @@ export class PassesService {
 
     if (gateway) {
       const payment = await gateway.createPayment({
-        reference: orderId, amount: amount.toFixed(2), currency: 'INR', payerName: buyer.buyerName, description: `Pass — ${event.name}`,
+        reference: orderId, amount: amount.toFixed(2), currency: 'INR', payerName: buyer.buyerName,
+        description: target.kind === 'item' ? `Ticket — ${target.title} · ${event.name}` : `Pass — ${event.name}`,
       });
       await this.prisma.passOrder.update({ where: { id: orderId }, data: { providerOrderId: payment.providerOrderId } });
     }
@@ -343,9 +394,14 @@ export class PassesService {
   }
 
   private async markPaid(tx: Prisma.TransactionClient, order: PassOrder, paymentReference: string | null) {
-    const slot = await tx.timeSlot.findUniqueOrThrow({ where: { id: order.timeSlotId }, select: { capacity: true } });
     // The order's own hold is excluded; everything else (tokens + other holds) still counts.
-    await this.tokens.checkSlotCapacity(tx, order.timeSlotId, order.validFrom, slot.capacity, order.visitorCount, order.id);
+    if (order.timeSlotId) {
+      const slot = await tx.timeSlot.findUniqueOrThrow({ where: { id: order.timeSlotId }, select: { capacity: true } });
+      await this.tokens.checkSlotCapacity(tx, order.timeSlotId, order.validFrom, slot.capacity, order.visitorCount, order.id);
+    } else {
+      const item = await tx.programmeItem.findUniqueOrThrow({ where: { id: order.programmeItemId! }, select: { ticketCapacity: true } });
+      await this.tokens.checkItemCapacity(tx, order.programmeItemId!, item.ticketCapacity, order.visitorCount, order.id);
+    }
     const event = await tx.event.findUniqueOrThrow({ where: { id: order.eventId }, select: { id: true, tokenPrefix: true, startDate: true, organizationId: true } });
     const perPerson = order.perPersonPasses && order.visitorCount > 1;
     // Sponsors and platform partners chosen (and partners charged) at order time.
@@ -353,7 +409,7 @@ export class PassesService {
     const codes: string[] = [];
     for (let i = 0; i < (perPerson ? order.visitorCount : 1); i++) {
       const token = await this.tokens.mintToken(tx, event, {
-        timeSlotId: order.timeSlotId, validFrom: order.validFrom, validUntil: order.validUntil,
+        timeSlotId: order.timeSlotId, programmeItemId: order.programmeItemId, validFrom: order.validFrom, validUntil: order.validUntil,
         visitorCount: perPerson ? 1 : order.visitorCount, visitorName: order.buyerName, visitorMobile: order.buyerMobile,
         passOrderId: order.id, sponsorIds: held?.sponsorIds ?? [], partnerCampaignIds: held?.partnerCampaignIds ?? [],
       });
@@ -417,7 +473,11 @@ export class PassesService {
       validFrom: o.validFrom, validUntil: o.validUntil, expiresAt: o.expiresAt, paidAt: o.paidAt, createdAt: o.createdAt,
       payment: { provider: o.paymentProvider, demo: o.paymentProvider === 'demo' },
       event: { id: o.event.id, name: o.event.name, festivalType: o.event.festivalType, timezone: o.event.timezone, location: o.event.location, venue: presentVenue(o.event), organization: presentOrgBrand(o.event.organization) },
-      timeSlot: { label: o.timeSlot.label },
+      // Programme tickets show the programme where older clients show the slot label.
+      timeSlot: o.timeSlot ? { label: o.timeSlot.label } : o.programmeItem ? { label: o.programmeItem.title } : null,
+      programme: o.programmeItem
+        ? { id: o.programmeItem.id, title: o.programmeItem.title, date: ymd(o.programmeItem.date), startTime: o.programmeItem.startTime, endTime: o.programmeItem.endTime, stage: o.programmeItem.stage }
+        : null,
     };
   }
 
@@ -433,7 +493,8 @@ export class PassesService {
       this.prisma.passOrder.findMany({
         where, orderBy: { createdAt: 'desc' }, skip, take,
         include: {
-          timeSlot: { select: { label: true } }, tokens: { select: { id: true, tokenCode: true, status: true }, orderBy: { tokenCode: 'asc' } },
+          timeSlot: { select: { label: true } }, programmeItem: { select: { title: true } },
+          tokens: { select: { id: true, tokenCode: true, status: true }, orderBy: { tokenCode: 'asc' } },
           referralPromotion: { select: { code: true, blogger: { select: { name: true } } } },
         },
       }),
@@ -446,7 +507,9 @@ export class PassesService {
           id: o.id, status: o.status, buyerName: o.buyerName, buyerMobile: o.buyerMobile, visitorCount: o.visitorCount,
           amount: o.amount.toFixed(2), paymentProvider: o.paymentProvider, paymentReference: o.paymentReference,
           validFrom: o.validFrom, validUntil: o.validUntil, createdAt: o.createdAt, paidAt: o.paidAt,
-          timeSlot: o.timeSlot, tokens: o.tokens, perPersonPasses: o.perPersonPasses,
+          timeSlot: o.timeSlot ?? (o.programmeItem ? { label: o.programmeItem.title } : null),
+          programme: o.programmeItem ? { title: o.programmeItem.title } : null,
+          tokens: o.tokens, perPersonPasses: o.perPersonPasses,
           referral: o.referralPromotion ? { code: o.referralPromotion.code, bloggerName: o.referralPromotion.blogger.name } : null,
         })),
         total, page, pageSize,

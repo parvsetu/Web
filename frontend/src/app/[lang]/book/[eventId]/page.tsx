@@ -152,7 +152,28 @@ export default function BookEventPage() {
   // The mandal's online sales window ("passes on sale from …"); the API enforces it too.
   const sales = useSalesState(event?.bookingOpensAt, event?.bookingClosesAt, event?.salesState ?? 'OPEN');
   const slots = avail?.date === date ? avail.slots : [];
-  const slot = slots.find((s) => s.id === slotId) ?? null;
+  // Programmes sold on their own; picked exactly like a slot (one choice per booking).
+  const tickets = avail?.date === date ? avail.tickets ?? [] : [];
+  const options = [...tickets, ...slots];
+  const slot = options.find((s) => s.id === slotId) ?? null;
+  const isTicket = !!slot && tickets.some((x) => x.id === slot.id);
+
+  // ?item= (from a programme's "Book ticket"): select that programme once its day has loaded.
+  const wantedItem = useRef<string | null>(null);
+  useEffect(() => {
+    try {
+      wantedItem.current = new URLSearchParams(window.location.search).get('item');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    const want = wantedItem.current;
+    if (!want || !avail || avail.date !== date) return;
+    const hit = (avail.tickets ?? []).find((x) => x.id === want);
+    wantedItem.current = null;
+    if (hit && ['open', 'low'].includes(slotState(hit, event?.onlinePayments ?? false))) setSlotId(hit.id);
+  }, [avail, date, event]);
   const slotUsable = slot ? ['open', 'low'].includes(slotState(slot, onlinePayments)) : false;
 
   // Drop a selection that's no longer bookable (new day, sold out on refresh, …).
@@ -211,7 +232,7 @@ export default function BookEventPage() {
     try {
       const order = await booking.createOrder({
         eventId: event.id,
-        timeSlotId: slot.id,
+        ...(isTicket ? { programmeItemId: slot.id } : { timeSlotId: slot.id }),
         date,
         visitorCount: people,
         perPersonPasses: people > 1 ? perPerson : undefined,
@@ -341,7 +362,7 @@ export default function BookEventPage() {
               {peak.size > 0 && <p className="mt-3 text-xs text-slate-500">{tn('book.peakNote', { peak: <span className="font-bold text-rose-700">{t('slot.peak')}</span> })}</p>}
             </Step>
 
-            <Step n={2} id="step-slot" title={t('book.step2')} hint={date ? fmtDate(date) : undefined} theme={theme}>
+            <Step n={2} id="step-slot" title={tickets.length ? t('book.step2Programme') : t('book.step2')} hint={date ? fmtDate(date) : undefined} theme={theme}>
               {availError ? (
                 <Alert>
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -357,12 +378,32 @@ export default function BookEventPage() {
                     <Skeleton key={i} className="h-[72px] w-full rounded-2xl" />
                   ))}
                 </div>
-              ) : slots.length === 0 ? (
+              ) : options.length === 0 ? (
                 <Empty title={t('book.noSlots')} icon={Clock}>
                   {t('book.tryAnotherDay')}
                 </Empty>
               ) : (
                 <div role="radiogroup" aria-label={t('book.timeSlot')} className={cx('flex flex-col gap-2', availLoading && 'opacity-60')}>
+                  {tickets.length > 0 && (
+                    <>
+                      <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-500">{t('book.programmeTickets')}</p>
+                      {tickets.map((s) => (
+                        <SlotCard
+                          key={s.id}
+                          slot={s}
+                          state={slotState(s, onlinePayments)}
+                          selected={s.id === slotId}
+                          onSelect={() => {
+                            setSlotId(s.id);
+                            setErrors((e) => ({ ...e, slot: undefined }));
+                          }}
+                          theme={theme}
+                          note={s.cancelled ? t('book.programmeCancelled') : s.stage}
+                        />
+                      ))}
+                      {slots.length > 0 && <p className="mt-3 text-xs font-bold uppercase tracking-wide text-slate-500">{t('book.dayEntry')}</p>}
+                    </>
+                  )}
                   {slots.map((s) => (
                     <SlotCard
                       key={s.id}
@@ -376,10 +417,10 @@ export default function BookEventPage() {
                       theme={theme}
                     />
                   ))}
-                  {slots.every((s) => !['open', 'low'].includes(slotState(s, onlinePayments))) && (
+                  {options.every((s) => !['open', 'low'].includes(slotState(s, onlinePayments))) && (
                     <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
                       {/* Say why: payment not set up is not the same as sold out. */}
-                      {slots.some((s) => slotState(s, onlinePayments) === 'nopay') ? t('book.paymentsNotReady') : t('book.noSlotsLeft')}
+                      {options.some((s) => slotState(s, onlinePayments) === 'nopay') ? t('book.paymentsNotReady') : t('book.noSlotsLeft')}
                     </p>
                   )}
                 </div>
@@ -437,6 +478,7 @@ export default function BookEventPage() {
               <div className="flex flex-col gap-3">
                 <LabeledInput
                   label={t('book.fullName')}
+                  required
                   autoComplete="name"
                   value={name}
                   maxLength={100}
@@ -450,6 +492,7 @@ export default function BookEventPage() {
                 />
                 <LabeledInput
                   label={t('book.mobile')}
+                  required
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel-national"
