@@ -71,27 +71,28 @@ export class PlatformAlertsService implements OnModuleInit, OnModuleDestroy {
     const pg = <F extends 'submittedAt' | 'createdAt'>(field: F): { orderBy?: Record<F, 'desc'>; take?: number } =>
       take ? { orderBy: { [field]: 'desc' } as Record<F, 'desc'>, take } : {};
     const [regs, events, payouts, tax, partners, campaigns, bloggers, promotions, reports] = await Promise.all([
-      this.prisma.mandalRegistration.findMany({ where: { status: 'PENDING_REVIEW', submittedAt: range }, ...pg('submittedAt'), select: { orgName: true, city: true, source: true, submittedAt: true, events: true } }),
-      this.prisma.event.findMany({ where: { approvalStatus: 'SUBMITTED', submittedAt: range }, ...pg('submittedAt'), select: { name: true, submittedAt: true, organization: { select: { name: true } } } }),
+      this.prisma.mandalRegistration.findMany({ where: { status: 'PENDING_REVIEW', submittedAt: range }, ...pg('submittedAt'), select: { orgName: true, city: true, source: true, submittedAt: true, createdAt: true, events: true } }),
+      this.prisma.event.findMany({ where: { approvalStatus: 'SUBMITTED', submittedAt: range }, ...pg('submittedAt'), select: { name: true, submittedAt: true, createdAt: true, organization: { select: { name: true } } } }),
       this.prisma.payoutAccount.findMany({ where: { status: 'PENDING', submittedAt: range }, ...pg('submittedAt'), select: { submittedAt: true, organization: { select: { name: true } } } }),
-      this.prisma.orgTaxProfile.findMany({ where: { status: 'SUBMITTED', submittedAt: range }, ...pg('submittedAt'), select: { submittedAt: true, organization: { select: { name: true } } } }),
+      this.prisma.orgTaxProfile.findMany({ where: { status: 'SUBMITTED', submittedAt: range }, ...pg('submittedAt'), select: { submittedAt: true, createdAt: true, organization: { select: { name: true } } } }),
       this.prisma.partner.findMany({ where: { status: 'PENDING', createdAt: range }, ...pg('createdAt'), select: { name: true, createdAt: true } }),
       this.prisma.partnerCampaign.findMany({ where: { status: 'REQUESTED', createdAt: range }, ...pg('createdAt'), select: { createdAt: true, partner: { select: { name: true } }, organization: { select: { name: true } } } }),
       this.prisma.blogger.findMany({ where: { status: 'PENDING', createdAt: range }, ...pg('createdAt'), select: { name: true, city: true, createdAt: true } }),
       this.prisma.bloggerPromotion.findMany({ where: { status: 'PENDING', createdAt: range }, ...pg('createdAt'), select: { createdAt: true, blogger: { select: { name: true } }, event: { select: { name: true } } } }),
       this.prisma.reviewReport.findMany({ where: { resolvedAt: null, createdAt: range }, ...pg('createdAt'), select: { reason: true, createdAt: true, review: { select: { organization: { select: { name: true } } } } } }),
     ]);
+    // submittedAt can be null on older rows (or ones set to SUBMITTED directly): fall back to createdAt so sorting never sees null.
     const out: PlatformAlert[] = [
       ...regs.map((r) => {
         const n = Array.isArray(r.events) ? r.events.length : 0;
         return {
-          tab: 'registrations' as const, at: r.submittedAt!, title: `New mandal registration: ${r.orgName}`,
+          tab: 'registrations' as const, at: r.submittedAt ?? r.createdAt, title: `New mandal registration: ${r.orgName}`,
           detail: `${r.city ?? ''}${r.city ? ' · ' : ''}${n} festival${n === 1 ? '' : 's'}${r.source === 'AGENT' ? ' · filed by a field agent' : ''}`,
         };
       }),
-      ...events.map((e) => ({ tab: 'reviews' as const, at: e.submittedAt!, title: `Festival submitted for review: ${e.name}`, detail: e.organization.name })),
+      ...events.map((e) => ({ tab: 'reviews' as const, at: e.submittedAt ?? e.createdAt, title: `Festival submitted for review: ${e.name}`, detail: e.organization.name })),
       ...payouts.map((p) => ({ tab: 'payouts' as const, at: p.submittedAt, title: `Payout & KYC details to verify: ${p.organization.name}`, detail: 'Bank account and PAN submitted' })),
-      ...tax.map((t) => ({ tab: 'tax' as const, at: t.submittedAt!, title: `80G registration to verify: ${t.organization.name}`, detail: 'Certificate details submitted' })),
+      ...tax.map((t) => ({ tab: 'tax' as const, at: t.submittedAt ?? t.createdAt, title: `80G registration to verify: ${t.organization.name}`, detail: 'Certificate details submitted' })),
       ...partners.map((p) => ({ tab: 'partners' as const, at: p.createdAt, title: `New promotional partner: ${p.name}`, detail: 'Partner account waiting for approval' })),
       ...campaigns.map((c) => ({ tab: 'partners' as const, at: c.createdAt, title: `Partner campaign to approve: ${c.partner.name}`, detail: `At ${c.organization.name}` })),
       ...bloggers.map((b) => ({ tab: 'bloggers' as const, at: b.createdAt, title: `New blogger sign-up: ${b.name}`, detail: b.city ?? '' })),
