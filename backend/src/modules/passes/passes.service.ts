@@ -34,7 +34,7 @@ export const ORDER_HOLD_MINUTES = 15;
 const BOOKABLE = { publicBookingEnabled: true, status: 'ACTIVE' as const, ...LIVE_WHERE };
 
 const orderInclude = {
-  event: { select: { id: true, name: true, festivalType: true, timezone: true, ...VENUE_SELECT, organizationId: true, gstSac: true, organization: { select: { name: true, ...ORG_BRAND_SELECT } } } },
+  event: { select: { id: true, name: true, festivalType: true, timezone: true, ...VENUE_SELECT, passInstructions: true, organizationId: true, gstSac: true, organization: { select: { name: true, ...ORG_BRAND_SELECT } } } },
   timeSlot: { select: { label: true } },
   programmeItem: { select: { id: true, title: true, date: true, startTime: true, endTime: true, stage: true } },
   tokens: {
@@ -472,7 +472,7 @@ export class PassesService {
       visitorCount: o.visitorCount, buyerName: o.buyerName, buyerMobile: o.buyerMobile,
       validFrom: o.validFrom, validUntil: o.validUntil, expiresAt: o.expiresAt, paidAt: o.paidAt, createdAt: o.createdAt,
       payment: { provider: o.paymentProvider, demo: o.paymentProvider === 'demo' },
-      event: { id: o.event.id, name: o.event.name, festivalType: o.event.festivalType, timezone: o.event.timezone, location: o.event.location, venue: presentVenue(o.event), organization: presentOrgBrand(o.event.organization) },
+      event: { id: o.event.id, name: o.event.name, festivalType: o.event.festivalType, timezone: o.event.timezone, location: o.event.location, venue: presentVenue(o.event), passInstructions: o.event.passInstructions, organization: presentOrgBrand(o.event.organization) },
       // Programme tickets show the programme where older clients show the slot label.
       timeSlot: o.timeSlot ? { label: o.timeSlot.label } : o.programmeItem ? { label: o.programmeItem.title } : null,
       programme: o.programmeItem

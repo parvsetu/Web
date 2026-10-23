@@ -379,6 +379,8 @@ model Event {
   /// Default print layout for passes: A4 | THERMAL_80 | THERMAL_58
   passPrintFormat           String              @default("A4")
   maxVisitorsPerToken       Int                 @default(10)
+  /// Organiser's own instructions printed on every visitor pass (one per line), after the standard ones.
+  passInstructions          String?
   /// Platform review/payment state (see common/event-approval.ts). Only LIVE events are public,
   /// bookable, can issue/scan passes or be set ACTIVE. Event.status stays the operational state.
   approvalStatus            EventApprovalStatus @default(DRAFT)

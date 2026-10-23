@@ -4,22 +4,22 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { ApiError, errorMessage } from '@/lib/api';
-import { homeFor, useAuth } from '@/lib/auth';
+import { homeFor, safeRedirectPath, useAuth } from '@/lib/auth';
 import { Handshake, LogIn, Megaphone, Store, Ticket } from 'lucide-react';
 import { Alert, Button, LabeledInput } from '@/components/ui';
 import { AuthCard } from '@/components/AuthCard';
 
-function LoginForm() {
+function LoginForm({ next }: { next: string | null }) {
   const { login, me, loading } = useAuth();
   const router = useRouter();
-  const params = useSearchParams();
-  const next = params.get('next');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login') ? next : '/dashboard';
+  const safeNext = safeNextPath(next);
+  const vendor = isVendorNext(safeNext);
+  const festival = vendor ? new URLSearchParams(safeNext.split('?')[1] ?? '').get('festival') : null;
 
   useEffect(() => {
     if (!loading && me) router.replace(homeFor(me, safeNext));
@@ -67,6 +67,16 @@ function LoginForm() {
         {!busy && <LogIn aria-hidden className="h-6 w-6" />}
         Log in
       </Button>
+      {vendor && (
+        <Link
+          href={festival ? `/vendor/signup?festival=${encodeURIComponent(festival)}` : '/vendor/signup'}
+          className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl border-2 border-teal-300 bg-teal-50 font-semibold text-teal-800 hover:bg-teal-100"
+        >
+          <Store aria-hidden className="h-5 w-5" /> New stall vendor? Create a vendor account
+        </Link>
+      )}
+      {!vendor && (
+      <>
       <p className="text-center text-sm text-slate-600">
         New here?{' '}
         <Link href="/register?type=volunteer" className="font-semibold text-brand-700 underline">
@@ -101,16 +111,36 @@ function LoginForm() {
       >
         <Megaphone aria-hidden className="h-5 w-5" /> Bloggers &amp; influencers: earn by promoting festivals
       </Link>
+      </>
+      )}
     </form>
+  );
+}
+
+function safeNextPath(next: string | null): string {
+  const safe = safeRedirectPath(next);
+  return safe && !safe.startsWith('/login') ? safe : '/dashboard';
+}
+
+/** "Book a stall" sends visitors here with next=/vendor?festival=… — show the stall-vendor login. */
+function isVendorNext(path: string) {
+  return path === '/vendor' || path.startsWith('/vendor?') || path.startsWith('/vendor#');
+}
+
+function LoginScreen() {
+  const next = useSearchParams().get('next');
+  const vendor = isVendorNext(safeNextPath(next));
+  return (
+    <AuthCard title={vendor ? 'Stall vendor log in' : 'Log in'} subtitle={vendor ? 'Log in to book your stall 🙏' : 'Welcome back 🙏'}>
+      <LoginForm next={next} />
+    </AuthCard>
   );
 }
 
 export default function LoginPage() {
   return (
-    <AuthCard title="Log in" subtitle="Welcome back 🙏">
-      <Suspense>
-        <LoginForm />
-      </Suspense>
-    </AuthCard>
+    <Suspense>
+      <LoginScreen />
+    </Suspense>
   );
 }

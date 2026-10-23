@@ -5,7 +5,7 @@ import { hasVenue, VenueLines } from '@/components/VenueDetails';
 
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { CalendarClock, Download, IndianRupee, MapPin, Printer, Share2, User, Users } from 'lucide-react';
+import { CalendarClock, Download, IndianRupee, Info, MapPin, Printer, Share2, User, Users } from 'lucide-react';
 import { saveBlob } from '@/lib/api';
 import { festivalTheme, gradient } from '@/lib/festival-theme';
 import { fmtMoney } from '@/lib/format';
@@ -121,10 +121,39 @@ export function PassCard({ order, pass, index = 0, total = 1 }: { order: PassOrd
         <div className="px-5 pb-1">
           <PassSponsors sponsors={order.printedSponsors} partners={order.printedPartners} />
         </div>
-      <p className="border-t border-dashed border-slate-200 px-5 py-3 text-center text-sm font-semibold text-slate-600">
-        {t('passCard.showAtGate')}
-      </p>
+      <PassInstructions custom={order.event.passInstructions} />
     </article>
+  );
+}
+
+const STANDARD_INSTRUCTIONS = ['passCard.howTo1', 'passCard.howTo2', 'passCard.howTo3', 'passCard.howTo4'] as const;
+
+/** Standard entry rules for every pass, then the organiser's own lines (Event.passInstructions). */
+function PassInstructions({ custom }: { custom?: string | null }) {
+  const { t } = useT();
+  const own = (custom ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+  return (
+    <section aria-label={t('passCard.instructions')} className="border-t border-dashed border-slate-200 px-5 py-3 text-sm text-slate-700">
+      <p className="text-center font-semibold text-slate-600">{t('passCard.showAtGate')}</p>
+      <h3 className="mt-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
+        <Info aria-hidden className="h-4 w-4" /> {t('passCard.instructions')}
+      </h3>
+      <ul className="mt-1.5 list-disc space-y-1 pl-5 marker:text-slate-400">
+        {STANDARD_INSTRUCTIONS.map((k) => (
+          <li key={k}>{t(k)}</li>
+        ))}
+      </ul>
+      {own.length > 0 && (
+        <>
+          <h3 className="mt-3 text-xs font-bold uppercase tracking-wide text-slate-500">{t('passCard.fromOrganisers')}</h3>
+          <ul className="mt-1.5 list-disc space-y-1 pl-5 marker:text-slate-400">
+            {own.map((l, i) => (
+              <li key={i} className="[overflow-wrap:anywhere]">{l}</li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }
 

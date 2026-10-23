@@ -44,7 +44,10 @@ export default function VendorSignupPage() {
       if (form.category) body.category = form.category;
       if (form.city.trim()) body.city = form.city.trim();
       const res = await api.post<RegisterResult>('/vendors/signup', body, { noAuthRedirect: true });
-      router.replace(`/verify-email?email=${encodeURIComponent(res.email)}`);
+      // Came from a festival's "Book a stall": land on that festival's stalls once verified.
+      const festival = new URLSearchParams(window.location.search).get('festival');
+      const next = festival && /^[0-9a-f-]{36}$/i.test(festival) ? `&next=${encodeURIComponent(`/vendor?festival=${festival}`)}` : '';
+      router.replace(`/verify-email?email=${encodeURIComponent(res.email)}${next}`);
     } catch (err) {
       setError(errorMessage(err));
     } finally {

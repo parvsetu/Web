@@ -98,7 +98,7 @@ export function useRequireAuth(): AuthState {
   const router = useRouter();
   useEffect(() => {
     if (!auth.loading && !auth.me && !getToken()) {
-      const next = typeof window !== 'undefined' ? encodeURIComponent(window.location.pathname) : '';
+      const next = typeof window !== 'undefined' ? encodeURIComponent(window.location.pathname + window.location.search) : '';
       router.replace(`/login${next ? `?next=${next}` : ''}`);
     }
   }, [auth.loading, auth.me, router]);
@@ -118,6 +118,18 @@ export function homeFor(me: MeUser, next = DASHBOARD): string {
   if (isAwaitingApproval(me)) return '/awaiting';
   // "/" is the public explore page; a signed-in user's home is the dashboard.
   return next === '/' ? DASHBOARD : next;
+}
+
+/**
+ * A post-login `next` that can only stay on this site: one leading "/", no
+ * "//" or "/\\" (browsers read a backslash as a slash → another host), no
+ * control characters. Anything else → null.
+ */
+export function safeRedirectPath(next: string | null | undefined): string | null {
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return null;
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(next) || next.includes('\\')) return null;
+  return next;
 }
 
 /** The signed-in organiser / volunteer home ("My festivals"). */

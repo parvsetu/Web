@@ -42,6 +42,13 @@ function salesWindowData(dto: { bookingOpensAt?: string | null; bookingClosesAt?
   return { bookingOpensAt: opens, bookingClosesAt: closes };
 }
 
+/** Pass instructions from the DTO: undefined = unchanged, blank = cleared; blank lines dropped. */
+function passInstructionsData(v: string | undefined) {
+  if (v === undefined) return undefined;
+  const lines = v.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  return lines.length ? lines.join('\n') : null;
+}
+
 export function presentEvent(e: Event & { organization?: { id: string; name: string; festivalTypes?: string[] } }, myPermissions?: Set<string>) {
   return {
     id: e.id, slug: e.slug, organizationId: e.organizationId, organization: e.organization,
@@ -56,7 +63,7 @@ export function presentEvent(e: Event & { organization?: { id: string; name: str
     venueAddress: e.venueAddress, venueLandmark: e.venueLandmark, venuePincode: e.venuePincode, venueMapUrl: e.venueMapUrl,
     venueLat: e.venueLat, venueLng: e.venueLng, venueNotes: e.venueNotes, venueContactPhone: e.venueContactPhone,
     venue: presentVenue(e),
-    maxVisitorsPerToken: e.maxVisitorsPerToken, createdAt: e.createdAt,
+    maxVisitorsPerToken: e.maxVisitorsPerToken, passInstructions: e.passInstructions, createdAt: e.createdAt,
     approvalStatus: e.approvalStatus,
     approval: presentApproval(e),
     myPermissions: myPermissions ? [...myPermissions].sort() : undefined,
@@ -181,6 +188,7 @@ export class EventsService {
           tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
           ...gstData(dto),
           maxVisitorsPerToken: dto.maxVisitorsPerToken ?? 10,
+          passInstructions: passInstructionsData(dto.passInstructions) ?? null,
         },
         include: { organization: { select: { id: true, name: true, festivalTypes: true } } },
       });
@@ -227,6 +235,7 @@ export class EventsService {
           tokenDurationOptions: dto.tokenDurationOptions ? [...new Set(dto.tokenDurationOptions)].sort((a, b) => a - b) : undefined,
           ...gstData(dto),
           maxVisitorsPerToken: dto.maxVisitorsPerToken,
+          passInstructions: passInstructionsData(dto.passInstructions),
         },
         include: { organization: { select: { id: true, name: true, festivalTypes: true } } },
       });

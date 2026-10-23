@@ -182,6 +182,10 @@ function Explore() {
   );
 }
 
+/** The banner only appears once there are enough events that the rows below aren't left empty. */
+const HERO_MIN_EVENTS = 8;
+const HERO_SIZE = 5;
+
 function Home({
   events,
   groupOf,
@@ -211,18 +215,47 @@ function Home({
     );
   }
   const soonest = [...events].sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const featured = [...soonest.filter((e) => isLive(e, today)), ...soonest.filter((e) => !isLive(e, today))].slice(0, 6);
-  const weekend = soonest.filter((e) => overlaps(e, dateWindow('weekend', today)!));
-  const free = soonest.filter((e) => e.fromPrice !== null && Number(e.fromPrice) === 0);
+  // Every event appears once on the home page: in the banner (only when there
+  // are enough events to fill rows as well), else in the first row it fits —
+  // happening now → this weekend → coming up. Free entry and categories are
+  // filters (chips / tiles), not more rows of the same festivals.
+  const live = soonest.filter((e) => isLive(e, today));
+  const featured = events.length >= HERO_MIN_EVENTS ? [...live, ...soonest.filter((e) => !isLive(e, today))].slice(0, HERO_SIZE) : [];
+  const inHero = new Set(featured.map((e) => e.id));
+  const rest = soonest.filter((e) => !inHero.has(e.id));
+  const nowRow = rest.filter((e) => isLive(e, today));
+  const weekendRow = rest.filter((e) => !isLive(e, today) && overlaps(e, dateWindow('weekend', today)!));
+  const shown = new Set([...nowRow, ...weekendRow].map((e) => e.id));
+  const laterRow = rest.filter((e) => !shown.has(e.id) && e.startDate > today);
+  const hasFree = soonest.some((e) => e.fromPrice !== null && Number(e.fromPrice) === 0);
+  const quick: { label: string; query: Record<string, string> }[] = [
+    ...(live.length ? [{ label: t('date.today'), query: { date: 'today' } }] : []),
+    { label: t('date.weekend'), query: { date: 'weekend' } },
+    { label: t('date.week'), query: { date: 'week' } },
+    ...(hasFree ? [{ label: t('price.free'), query: { price: 'free' } }] : []),
+  ];
   const byCat = CATEGORIES.map((c) => ({ c, list: soonest.filter((e) => categoryOf(e.festivalType, groupOf) === c.key) })).filter((x) => x.list.length);
   const cn = city ? cityName(city) : '';
 
   return (
     <div className="flex flex-col gap-9">
-      <HeroCarousel events={featured} />
+      {featured.length > 0 && <HeroCarousel events={featured} />}
 
-      <EventRow title={cn ? t('explore.happeningNowIn', { city: cn }) : t('explore.happeningNow')} subtitle={t('explore.happeningNowSub')} events={soonest.filter((e) => isLive(e, today))} seeAll={() => setQuery({ date: 'today' }, true)} />
-      <EventRow title={t('explore.thisWeekend')} events={weekend} seeAll={() => setQuery({ date: 'weekend' }, true)} />
+      <nav aria-label={t('explore.quickFilters')} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
+        {quick.map((q) => (
+          <button
+            key={q.label}
+            type="button"
+            onClick={() => setQuery(q.query, true)}
+            className="min-h-[44px] shrink-0 whitespace-nowrap rounded-full border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-700 shadow-sm hover:bg-rose-50"
+          >
+            {q.label}
+          </button>
+        ))}
+      </nav>
+
+      <EventRow title={cn ? t('explore.happeningNowIn', { city: cn }) : t('explore.happeningNow')} subtitle={t('explore.happeningNowSub')} events={nowRow} seeAll={() => setQuery({ date: 'today' }, true)} />
+      <EventRow title={t('explore.thisWeekend')} events={weekendRow} seeAll={() => setQuery({ date: 'weekend' }, true)} />
 
       {byCat.length > 1 && (
         <section aria-label={t('explore.browseByCategory')} className="flex flex-col gap-3">
@@ -246,11 +279,7 @@ function Home({
         </section>
       )}
 
-      <EventRow title={cn ? t('explore.comingUpIn', { city: cn }) : t('explore.comingUp')} events={soonest.filter((e) => e.startDate > today)} seeAll={() => setQuery({ view: 'all' }, true)} />
-      <EventRow title={t('explore.freeEntry')} subtitle={t('explore.freeEntrySub')} events={free} seeAll={() => setQuery({ price: 'free' }, true)} />
-      {byCat.map(({ c, list }) => (
-        <EventRow key={c.key} title={`${c.emoji} ${catLabel(t, c)}`} events={list} seeAll={() => setQuery({ cat: c.key }, true)} />
-      ))}
+      <EventRow title={cn ? t('explore.comingUpIn', { city: cn }) : t('explore.comingUp')} events={laterRow} seeAll={() => setQuery({ view: 'all' }, true)} />
 
       <div className="flex justify-center">
         <Button variant="secondary" onClick={() => setQuery({ view: 'all' }, true)}>

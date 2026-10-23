@@ -1,7 +1,7 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { CheckCircle2, Clock, Minus, Plus } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock, Minus, Plus } from 'lucide-react';
 import { fmtMoney } from '@/lib/format';
 import { isFree } from '@/lib/booking';
 import { dayPartsL, fmtHHmmL } from '@/lib/i18n/format';
@@ -50,8 +50,65 @@ export function DateChips({
   peak?: Map<string, string>;
 }) {
   const { t, locale } = useT();
+  const ref = useRef<HTMLDivElement>(null);
+  // Arrows appear only when the row overflows (long festivals, narrow screens):
+  // without them a mouse user had no way to reach the later days.
+  const [over, setOver] = useState({ overflow: false, atStart: true, atEnd: true });
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const next = { overflow: el.scrollWidth > el.clientWidth + 1, atStart: el.scrollLeft <= 1, atEnd: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 };
+    setOver((o) => (o.overflow === next.overflow && o.atStart === next.atStart && o.atEnd === next.atEnd ? o : next));
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    measure();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    el.addEventListener('scroll', measure, { passive: true });
+    // A vertical mouse wheel scrolls the row sideways while it can still move.
+    const wheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || el.scrollWidth <= el.clientWidth) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if ((e.deltaY < 0 && el.scrollLeft <= 0) || (e.deltaY > 0 && el.scrollLeft >= max - 1)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => {
+      ro?.disconnect();
+      el.removeEventListener('scroll', measure);
+      el.removeEventListener('wheel', wheel);
+    };
+  }, [measure, days.length]);
+  // Keep the chosen day in view (e.g. a ?date= link to the festival's last day).
+  useEffect(() => {
+    const el = ref.current;
+    const chip = el?.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (!el || !chip) return;
+    const left = chip.offsetLeft - el.offsetLeft;
+    if (left < el.scrollLeft || left + chip.offsetWidth > el.scrollLeft + el.clientWidth) {
+      el.scrollTo({ left: Math.max(0, left - el.clientWidth / 2 + chip.offsetWidth / 2), behavior: 'smooth' });
+    }
+  }, [value]);
+  const scroll = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: 'smooth' });
+  const arrow =
+    'absolute top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-md hover:bg-slate-50';
+  const label = t('slot.festivalDay');
   return (
-    <div role="radiogroup" aria-label={t('slot.festivalDay')} className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 pt-2.5 [scrollbar-width:none]">
+    <div className="relative">
+      {over.overflow && !over.atStart && (
+        <button type="button" aria-label={t('card.scrollLeft', { title: label })} onClick={() => scroll(-1)} className={cx(arrow, '-left-2')}>
+          <ChevronLeft aria-hidden className="h-5 w-5" />
+        </button>
+      )}
+      {over.overflow && !over.atEnd && (
+        <button type="button" aria-label={t('card.scrollRight', { title: label })} onClick={() => scroll(1)} className={cx(arrow, '-right-2')}>
+          <ChevronRight aria-hidden className="h-5 w-5" />
+        </button>
+      )}
+    <div ref={ref} role="radiogroup" aria-label={label} className="-mx-4 flex snap-x gap-2 overflow-x-auto scroll-smooth px-4 pb-1 pt-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {days.map((d) => {
         const p = dayPartsL(d, locale);
         const past = d < today;
@@ -92,6 +149,7 @@ export function DateChips({
           </button>
         );
       })}
+    </div>
     </div>
   );
 }

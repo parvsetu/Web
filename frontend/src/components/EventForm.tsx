@@ -64,6 +64,7 @@ export function EventForm({
     bookingClosesAt: toLocalInput(initial?.bookingClosesAt),
     tokenDurationOptions: initial?.tokenDurationOptions ?? [],
     maxVisitorsPerToken: String(initial?.maxVisitorsPerToken ?? 10),
+    passInstructions: initial?.passInstructions ?? '',
     state: initial?.state ?? '',
     city: initial?.city ?? '',
     gstEnabled: initial?.gstEnabled ?? false,
@@ -139,6 +140,7 @@ export function EventForm({
       venueNotes: form.venueNotes.trim(),
       venueContactPhone: form.venueContactPhone.trim(),
       maxVisitorsPerToken: max,
+      passInstructions: form.passInstructions.trim(),
       ...(form.state || initial ? { state: form.state } : {}),
       ...(form.city || initial ? { city: form.city.trim() } : {}),
     };
@@ -280,6 +282,15 @@ export function EventForm({
         />
         <LabeledInput label="Max visitors per token" required type="number" min={1} value={form.maxVisitorsPerToken} onChange={set('maxVisitorsPerToken')} />
       </div>
+      <Field label="Instructions on the pass (optional)">
+        <Textarea
+          value={form.passInstructions}
+          onChange={set('passInstructions')}
+          maxLength={1000}
+          placeholder={'One per line, e.g.\nCarry a photo ID.\nNo outside food or plastic bags.\nGates close at 10 pm.'}
+        />
+        <p className="mt-1 text-xs text-slate-500">Printed on every visitor pass under the standard instructions (show the QR, valid only for its date and time, one-time entry).</p>
+      </Field>
       <Checkbox
         label="Open for volunteer sign-up"
         checked={form.volunteerRegistrationOpen}

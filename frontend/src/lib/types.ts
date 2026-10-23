@@ -268,6 +268,8 @@ export interface EventDetail {
   venueNotes?: string | null;
   venueContactPhone?: string | null;
   maxVisitorsPerToken: number;
+  /** Organiser's extra pass instructions, one per line. */
+  passInstructions?: string | null;
   createdAt: string;
   myPermissions: string[];
   approvalStatus?: ApprovalStatus;
@@ -308,6 +310,7 @@ export interface EventBody {
   venueNotes?: string;
   venueContactPhone?: string;
   maxVisitorsPerToken?: number;
+  passInstructions?: string;
   state?: string;
   city?: string;
 }

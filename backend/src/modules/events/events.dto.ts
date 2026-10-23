@@ -43,6 +43,8 @@ export class CreateEventDto extends VenueFields {
   @IsOptional() @IsIn(['A4', 'THERMAL_80', 'THERMAL_58']) passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   @IsOptional() @IsArray() @ArrayMaxSize(12) @IsInt({ each: true }) @Min(1, { each: true }) @Max(744, { each: true }) tokenDurationOptions?: number[];
   @IsOptional() @IsInt() @Min(1) @Max(100) maxVisitorsPerToken?: number;
+  /** Extra instructions on the visitor pass, one per line; '' clears. */
+  @IsOptional() @IsString() @MaxLength(1000) passInstructions?: string;
 }
 
 export class UpdateEventDto extends VenueFields {
@@ -75,6 +77,8 @@ export class UpdateEventDto extends VenueFields {
   @IsOptional() @IsIn(['A4', 'THERMAL_80', 'THERMAL_58']) passPrintFormat?: 'A4' | 'THERMAL_80' | 'THERMAL_58';
   @IsOptional() @IsArray() @ArrayMaxSize(12) @IsInt({ each: true }) @Min(1, { each: true }) @Max(744, { each: true }) tokenDurationOptions?: number[];
   @IsOptional() @IsInt() @Min(1) @Max(100) maxVisitorsPerToken?: number;
+  /** Extra instructions on the visitor pass, one per line; '' clears. */
+  @IsOptional() @IsString() @MaxLength(1000) passInstructions?: string;
 }
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;

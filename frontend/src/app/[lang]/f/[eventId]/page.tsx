@@ -162,7 +162,7 @@ export default async function FestivalPage({ params }: Props) {
 
         {stalls.open && (
           <Link
-            href={`/vendor?festival=${f.id}`}
+            href={`/login?next=${encodeURIComponent(`/vendor?festival=${f.id}`)}`}
             className="flex min-h-[64px] items-center justify-between gap-3 rounded-2xl border-2 border-teal-200 bg-gradient-to-r from-teal-50 to-emerald-50 px-4 py-3 text-teal-900"
           >
             <span className="flex items-center gap-3">

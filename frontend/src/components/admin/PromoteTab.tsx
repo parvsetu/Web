@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ExternalLink, Megaphone, Printer } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ExternalLink, Megaphone, PenLine, Printer } from 'lucide-react';
 import { useEvent } from '@/lib/event-context';
 import { QrImage } from '../QrImage';
 import { ShareButtons } from '../ShareButtons';
-import { Alert, Card, SectionTitle } from '../ui';
+import { Alert, Button, Card, Modal, SectionTitle } from '../ui';
+import { PosterEditor, type PosterFestival } from './PosterEditor';
 
 /** Organiser tools to promote the festival: public link, share buttons, poster, printable QR. */
 export function PromoteTab() {
@@ -14,6 +15,22 @@ export function PromoteTab() {
   useEffect(() => setOrigin(window.location.origin), []);
   const url = `${origin}/f/${ev.slug ?? ev.eventId}`;
   const isPublic = ev.status === 'ACTIVE' || ev.status === 'COMPLETED';
+  const [editing, setEditing] = useState(false);
+  const d = ev.detail;
+  const posterFestival = useMemo<PosterFestival>(
+    () => ({
+      eventId: ev.eventId,
+      name: ev.name,
+      orgName: ev.organization?.name ?? '',
+      festivalType: ev.festivalType,
+      startDate: ev.startDate,
+      endDate: ev.endDate,
+      place: [d?.city, d?.state].filter(Boolean).join(', '),
+      url,
+      bookable: !!d?.publicBookingEnabled,
+    }),
+    [ev.eventId, ev.name, ev.organization?.name, ev.festivalType, ev.startDate, ev.endDate, d?.city, d?.state, d?.publicBookingEnabled, url],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -38,8 +55,14 @@ export function PromoteTab() {
         <Card className="flex flex-col items-center gap-2">
           <h3 className="font-bold">Instagram / WhatsApp status poster</h3>
           {isPublic ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={`/f/${ev.eventId}/poster`} alt="Festival poster" className="w-full max-w-xs rounded-2xl shadow" />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/f/${ev.eventId}/poster`} alt="Festival poster" className="w-full max-w-xs rounded-2xl shadow" />
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                <PenLine aria-hidden className="h-5 w-5" /> Edit poster
+              </Button>
+              <p className="text-center text-xs text-slate-500">Change the text, add a banner photo, pick colours and add a QR.</p>
+            </>
           ) : (
             <p className="text-sm text-slate-500">Available once the festival is Active.</p>
           )}
@@ -54,6 +77,11 @@ export function PromoteTab() {
           </button>
         </Card>
       </div>
+      {editing && origin && (
+        <Modal open onClose={() => setEditing(false)} title="Edit poster" wide>
+          <PosterEditor festival={posterFestival} />
+        </Modal>
+      )}
     </div>
   );
 }

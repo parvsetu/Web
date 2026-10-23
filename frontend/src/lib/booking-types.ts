@@ -121,6 +121,8 @@ export interface PassOrder {
     timezone: string;
     location: string | null;
     venue?: Venue;
+    /** Organiser's extra pass instructions, one per line. */
+    passInstructions?: string | null;
     organization: { name: string } & OrgBrand;
   };
   timeSlot: { label: string } | null;
