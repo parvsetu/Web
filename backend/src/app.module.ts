@@ -26,6 +26,7 @@ import { MailModule } from './common/mail/mail.module';
 import { ImagesModule } from './common/images/image-store';
 import { GalleryModule } from './modules/gallery/gallery.module';
 import { LandingModule } from './modules/landing/landing.module';
+import { SeoModule } from './modules/seo/seo.module';
 import { RegistrationsModule } from './modules/registrations/registrations.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
@@ -62,6 +63,7 @@ import { PlatformAlertsModule } from './modules/platform-alerts/platform-alerts.
     PartnersModule,
     GalleryModule,
     LandingModule,
+    SeoModule,
     RegistrationsModule,
     AgentsModule,
     ReviewsModule,

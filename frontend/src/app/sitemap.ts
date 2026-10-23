@@ -9,9 +9,11 @@ export const revalidate = 3600;
 interface SitemapData {
   festivals: { path: string; updatedAt: string; upcoming: boolean }[];
   mandals: { slug: string; updatedAt: string }[];
+  cities?: { slug: string; updatedAt: string | null }[];
+  categories?: { key: string; updatedAt: string }[];
 }
 
-/** Home, FAQ, policy, every public festival page (/f/<address>) and live mandal page (/m/<slug>). */
+/** Home, FAQ, policy, city and category pages, every public festival page (/f/<address>) and live mandal page (/m/<slug>). */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
   let data: SitemapData = { festivals: [], mandals: [] };
@@ -29,6 +31,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${base}/f/${encodeURIComponent(f.path)}`, lastModified: f.updatedAt,
       changeFrequency: f.upcoming ? ('daily' as const) : ('monthly' as const), priority: f.upcoming ? 0.9 : 0.5,
     })),
+    ...(data.cities ?? []).map((c) => ({ url: `${base}/city/${encodeURIComponent(c.slug)}`, ...(c.updatedAt ? { lastModified: c.updatedAt } : {}), changeFrequency: 'daily' as const, priority: 0.8 })),
+    ...(data.categories ?? []).map((c) => ({ url: `${base}/category/${encodeURIComponent(c.key)}`, lastModified: c.updatedAt, changeFrequency: 'daily' as const, priority: 0.8 })),
     ...data.mandals.map((m) => ({ url: `${base}/m/${encodeURIComponent(m.slug)}`, lastModified: m.updatedAt, changeFrequency: 'weekly' as const, priority: 0.7 })),
   ];
 }

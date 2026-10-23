@@ -13,6 +13,7 @@ import { FestivalCatalogService } from '../../common/catalog/festival-catalog.se
 import { CONTENT_POLICY } from '../../common/legal';
 import { EventSlugService } from '../events/event-slug.service';
 import { presentSalesWindow } from '../../common/booking-window';
+import { citySlug } from '../seo/seo.rules';
 
 @Public()
 @Controller('public')
@@ -62,19 +63,34 @@ export class PublicController {
   @Get('sitemap')
   async sitemap() {
     const now = new Date();
-    const [events, landings] = await Promise.all([
+    const [events, landings, seo] = await Promise.all([
       this.prisma.event.findMany({
         where: { status: { in: ['ACTIVE', 'COMPLETED'] }, ...LIVE_WHERE },
-        select: { id: true, slug: true, updatedAt: true, status: true }, orderBy: { startDate: 'desc' }, take: 5000,
+        select: { id: true, slug: true, updatedAt: true, status: true, city: true, organization: { select: { city: true } } }, orderBy: { startDate: 'desc' }, take: 5000,
       }),
       this.prisma.landingPage.findMany({
         where: { enabled: true, paidUntil: { gt: now } },
         select: { updatedAt: true, organization: { select: { slug: true } } }, take: 5000,
       }),
+      this.prisma.seoPage.findMany({ where: { published: true, kind: { in: ['CITY', 'CATEGORY'] } }, select: { kind: true, key: true, updatedAt: true } }),
     ]);
+    // City pages: every city with a live festival, plus cities the super admin wrote a page for.
+    const cityPages = new Map<string, Date | null>();
+    for (const e of events) {
+      const slug = citySlug(e.city || e.organization.city || '');
+      if (slug && e.status === 'ACTIVE' && !cityPages.has(slug)) cityPages.set(slug, null);
+    }
+    const categoryPages = new Map<string, Date>();
+    for (const p of seo) {
+      const map = p.kind === 'CITY' ? cityPages : categoryPages;
+      const prev = map.get(p.key);
+      if (!prev || prev < p.updatedAt) map.set(p.key, p.updatedAt);
+    }
     return {
       festivals: events.map((e) => ({ path: e.slug ?? e.id, updatedAt: e.updatedAt, upcoming: e.status === 'ACTIVE' })),
       mandals: landings.map((l) => ({ slug: l.organization.slug, updatedAt: l.updatedAt })),
+      cities: [...cityPages].map(([slug, updatedAt]) => ({ slug, updatedAt })),
+      categories: [...categoryPages].map(([key, updatedAt]) => ({ key, updatedAt })),
     };
   }
 

@@ -830,6 +830,10 @@ const en = {
   'err.network': 'Could not reach the server. Check your internet connection.',
 
   // page metadata
+  'seo.cityTitle': "Festivals & events in {city}",
+  'seo.cityDescription': "Ganesh Utsav, Durga Puja, Navratri garba, melas and exhibitions in {city}. Book a time slot and get a QR entry pass on your phone.",
+  'seo.categoryTitle': "{category} — book passes online",
+  'seo.categoryDescription': "Find {category} near you, book a time slot and get a QR entry pass on your phone.",
   'meta.homeTitle': 'Parvsetu — Festival passes & events near you',
   'meta.homeDescription': 'Discover Ganesh Utsav, Durga Puja, Navratri garba, melas, kathas and exhibitions near you. Book a time slot and get a QR entry pass on your phone.',
   'meta.homeOgDescription': 'Discover festivals, melas and exhibitions across India and book QR entry passes in seconds.',

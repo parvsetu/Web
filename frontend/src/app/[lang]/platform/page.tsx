@@ -24,11 +24,12 @@ import { BloggersAdmin } from '@/components/platform/BloggersAdmin';
 import { TaxProfilesAdmin } from '@/components/platform/TaxProfilesAdmin';
 import { AgentsAdmin } from '@/components/platform/AgentsAdmin';
 import { EventFeesAdmin } from '@/components/platform/EventFeesAdmin';
+import { SeoPagesAdmin } from '@/components/platform/SeoPagesAdmin';
 import { PlatformAlertsBar, type PendingCounts } from '@/components/platform/PlatformAlertsBar';
 import { FestivalChooser } from '@/components/org/OrgSettingsTab';
 import type { AgentInfo } from '@/lib/registration-types';
 import { BadgeIndianRupee, BriefcaseBusiness, ClipboardCheck, Flag, Ticket, Users as Users2, Wallet } from 'lucide-react';
-import { BadgePercent, Building2, CalendarDays, Handshake, Landmark, Megaphone, Plus, Store } from 'lucide-react';
+import { BadgePercent, Building2, CalendarDays, FileText, Handshake, Landmark, Megaphone, Plus, Store } from 'lucide-react';
 
 export default function PlatformPage() {
   const { me } = useAuth();
@@ -86,11 +87,12 @@ export default function PlatformPage() {
               { group: 'People', key: 'bloggers', badge: pending?.bloggers, label: 'Bloggers', icon: Megaphone },
               { group: 'Directory', key: 'orgs', label: 'Mandals', icon: Building2 },
               { group: 'Directory', key: 'users', label: 'Users', icon: Users2 },
+              { group: 'Website', key: 'seo', label: 'SEO pages', icon: FileText },
             ]}
             active={tab}
             onChange={change}
           >
-            {tab === 'registrations' ? <RegistrationsAdmin /> : tab === 'reviews' ? <EventReviewsAdmin /> : tab === 'reported' ? <ReportedReviewsAdmin /> : tab === 'agents' ? <AgentsAdmin /> : tab === 'fees' ? <EventFeesAdmin /> : tab === 'billing' ? <BillingAdmin /> : tab === 'payouts' ? <PayoutsAdmin /> : tab === 'tax' ? <TaxProfilesAdmin /> : tab === 'partners' ? <PartnersAdmin /> : tab === 'vendors' ? <VendorsAdmin /> : tab === 'bloggers' ? <BloggersAdmin /> : tab === 'orgs' ? <Orgs /> : <Users />}
+            {tab === 'registrations' ? <RegistrationsAdmin /> : tab === 'reviews' ? <EventReviewsAdmin /> : tab === 'reported' ? <ReportedReviewsAdmin /> : tab === 'agents' ? <AgentsAdmin /> : tab === 'fees' ? <EventFeesAdmin /> : tab === 'billing' ? <BillingAdmin /> : tab === 'payouts' ? <PayoutsAdmin /> : tab === 'tax' ? <TaxProfilesAdmin /> : tab === 'partners' ? <PartnersAdmin /> : tab === 'vendors' ? <VendorsAdmin /> : tab === 'bloggers' ? <BloggersAdmin /> : tab === 'orgs' ? <Orgs /> : tab === 'seo' ? <SeoPagesAdmin /> : <Users />}
           </SideTabsLayout>
         </div>
       )}

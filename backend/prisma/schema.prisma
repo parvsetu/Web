@@ -2470,3 +2470,27 @@ model ArtworkEnquiry {
   @@index([artworkId])
   @@map("artwork_enquiries")
 }
+
+/// SEO text for the public explore pages (see src/modules/seo/seo.rules.ts):
+/// HOME (key ""), CITY (key = city slug, e.g. "navi-mumbai"), CATEGORY (key = explore category).
+model SeoPage {
+  id              String   @id @default(uuid())
+  /// HOME | CITY | CATEGORY
+  kind            String
+  key             String   @default("")
+  lang            String   @default("en")
+  /// City display name ("Navi Mumbai"); null for HOME / CATEGORY.
+  name            String?
+  title           String?
+  metaDescription String?
+  /// Plain text with light formatting (blank line = paragraph, "## " heading, "- " list, [text](url)).
+  aboveText       String?
+  belowText       String?
+  published       Boolean  @default(false)
+  updatedById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([kind, key, lang])
+  @@map("seo_pages")
+}
