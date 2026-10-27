@@ -57,7 +57,7 @@ export class ReportsController {
     const data = await this.reports.finance(a.event!, q);
     return this.send(res, a, q.format, 'finance', data, () => [
       ...data.donations.byMethod.map((m) => ({ type: 'donation', key: m.method, total: m.total, count: m.count })),
-      { type: 'pass_sales', key: 'online passes', total: data.passSales.total, count: data.passSales.count },
+      { type: 'pass_sales', key: 'online passes (net of refunds)', total: data.passSales.total, count: data.passSales.count },
       { type: 'stall_rent', key: 'stall bookings (net of refunds)', total: data.stallRent.total, count: data.stallRent.bookings },
       ...data.expenses.byCategory.map((c) => ({ type: 'expense', key: c.category, total: c.total, count: c.count })),
     ]);
@@ -70,6 +70,7 @@ export class ReportsController {
     // One register (same columns as before): pass invoices, then stall-rent invoices and stall credit notes (negative).
     return this.send(res, a, q.format, 'gst-invoices', data, () => [
       ...data.invoices.map((i) => ({ type: 'pass', ...i })),
+      ...data.creditNotes.map((n) => ({ type: 'pass_credit_note', invoiceNo: `${n.creditNoteNo} (against ${n.againstInvoice})`, date: n.date, buyer: n.buyer, people: '', ratePercent: n.ratePercent, bearer: '', taxable: `-${n.taxable}`, gst: `-${n.gst}`, total: `-${n.total}` })),
       ...data.stallRent.invoices.map((i) => ({ type: 'stall', invoiceNo: i.invoiceNo, date: i.date, buyer: i.vendor, people: '', ratePercent: i.ratePercent, bearer: 'CUSTOMER', taxable: i.taxable, gst: i.gst, total: i.total })),
       ...data.stallRent.creditNotes.map((n) => ({ type: 'stall_credit_note', invoiceNo: `${n.creditNoteNo} (against ${n.againstInvoice})`, date: n.date, buyer: n.vendor, people: '', ratePercent: n.ratePercent, bearer: 'CUSTOMER', taxable: `-${n.taxable}`, gst: `-${n.gst}`, total: `-${n.total}` })),
     ]);

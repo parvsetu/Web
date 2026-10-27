@@ -10,11 +10,12 @@ import { RequestUser } from '../../common/auth/request-user';
 import { QrSigner } from '../../common/qr/qr-signer';
 import { normalizeMobile } from '../../common/identity';
 import { paged, paging, userRef } from '../../common/http';
-import { dayRange, slotWindow, ymd } from '../../common/time/validity';
+import { dateOnly, dayRange, slotWindow, ymd } from '../../common/time/validity';
 import { presentToken, tokenSelect } from './token-presenter';
 import { BillingService } from '../billing/billing.service';
 import { PartnerBillingService } from '../partners/partner-billing.service';
 import { ReferralEarningsService } from '../referrals/referral-earnings.service';
+import { decimalToPaise, loadPricingRules, ticketPrice } from '../../common/pricing';
 import { BulkGenerateDto, ChangeValidityDto, IssueTokenDto, ReactivateTokenDto, TokenListQuery, ValidityDto } from './tokens.dto';
 
 const MAX_CUSTOM_WINDOW_MS = 31 * 24 * 3600 * 1000;
@@ -23,6 +24,8 @@ interface ResolvedValidity {
   validFrom: Date;
   validUntil: Date;
   timeSlotId: string | null;
+  /** Set for a programme ticket; capacity is then the item's ticket limit. */
+  programmeItemId: string | null;
   capacity: number | null;
 }
 
@@ -50,15 +53,25 @@ export class TokensService {
     dto: ValidityDto,
     perms: Set<string>,
   ): Promise<ResolvedValidity> {
+    const ticketForm = dto.programmeItemId !== undefined;
     const slotForm = dto.timeSlotId !== undefined || dto.date !== undefined;
     const customForm = dto.validFrom !== undefined || dto.validUntil !== undefined;
     const durationForm = dto.durationHours !== undefined || dto.startAt !== undefined;
-    if ([slotForm, customForm, durationForm].filter(Boolean).length !== 1) {
-      throw new BadRequestException('Provide exactly one of: timeSlotId + date, validFrom + validUntil, or durationHours');
+    if ([ticketForm, slotForm, customForm, durationForm].filter(Boolean).length !== 1) {
+      throw new BadRequestException('Provide exactly one of: timeSlotId + date, programmeItemId, validFrom + validUntil, or durationHours');
     }
 
     let result: ResolvedValidity;
-    if (durationForm) {
+    if (ticketForm) {
+      // Same item rules as an online ticket (passes.service ticketTarget), minus the publish/sales-window checks:
+      // the desk can sell a ticket the website doesn't show.
+      const item = await db.programmeItem.findFirst({ where: { id: dto.programmeItemId, eventId: event.id, ticketed: true } });
+      if (!item || !item.endTime) throw new NotFoundException('Ticketed programme not found');
+      if (item.status === 'CANCELLED') throw new BadRequestException('This programme has been cancelled.');
+      const w = slotWindow(ymd(item.date), item.startTime, item.endTime, event.timezone);
+      if (w.validUntil <= new Date()) throw new BadRequestException('This programme has already ended.');
+      result = { ...w, timeSlotId: null, programmeItemId: item.id, capacity: item.ticketCapacity };
+    } else if (durationForm) {
       if (!dto.durationHours) throw new BadRequestException('durationHours is required');
       const options = await db.event.findUniqueOrThrow({ where: { id: event.id }, select: { tokenDurationOptions: true } });
       if (!perms.has('TOKEN_GENERATE') && !options.tokenDurationOptions.includes(dto.durationHours)) {
@@ -71,7 +84,7 @@ export class TokensService {
       }
       const validFrom = dto.startAt ? new Date(dto.startAt) : new Date();
       if (validFrom.getTime() < Date.now() - 10 * 60_000) throw new BadRequestException('Start time cannot be in the past');
-      result = { validFrom, validUntil: new Date(validFrom.getTime() + dto.durationHours * 3600_000), timeSlotId: null, capacity: null };
+      result = { validFrom, validUntil: new Date(validFrom.getTime() + dto.durationHours * 3600_000), timeSlotId: null, programmeItemId: null, capacity: null };
     } else if (slotForm) {
       if (!dto.timeSlotId || !dto.date) throw new BadRequestException('timeSlotId and date are both required');
       if (dto.date < ymd(event.startDate) || dto.date > ymd(event.endDate)) {
@@ -80,7 +93,7 @@ export class TokensService {
       const slot = await db.timeSlot.findFirst({ where: { id: dto.timeSlotId, eventId: event.id } });
       if (!slot) throw new NotFoundException('Time slot not found');
       if (!slot.isActive) throw new BadRequestException('This time slot is not active');
-      result = { ...slotWindow(dto.date, slot.startTime, slot.endTime, event.timezone), timeSlotId: slot.id, capacity: slot.capacity };
+      result = { ...slotWindow(dto.date, slot.startTime, slot.endTime, event.timezone), timeSlotId: slot.id, programmeItemId: null, capacity: slot.capacity };
     } else {
       if (!perms.has('TOKEN_GENERATE')) {
         throw new ForbiddenException({ statusCode: 403, message: 'Only administrators can set a custom validity window.', code: 'FORBIDDEN' });
@@ -92,7 +105,7 @@ export class TokensService {
       if (validUntil.getTime() - validFrom.getTime() > MAX_CUSTOM_WINDOW_MS) {
         throw new BadRequestException('A validity window cannot be longer than 31 days');
       }
-      result = { validFrom, validUntil, timeSlotId: null, capacity: null };
+      result = { validFrom, validUntil, timeSlotId: null, programmeItemId: null, capacity: null };
     }
     if (result.validUntil <= new Date()) throw new BadRequestException('This validity window has already ended');
     return result;
@@ -109,8 +122,9 @@ export class TokensService {
     }
   }
 
-  /** Serializes issuance per slot window (row lock on the slot) and enforces capacity. */
+  /** Serializes issuance per slot window / programme item (row lock) and enforces capacity. */
   private async checkCapacity(tx: Prisma.TransactionClient, v: ResolvedValidity, adding: number) {
+    if (v.programmeItemId) return this.checkItemCapacity(tx, v.programmeItemId, v.capacity, adding);
     if (!v.timeSlotId) return;
     await this.checkSlotCapacity(tx, v.timeSlotId, v.validFrom, v.capacity, adding);
   }
@@ -263,7 +277,7 @@ export class TokensService {
         const token = await tx.token.create({
           data: {
             eventId: event.id, tokenCode: this.code(event, first + i), secureToken: this.qr.newSecureToken(),
-            visitorId: visitor?.id ?? null, timeSlotId: v.timeSlotId, visitorCount: perPerson ? 1 : visitorCount,
+            visitorId: visitor?.id ?? null, timeSlotId: v.timeSlotId, programmeItemId: v.programmeItemId, visitorCount: perPerson ? 1 : visitorCount,
             validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id, donationId: donationId ?? null, sponsorIds, partnerCampaignIds,
           },
         });
@@ -287,12 +301,12 @@ export class TokensService {
       });
       const rows = Array.from({ length: dto.count }, (_, i) => ({
         id: randomUUID(), eventId: event.id, tokenCode: this.code(event, first + i), secureToken: this.qr.newSecureToken(),
-        timeSlotId: v.timeSlotId, visitorCount, validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id, sponsorIds, partnerCampaignIds,
+        timeSlotId: v.timeSlotId, programmeItemId: v.programmeItemId, visitorCount, validFrom: v.validFrom, validUntil: v.validUntil, issuedById: actor.id, sponsorIds, partnerCampaignIds,
       }));
       await tx.token.createMany({ data: rows });
       await this.audit.log({
         organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'token.bulk_generated',
-        entityType: 'Token', after: { count: dto.count, from: rows[0].tokenCode, to: rows[rows.length - 1].tokenCode, validFrom: v.validFrom, validUntil: v.validUntil, timeSlotId: v.timeSlotId },
+        entityType: 'Token', after: { count: dto.count, from: rows[0].tokenCode, to: rows[rows.length - 1].tokenCode, validFrom: v.validFrom, validUntil: v.validUntil, timeSlotId: v.timeSlotId, programmeItemId: v.programmeItemId },
       }, tx);
       return rows.map((r) => r.id);
     }, { timeout: 30_000 });
@@ -302,6 +316,37 @@ export class TokensService {
     const printedPartners = await this.partners.printed(tokens[0]?.partnerCampaignIds ?? []);
     const printFormat = await this.billing.printFormat(this.prisma, event.organizationId, (tokens[0]?.sponsorIds.length ?? 0) + printedPartners.length);
     return { count: tokens.length, tokens: tokens.map((t) => ({ ...presentToken(t, this.qr.payloadFor(t.secureToken)), printedPartners, printFormat })) };
+  }
+
+  /**
+   * Ticketed programmes on one festival day for the desk: what's left and the
+   * per-person price to collect (peak rules applied, same as online). The desk
+   * records no payment — the price is what to ask for.
+   */
+  async deskTickets(event: EventRef, date: string) {
+    if (date < ymd(event.startDate) || date > ymd(event.endDate)) {
+      throw new BadRequestException(`Date must be between ${ymd(event.startDate)} and ${ymd(event.endDate)}`);
+    }
+    const [items, rules] = await Promise.all([
+      this.prisma.programmeItem.findMany({
+        where: { eventId: event.id, ticketed: true, endTime: { not: null }, date: dateOnly(date) },
+        orderBy: [{ startTime: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+      }),
+      loadPricingRules(this.prisma, event.id),
+    ]);
+    const now = new Date();
+    return Promise.all(items.map(async (i) => {
+      const w = slotWindow(date, i.startTime, i.endTime!, event.timezone);
+      const cancelled = i.status === 'CANCELLED';
+      const ended = cancelled || w.validUntil <= now;
+      const p = ticketPrice(decimalToPaise(i.ticketPrice), i.id, date, rules);
+      return {
+        id: i.id, title: i.title, startTime: i.startTime, endTime: i.endTime!, stage: i.stage, isPublished: i.isPublished,
+        price: (p.pricePaise / 100).toFixed(2), basePrice: i.ticketPrice.toFixed(2), ruleLabel: p.rule?.label ?? null,
+        validFrom: w.validFrom, validUntil: w.validUntil, cancelled, ended,
+        remaining: ended ? 0 : await this.itemRemaining(i.id, i.ticketCapacity),
+      };
+    }));
   }
 
   // ─── Read ────────────────────────────────────────────────────────────
@@ -399,7 +444,7 @@ export class TokensService {
       const v = await this.resolveValidity(tx, event, dto, perms);
       const res = await tx.token.updateMany({
         where: { id: tokenId, eventId: event.id, status: 'ACTIVE' },
-        data: { validFrom: v.validFrom, validUntil: v.validUntil, timeSlotId: v.timeSlotId },
+        data: { validFrom: v.validFrom, validUntil: v.validUntil, timeSlotId: v.timeSlotId, programmeItemId: v.programmeItemId },
       });
       if (res.count !== 1) {
         throw new ConflictException({ message: 'Validity can only be changed on an unused, uncancelled token.', code: 'TOKEN_NOT_ACTIVE' });
@@ -407,8 +452,8 @@ export class TokensService {
       await this.audit.log({
         organizationId: event.organizationId, eventId: event.id, actorId: actor.id, action: 'token.validity_changed',
         entityType: 'Token', entityId: tokenId,
-        before: { validFrom: before.validFrom, validUntil: before.validUntil, timeSlotId: before.timeSlotId },
-        after: { validFrom: v.validFrom, validUntil: v.validUntil, timeSlotId: v.timeSlotId },
+        before: { validFrom: before.validFrom, validUntil: before.validUntil, timeSlotId: before.timeSlotId, programmeItemId: before.programmeItemId },
+        after: { validFrom: v.validFrom, validUntil: v.validUntil, timeSlotId: v.timeSlotId, programmeItemId: v.programmeItemId },
         reason: dto.reason,
       }, tx);
     });

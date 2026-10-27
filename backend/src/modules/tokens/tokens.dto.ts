@@ -2,8 +2,10 @@ import { Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
 import { PageQuery } from '../../common/http';
 
-/** One of { timeSlotId, date } | { validFrom, validUntil } | { durationHours, startAt? }. */
+/** One of { timeSlotId, date } | { programmeItemId } | { validFrom, validUntil } | { durationHours, startAt? }. */
 export class ValidityDto {
+  /** A ticket for one ticketed programme: valid from its start to its end on its own date. */
+  @IsOptional() @IsUUID() programmeItemId?: string;
   /** Valid for N hours from startAt (default: now). */
   @IsOptional() @IsInt() @Min(1) @Max(744) durationHours?: number;
   @IsOptional() @IsISO8601({ strict: true }) startAt?: string;
@@ -24,6 +26,10 @@ export class IssueTokenDto extends ValidityDto {
 export class BulkGenerateDto extends ValidityDto {
   @IsInt() @Min(1) @Max(1000) count: number;
   @IsOptional() @IsInt() @Min(1) @Max(100) visitorCount?: number;
+}
+
+export class DeskTicketsQuery {
+  @Matches(/^\d{4}-\d{2}-\d{2}$/) date: string;
 }
 
 export class TokenListQuery extends PageQuery {

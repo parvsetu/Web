@@ -8,6 +8,8 @@ import { GALLERY_QUOTA_BYTES, MAX_BANNER_BYTES, MAX_LOGO_BYTES, UploadedImageFil
 import { lockOrg, mb, storageUsage } from '../../common/images/quota';
 import { LIVE_WHERE } from '../../common/event-approval';
 import { dateOnly, ymd } from '../../common/time/validity';
+import { PassesService } from '../passes/passes.service';
+import { PassRefundsService } from '../passes/pass-refunds.service';
 import { CreateProgrammeItemDto, ProgrammeGuestDto, UpdateProgrammeItemDto, UpsertProgrammeDayDto } from './programme.dto';
 import { MAX_ITEMS_PER_EVENT, festivalDates, normaliseInstagramProfile, normaliseVideoUrl, videoLink } from './programme.rules';
 
@@ -71,6 +73,8 @@ export class ProgrammeService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @Inject(IMAGE_STORE) private readonly store: ImageStore,
+    private readonly passes: PassesService,
+    private readonly refunds: PassRefundsService,
   ) {}
 
   private async event(eventId: string) {
@@ -199,7 +203,7 @@ export class ProgrammeService {
       const known = new Set(before.guests.map((g) => g.id));
       if (guests.some((g) => g.id && !known.has(g.id))) throw new BadRequestException('A guest in the list does not belong to this item.');
     }
-    return this.prisma.$transaction(async (tx) => {
+    const saved = await this.prisma.$transaction(async (tx) => {
       if (guests) {
         const keep = new Set(guests.filter((g) => g.id).map((g) => g.id as string));
         const dropped = before.guests.filter((g) => !keep.has(g.id));
@@ -226,6 +230,11 @@ export class ProgrammeService {
       await this.audit.log({ organizationId: ev.organizationId, eventId, actorId: actor.id, action: 'programme.item_updated', entityType: 'ProgrammeItem', entityId: itemId, before: adminItem(before), after: adminItem(after) }, tx);
       return adminItem(after);
     });
+    // A cancelled programme takes its tickets with it: paid bookings are refunded in full, unpaid
+    // checkouts closed, desk tickets cancelled. Runs on every save while Cancelled (idempotent).
+    if (saved.status !== 'CANCELLED') return saved;
+    const cancellation = await this.refunds.cancelForProgramme(actor.id, eventId, itemId, saved.title, (id) => this.passes.closeOrder(id, 'FAILED'));
+    return { ...saved, cancellation };
   }
 
   async remove(actor: RequestUser, eventId: string, itemId: string) {

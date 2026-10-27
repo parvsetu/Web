@@ -210,9 +210,10 @@ export class ReportsService {
       this.prisma.donation.aggregate({ where: { ...donationWhere, paymentStatus: 'PENDING' }, _sum: { amount: true }, _count: { _all: true } }),
       this.prisma.expense.aggregate({ where: expenseWhere, _sum: { amount: true }, _count: { _all: true } }),
       this.prisma.expense.groupBy({ by: ['category'], where: expenseWhere, _sum: { amount: true }, _count: { _all: true } }),
+      // Online passes: paid bookings, and cancelled ones net of their refund (by payment date, like stalls).
       this.prisma.passOrder.aggregate({
-        where: { eventId: event.id, status: 'PAID', paidAt: r ?? undefined },
-        _sum: { amount: true, visitorCount: true }, _count: { _all: true },
+        where: { eventId: event.id, status: { in: ['PAID', 'CANCELLED'] }, paidAt: r ?? undefined },
+        _sum: { amount: true, visitorCount: true, refundPaise: true }, _count: { _all: true },
       }),
       // Stall rent from vendors: paid bookings, and cancelled ones net of their refund (by payment date).
       this.prisma.stallBooking.aggregate({
@@ -222,7 +223,8 @@ export class ReportsService {
     ]);
     const donations = dTotal._sum.amount ?? new Prisma.Decimal(0);
     const expenses = eTotal._sum.amount ?? new Prisma.Decimal(0);
-    const passSales = pTotal._sum.amount ?? new Prisma.Decimal(0);
+    const passRefunds = new Prisma.Decimal(pTotal._sum.refundPaise ?? 0).div(100);
+    const passSales = (pTotal._sum.amount ?? new Prisma.Decimal(0)).minus(passRefunds);
     const stallRefundPaise = stalls._sum.refundPaise ?? 0;
     const stallRent = new Prisma.Decimal((stalls._sum.amountPaise ?? 0) - stallRefundPaise).div(100);
     return {
@@ -235,7 +237,8 @@ export class ReportsService {
         total: money(expenses), count: eTotal._count._all,
         byCategory: eByCat.map((c) => ({ category: c.category, total: money(c._sum.amount), count: c._count._all })).sort((a, b) => Number(b.total) - Number(a.total)),
       },
-      passSales: { total: money(passSales), count: pTotal._count._all, visitors: pTotal._sum.visitorCount ?? 0 },
+      /** Online pass sales (incl. GST), net of refunds on cancelled bookings. */
+      passSales: { total: money(passSales), count: pTotal._count._all, visitors: pTotal._sum.visitorCount ?? 0, refunds: money(passRefunds) },
       /** Stall rent paid by vendors (incl. GST), net of refunds on cancelled bookings. */
       stallRent: { total: money(stallRent), bookings: stalls._count._all, stalls: stalls._sum.quantity ?? 0, refunds: money(new Prisma.Decimal(stallRefundPaise).div(100)) },
       /** Money in (donations + online pass sales + stall rent) − expenses. */
@@ -245,11 +248,12 @@ export class ReportsService {
 
   // ─── GST on pass sales ────────────────────────────────────────────────
 
-  /** Paid online orders with their GST split — the mandal files this. */
+  /** Paid online orders with their GST split (and credit notes for refunds) — the mandal files this. */
   async gst(event: EventRef, q: RangeQuery) {
     const r = this.range(event, q);
+    // A cancelled booking was still invoiced when paid; its refund is a separate credit note below.
     const orders = await this.prisma.passOrder.findMany({
-      where: { eventId: event.id, status: 'PAID', paidAt: r ?? undefined, amount: { gt: 0 } },
+      where: { eventId: event.id, status: { in: ['PAID', 'CANCELLED'] }, paidAt: r ?? undefined, amount: { gt: 0 } },
       orderBy: { paidAt: 'asc' },
       select: { invoiceNo: true, paidAt: true, buyerName: true, visitorCount: true, baseAmount: true, gstAmount: true, gstRateBps: true, gstBearer: true, amount: true },
     });
@@ -269,18 +273,42 @@ export class ReportsService {
     }
     const half = (d: Prisma.Decimal) => d.div(2).toDecimalPlaces(2);
     const stallRent = await this.stallGst(event.id, r);
-    const allGst = gst.plus(stallRent.totals.gstDec);
+    const passNotes = await this.passCreditNotes(event.id, r);
+    const allGst = gst.minus(passNotes.gst).plus(stallRent.totals.gstDec);
     return {
-      /** Output GST on everything the mandal invoiced this period: passes + stall rent − stall credit notes. */
+      /** Output GST on everything the mandal invoiced this period: passes − pass credit notes + stall rent − stall credit notes. */
       allTotals: { gst: money(allGst), cgst: money(half(allGst)), sgst: money(allGst.minus(half(allGst))) },
       stallRent: { ...stallRent, totals: { ...stallRent.totals, gstDec: undefined } },
       totals: { orders: orders.length, taxable: money(taxable), gst: money(gst), cgst: money(half(gst)), sgst: money(gst.minus(half(gst))), total: money(total) },
+      /** GST credit notes for refunded pass bookings (by cancellation date). Pass totals above are before them. */
+      creditNotes: passNotes.rows,
+      creditNoteTotals: { notes: passNotes.rows.length, taxable: money(passNotes.taxable), gst: money(passNotes.gst), total: money(passNotes.total) },
       byMonth: [...byMonth.entries()].map(([month, v]) => ({ month, orders: v.orders, taxable: money(v.taxable), gst: money(v.gst), total: money(v.total) })),
       byRate: [...byRate.entries()].map(([bps, v]) => ({ ratePercent: bps / 100, orders: v.orders, taxable: money(v.taxable), gst: money(v.gst) })),
       invoices: orders.map((o) => ({
         invoiceNo: o.invoiceNo, date: o.paidAt, buyer: o.buyerName, people: o.visitorCount, ratePercent: o.gstRateBps / 100, bearer: o.gstBearer,
         taxable: money(o.baseAmount), gst: money(o.gstAmount), total: money(o.amount),
       })),
+    };
+  }
+
+  /** Pass credit notes: the refunded share of each refunded tax invoice's taxable value and GST. */
+  private async passCreditNotes(eventId: string, r: { gte: Date; lt: Date } | null) {
+    const notes = await this.prisma.passOrder.findMany({
+      where: { eventId, creditNoteNo: { not: null }, cancelledAt: r ?? undefined },
+      orderBy: { cancelledAt: 'asc' },
+      select: { creditNoteNo: true, invoiceNo: true, cancelledAt: true, buyerName: true, baseAmount: true, gstAmount: true, gstRateBps: true, amount: true, refundPaise: true },
+    });
+    const p = (x: number) => new Prisma.Decimal(x).div(100);
+    const z = new Prisma.Decimal(0);
+    const rows = notes.map((n) => {
+      const amount = Math.round(Number(n.amount) * 100);
+      const share = (d: Prisma.Decimal) => p(Math.round((Math.round(Number(d) * 100) * n.refundPaise) / amount));
+      return { creditNoteNo: n.creditNoteNo, againstInvoice: n.invoiceNo, date: n.cancelledAt, buyer: n.buyerName, ratePercent: n.gstRateBps / 100, taxable: share(n.baseAmount), gst: share(n.gstAmount), total: p(n.refundPaise) };
+    });
+    return {
+      taxable: rows.reduce((a, n) => a.plus(n.taxable), z), gst: rows.reduce((a, n) => a.plus(n.gst), z), total: rows.reduce((a, n) => a.plus(n.total), z),
+      rows: rows.map((n) => ({ ...n, taxable: money(n.taxable), gst: money(n.gst), total: money(n.total) })),
     };
   }
 

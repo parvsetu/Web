@@ -1,9 +1,11 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { Public } from '../../common/auth/decorators';
+import { CurrentUser, Public } from '../../common/auth/decorators';
+import { RequestUser } from '../../common/auth/request-user';
 import { RequireEventPermission } from '../../common/access/permission.guard';
 import { PassesService } from './passes.service';
-import { AvailabilityQuery, BookableEventsQuery, CreatePassOrderDto, DemoPayDto, OrderKeyQuery, PassOrderListQuery } from './passes.dto';
+import { PassRefundsService } from './pass-refunds.service';
+import { AvailabilityQuery, BookableEventsQuery, CancelPassOrderDto, CreatePassOrderDto, DemoPayDto, MarkRefundedDto, OrderKeyQuery, PassOrderListQuery } from './passes.dto';
 
 /** Visitor-facing booking API — no login. Rate limited per IP. */
 @Public()
@@ -48,11 +50,29 @@ export class PublicBookingController {
 
 @Controller('events/:eventId/pass-orders')
 export class PassOrdersAdminController {
-  constructor(private readonly passes: PassesService) {}
+  constructor(private readonly passes: PassesService, private readonly refunds: PassRefundsService) {}
 
   @RequireEventPermission('DONATION_VIEW')
   @Get()
   list(@Param('eventId') eventId: string, @Query() q: PassOrderListQuery) {
     return this.passes.listForEvent(eventId, q);
+  }
+
+  /** Cancels a paid booking and refunds the buyer (money handling: DONATION_UPDATE, like the Treasurer). */
+  @RequireEventPermission('DONATION_UPDATE')
+  @Post(':orderId/cancel')
+  @HttpCode(200)
+  async cancel(@CurrentUser() user: RequestUser, @Param('eventId') eventId: string, @Param('orderId') orderId: string, @Body() dto: CancelPassOrderDto) {
+    await this.refunds.cancelOrder(user.id, eventId, orderId, dto);
+    return this.passes.adminOrder(eventId, orderId);
+  }
+
+  /** The refund was sent outside Parvsetu (UPI / bank): record its reference. */
+  @RequireEventPermission('DONATION_UPDATE')
+  @Post(':orderId/refund-sent')
+  @HttpCode(200)
+  async refundSent(@CurrentUser() user: RequestUser, @Param('eventId') eventId: string, @Param('orderId') orderId: string, @Body() dto: MarkRefundedDto) {
+    await this.refunds.markRefunded(user.id, eventId, orderId, dto.refundReference);
+    return this.passes.adminOrder(eventId, orderId);
   }
 }

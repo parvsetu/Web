@@ -23,8 +23,8 @@ export function yearRange(year: number, basis: Basis) {
 }
 
 /**
- * Mandal profit & loss for a year: income (confirmed donations + paid online
- * passes + stall rent net of refunds) against every expense — festival and general — with monthly,
+ * Mandal profit & loss for a year: income (confirmed donations + online
+ * passes and stall rent, both net of refunds) against every expense — festival and general — with monthly,
  * per-festival and per-category breakdowns. All figures come straight from
  * rows; nothing is cached.
  */
@@ -41,8 +41,8 @@ export class AnnualReportService {
         select: { amount: true, donatedAt: true, eventId: true },
       }),
       this.prisma.passOrder.findMany({
-        where: { event: { organizationId: orgId }, status: 'PAID', paidAt: at },
-        select: { amount: true, paidAt: true, eventId: true },
+        where: { event: { organizationId: orgId }, status: { in: ['PAID', 'CANCELLED'] }, paidAt: at },
+        select: { amount: true, refundPaise: true, paidAt: true, eventId: true },
       }),
       this.prisma.stallBooking.findMany({
         where: { organizationId: orgId, status: { in: ['PAID', 'CANCELLED'] }, paidAt: at },
@@ -81,9 +81,10 @@ export class AnnualReportService {
       const e = eventRow(d.eventId); e.donations = e.donations.plus(d.amount);
     }
     for (const p of passes) {
-      totalPasses = totalPasses.plus(p.amount);
-      const mo = monthOf(p.paidAt!); if (mo) mo.passSales = mo.passSales.plus(p.amount);
-      const e = eventRow(p.eventId); e.passSales = e.passSales.plus(p.amount);
+      const v = p.amount.minus(new Prisma.Decimal(p.refundPaise).div(100));
+      totalPasses = totalPasses.plus(v);
+      const mo = monthOf(p.paidAt!); if (mo) mo.passSales = mo.passSales.plus(v);
+      const e = eventRow(p.eventId); e.passSales = e.passSales.plus(v);
     }
     for (const s of stalls) {
       const v = new Prisma.Decimal(s.amountPaise - s.refundPaise).div(100);

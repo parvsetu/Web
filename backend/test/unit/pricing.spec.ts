@@ -1,8 +1,8 @@
-import { effectivePrice, isWeekend, PricingRule } from '../../src/common/pricing';
+import { effectivePrice, isWeekend, PricingRule, ticketPrice } from '../../src/common/pricing';
 import { extendPaidUntil, socialUrl, whatsappNumber } from '../../src/modules/landing/landing.rules';
 
 const rule = (r: Partial<PricingRule> & Pick<PricingRule, 'id' | 'kind'>): PricingRule => ({
-  label: r.id, dates: [], timeSlotIds: [], fixedPricePaise: null, upliftBps: null, createdAt: new Date('2026-01-01'), ...r,
+  label: r.id, dates: [], appliesTo: 'SLOTS', timeSlotIds: [], programmeItemIds: [], fixedPricePaise: null, upliftBps: null, createdAt: new Date('2026-01-01'), ...r,
 });
 
 describe('peak-day pricing', () => {
@@ -32,6 +32,19 @@ describe('peak-day pricing', () => {
       rule({ id: 'c', kind: 'DATES', dates: [mon], fixedPricePaise: 12000, createdAt: new Date('2026-03-01') }),
     ];
     expect(effectivePrice(10000, 's1', mon, r).rule?.id).toBe('b');
+  });
+  it('programme tickets: only TICKETS / BOTH rules apply, item-scoped rules only to their items', () => {
+    const r = [
+      rule({ id: 'slots', kind: 'WEEKENDS', upliftBps: 9000 }),
+      rule({ id: 'tix', kind: 'WEEKENDS', appliesTo: 'TICKETS', upliftBps: 2000 }),
+      rule({ id: 'gala', kind: 'DATES', dates: [mon], appliesTo: 'BOTH', programmeItemIds: ['gala'], fixedPricePaise: 50000 }),
+    ];
+    expect(ticketPrice(10000, 'show', sat, r)).toMatchObject({ pricePaise: 12000, rule: { id: 'tix' } });
+    expect(ticketPrice(10000, 'show', mon, r)).toMatchObject({ pricePaise: 10000, rule: null });
+    expect(ticketPrice(10000, 'gala', mon, r)).toMatchObject({ pricePaise: 50000, rule: { id: 'gala' } });
+    // A TICKETS rule never reaches a day pass; a BOTH rule does (its slot list is empty = all slots).
+    expect(effectivePrice(10000, 's1', sat, r)).toMatchObject({ pricePaise: 19000, rule: { id: 'slots' } });
+    expect(effectivePrice(10000, 's1', mon, r)).toMatchObject({ pricePaise: 50000, rule: { id: 'gala' } });
   });
   it('slot-scoped rules only touch their slots', () => {
     const r = [rule({ id: 'n', kind: 'DATES', dates: [mon], timeSlotIds: ['night'], upliftBps: 5000 })];

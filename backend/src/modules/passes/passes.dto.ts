@@ -1,4 +1,18 @@
 import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min } from 'class-validator';
+
+const MONEY = /^\d{1,8}(\.\d{1,2})?$/;
+
+/** Cancel a paid booking. refund omitted = all of it for unused passes (pro rata when some were used). */
+export class CancelPassOrderDto {
+  @IsString() @Length(5, 500) reason: string;
+  @IsOptional() @Matches(MONEY, { message: 'refund must be an amount like 250' }) refund?: string;
+  /** Gateway refund id / UPI / UTR, if the refund was already sent. */
+  @IsOptional() @IsString() @MaxLength(200) refundReference?: string;
+}
+
+export class MarkRefundedDto {
+  @IsString() @Length(3, 200) refundReference: string;
+}
 import { PageQuery } from '../../common/http';
 
 export class BookableEventsQuery {
@@ -37,6 +51,8 @@ export class DemoPayDto {
 }
 
 export class PassOrderListQuery extends PageQuery {
-  @IsOptional() @IsIn(['PENDING', 'PAID', 'FAILED', 'EXPIRED']) status?: 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
+  @IsOptional() @IsIn(['PENDING', 'PAID', 'FAILED', 'EXPIRED', 'CANCELLED']) status?: 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+  /** Cancelled bookings whose refund still has to be sent. */
+  @IsOptional() @IsIn(['true', 'false']) refundToSend?: 'true' | 'false';
   @IsOptional() @IsString() @MaxLength(100) q?: string;
 }

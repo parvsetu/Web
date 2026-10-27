@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsEmail, IsIn, IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsIn, IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from 'class-validator';
 import { SearchPageQuery } from '../../common/http';
 const FESTIVAL_KEY = /^[A-Z][A-Z0-9_]{1,40}$/;
 
@@ -58,4 +58,8 @@ export class OrgListQuery extends SearchPageQuery {
 export class AuditQuery extends SearchPageQuery {
   @IsOptional() @IsUUID() eventId?: string;
   @IsOptional() @IsString() @Type(() => String) @MaxLength(80) action?: string;
+}
+
+export class ChecklistDismissDto {
+  @IsBoolean() dismissed: boolean;
 }

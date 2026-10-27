@@ -17,6 +17,16 @@ export interface CreatePaymentResult {
   upiUri?: string;
 }
 
+export interface RefundInput {
+  /** Our record's id (pass order id). */
+  reference: string;
+  providerOrderId: string | null;
+  /** The captured payment's id at the gateway. */
+  paymentReference: string | null;
+  amount: string;
+  currency: string;
+}
+
 export interface WebhookResult {
   providerOrderId: string;
   status: PaymentStatus;
@@ -33,6 +43,8 @@ export interface PaymentProvider {
   readonly label: string;
   readonly online: boolean;
   createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult>;
+  /** Sends money back for a captured payment (all or part). Throws if the gateway refuses. */
+  refund?(input: RefundInput): Promise<{ refundReference: string }>;
   /** Must verify the provider's signature and throw on failure. */
   parseWebhook?(headers: Record<string, string | string[] | undefined>, rawBody: Buffer): Promise<WebhookResult>;
 }

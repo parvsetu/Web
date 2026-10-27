@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { Access, CurrentUser } from '../../common/auth/decorators';
 import { RequestUser } from '../../common/auth/request-user';
 import { AccessContext } from '../../common/access/access.service';
@@ -7,13 +7,14 @@ import { ALL_PERMISSIONS, PERMISSIONS, permissionGroup } from '../../common/perm
 import { OrganizationsService } from './organizations.service';
 import { SearchPageQuery } from '../../common/http';
 import { RolesService } from './roles.service';
+import { SetupChecklistService } from './setup-checklist.service';
 import {
-  AddMemberDto, AuditQuery, OrgListQuery, CreateOrganizationDto, CreateRoleDto, UpdateMemberDto, UpdateOrganizationDto, UpdateRoleDto,
+  AddMemberDto, AuditQuery, ChecklistDismissDto, OrgListQuery, CreateOrganizationDto, CreateRoleDto, UpdateMemberDto, UpdateOrganizationDto, UpdateRoleDto,
 } from './organizations.dto';
 
 @Controller()
 export class OrganizationsController {
-  constructor(private readonly orgs: OrganizationsService, private readonly roles: RolesService) {}
+  constructor(private readonly orgs: OrganizationsService, private readonly roles: RolesService, private readonly checklist: SetupChecklistService) {}
 
   @Get('permissions')
   permissions() {
@@ -35,6 +36,19 @@ export class OrganizationsController {
   @Get('organizations/:orgId')
   get(@Param('orgId') orgId: string) {
     return this.orgs.get(orgId);
+  }
+
+  /** "Get your mandal ready" — first-login checklist for whoever sets the mandal up. */
+  @RequireOrgPermission('SETTINGS_UPDATE')
+  @Get('organizations/:orgId/setup-checklist')
+  setupChecklist(@CurrentUser() user: RequestUser, @Param('orgId') orgId: string) {
+    return this.checklist.get(user, orgId);
+  }
+
+  @RequireOrgPermission('SETTINGS_UPDATE')
+  @Put('organizations/:orgId/setup-checklist/dismissed')
+  dismissChecklist(@CurrentUser() user: RequestUser, @Param('orgId') orgId: string, @Body() dto: ChecklistDismissDto) {
+    return this.checklist.setDismissed(user, orgId, dto.dismissed);
   }
 
   @RequireOrgPermission('SETTINGS_UPDATE')

@@ -61,7 +61,7 @@ enum PassOrderStatus {
   PAID
   FAILED
   EXPIRED
-  /// Stall bookings only: a paid booking the mandal cancelled (refund in refundPaise).
+  /// A paid booking the organiser cancelled (stall bookings and pass orders; refund in refundPaise).
   CANCELLED
 }
 
@@ -297,13 +297,15 @@ model RolePermission {
 // Org-wide role: applies to every event of the organization (Mandal Admin,
 // Report Viewer, Treasurer...).
 model OrganizationMember {
-  id             String           @id @default(uuid())
-  organizationId String
-  userId         String
-  roleId         String
-  status         MembershipStatus @default(ACTIVE)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id                        String           @id @default(uuid())
+  organizationId            String
+  userId                    String
+  roleId                    String
+  status                    MembershipStatus @default(ACTIVE)
+  /// This person hid the "Get your mandal ready" checklist (it also hides itself once every step is done).
+  setupChecklistDismissedAt DateTime?
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -367,6 +369,8 @@ model Event {
   gstSlabThresholdPaise     Int                 @default(10000)
   gstLowRateBps             Int                 @default(500)
   passInvoiceSeq            Int                 @default(0)
+  /// GST credit notes for refunded pass orders (own counter, like stalls and competitions).
+  passCreditNoteSeq         Int                 @default(0)
   /// Stall booking (vendors book stalls online). Invoice numbers use their own counter.
   stallBookingEnabled       Boolean             @default(false)
   stallCreditNoteSeq        Int                 @default(0)
@@ -729,6 +733,17 @@ model PassOrder {
   referralPromotionId String?
   /// Set once the "your festival is today" push reminder went out (never sent twice).
   reminderSentAt      DateTime?
+  /// PAID → CANCELLED by the organiser (or the programme was cancelled). The rest of
+  /// the order stays as it was: the invoice is reversed by a credit note, never edited.
+  cancelledAt         DateTime?
+  cancelledById       String?
+  cancelReason        String?
+  /// Refunded to the buyer (0 … amount, in paise). refundReference is the gateway refund id /
+  /// UPI / UTR; null with refundPaise > 0 = refund still to be sent.
+  refundPaise         Int             @default(0)
+  refundReference     String?
+  refundedAt          DateTime?
+  creditNoteNo        String?
   expiresAt           DateTime
   paidAt              DateTime?
   createdAt           DateTime        @default(now())
@@ -1253,20 +1268,24 @@ enum PriceRuleKind {
 }
 
 model PriceRule {
-  id              String        @id @default(uuid())
-  eventId         String
-  label           String
-  kind            PriceRuleKind
+  id               String        @id @default(uuid())
+  eventId          String
+  label            String
+  kind             PriceRuleKind
   /// DATES only: calendar dates in the event's timezone.
-  dates           DateTime[]    @db.Date
+  dates            DateTime[]    @db.Date
+  /// What the rule prices: SLOTS (day passes, the original meaning), TICKETS (programme tickets) or BOTH.
+  appliesTo        String        @default("SLOTS")
   /// Empty = every slot of the event.
-  timeSlotIds     String[]      @default([])
+  timeSlotIds      String[]      @default([])
+  /// Empty = every ticketed programme item on the rule's dates.
+  programmeItemIds String[]      @default([])
   /// Exactly one of fixedPricePaise / upliftBps is set (CHECK).
-  fixedPricePaise Int?
-  upliftBps       Int?
-  isActive        Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  fixedPricePaise  Int?
+  upliftBps        Int?
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 

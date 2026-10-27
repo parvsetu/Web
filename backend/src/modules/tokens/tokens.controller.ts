@@ -7,7 +7,7 @@ import { AccessContext } from '../../common/access/access.service';
 import { RequireEventPermission } from '../../common/access/permission.guard';
 import { TokensService } from './tokens.service';
 import { ScanService } from './scan.service';
-import { BulkGenerateDto, CancelTokenDto, ChangeValidityDto, IssueTokenDto, ReactivateTokenDto, ScanDto, TokenListQuery } from './tokens.dto';
+import { BulkGenerateDto, CancelTokenDto, ChangeValidityDto, DeskTicketsQuery, IssueTokenDto, ReactivateTokenDto, ScanDto, TokenListQuery } from './tokens.dto';
 
 export const SCAN_RATE_LIMIT = Number(process.env.SCAN_RATE_LIMIT_PER_MIN ?? 120);
 
@@ -27,6 +27,13 @@ export class TokensController {
   @Post('events/:eventId/tokens')
   issue(@CurrentUser() user: RequestUser, @Access() a: AccessContext, @Body() dto: IssueTokenDto) {
     return this.tokens.issue(user, a.event!, a.perms, dto);
+  }
+
+  /** Ticketed programmes the desk can issue on a date (price to collect, places left). */
+  @RequireEventPermission('TOKEN_CREATE')
+  @Get('events/:eventId/desk-tickets')
+  deskTickets(@Access() a: AccessContext, @Query() q: DeskTicketsQuery) {
+    return this.tokens.deskTickets(a.event!, q.date);
   }
 
   @RequireEventPermission('TOKEN_GENERATE')

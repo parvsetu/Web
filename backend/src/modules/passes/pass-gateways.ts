@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { CreatePaymentInput, CreatePaymentResult, PaymentProvider } from '../donations/payment-provider';
+import { CreatePaymentInput, CreatePaymentResult, PaymentProvider, RefundInput } from '../donations/payment-provider';
 
 /**
  * Simulated online checkout for public pass sales. The visitor is sent to the
@@ -15,6 +15,11 @@ export class DemoPassGateway implements PaymentProvider {
 
   async createPayment(_input: CreatePaymentInput): Promise<CreatePaymentResult> {
     return { status: 'PENDING', providerOrderId: `demo_${randomBytes(8).toString('hex')}` };
+  }
+
+  /** Nothing to send back — returns a refund id so the flow behaves like a real gateway's. */
+  async refund(_input: RefundInput) {
+    return { refundReference: `demo_refund_${randomBytes(6).toString('hex')}` };
   }
 }
 

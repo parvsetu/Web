@@ -119,6 +119,12 @@ export class PushService implements OnModuleInit, OnModuleDestroy {
     await this.deliver(await this.prisma.pushSubscription.findMany({ where: { userId: { in: userIds } } }), msg);
   }
 
+  /** The phones that asked for reminders about one pass order (visitors have no login). */
+  async sendToOrder(passOrderId: string, msg: PushMessage) {
+    const links = await this.prisma.pushPassLink.findMany({ where: { passOrderId }, select: { subscription: true } });
+    await this.deliver(links.map((l) => l.subscription), msg);
+  }
+
   /** Never throws. Gone subscriptions (404 / 410) are deleted. */
   private async deliver(subs: PushSubscription[], msg: PushMessage | ((s: PushSubscription) => PushMessage)) {
     if (!subs.length) return;

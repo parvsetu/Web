@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
+import { PassesModule } from '../passes/passes.module';
 import { ProgrammeController } from './programme.controller';
 import { ProgrammeService } from './programme.service';
 
-@Module({ controllers: [ProgrammeController], providers: [ProgrammeService], exports: [ProgrammeService] })
+@Module({ imports: [PassesModule], controllers: [ProgrammeController], providers: [ProgrammeService], exports: [ProgrammeService] })
 export class ProgrammeModule {}
