@@ -88,7 +88,7 @@ export interface Availability {
   tickets?: AvailabilityTicket[];
 }
 
-export type PassOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
+export type PassOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
 export type PassStatus = 'ACTIVE' | 'USED' | 'EXPIRED' | 'NOT_YET_VALID' | 'CANCELLED';
 
 export interface PassOrder {
@@ -114,6 +114,17 @@ export interface PassOrder {
   paidAt: string | null;
   createdAt: string;
   payment: { provider: 'demo' | 'free' | string; demo: boolean };
+  /** Set when the organiser cancelled the booking (or its programme). */
+  refund?: {
+    cancelledAt: string | null;
+    reason: string | null;
+    amount: string;
+    /** NONE = nothing refunded; TO_SEND = on its way; SENT = reference recorded. */
+    state: 'NONE' | 'TO_SEND' | 'SENT';
+    reference: string | null;
+    refundedAt: string | null;
+    creditNoteNo: string | null;
+  } | null;
   event: {
     id: string;
     name: string;

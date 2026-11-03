@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import { useEvent } from '@/lib/event-context';
-import { humanize } from '@/lib/format';
+import { clampDate, fmtMoney, humanize, todayIn } from '@/lib/format';
 import { useAsync } from '@/lib/hooks';
 import { can } from '@/lib/permissions';
 import type { TimeSlot, TokenWithQr } from '@/lib/types';
@@ -19,8 +19,25 @@ import {
   initialValidity,
   type ValidityState,
 } from '@/components/TokenParts';
-import { Clock, Plus, Printer, QrCode, Ticket, UserRound, Users } from 'lucide-react';
+import { Clock, Drama, Plus, Printer, QrCode, Ticket, UserRound, Users } from 'lucide-react';
 import { Alert, Button, Card, LabeledInput, SectionTitle, SkeletonList, cx } from '@/components/ui';
+
+/** A ticketed programme the desk can sell on a date (GET desk-tickets). */
+interface DeskTicket {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  stage: string | null;
+  /** Per person, peak rules applied — what the desk collects. */
+  price: string;
+  basePrice: string;
+  ruleLabel: string | null;
+  cancelled: boolean;
+  ended: boolean;
+  /** null = no seat limit. */
+  remaining: number | null;
+}
 import { CreditBanner, IssueAllowance, type EventAllowance } from '@/components/org/CreditTab';
 import { PrintFormatPicker, PrintFormatStyle, type PrintFormat } from '@/components/PrintFormat';
 import type { SponsorPublic } from '@/components/SponsorStrip';
@@ -50,6 +67,12 @@ function IssueForm() {
   const allowCustom = can(ev.perms, 'TOKEN_GENERATE');
   const slots = useAsync(() => api.get<TimeSlot[]>(`/events/${ev.eventId}/time-slots`), [ev.eventId]);
   const [validity, setValidity] = useState<ValidityState | null>(null);
+  // Entry pass (time slot / custom validity) or a ticket for one ticketed programme.
+  const [kind, setKind] = useState<'pass' | 'ticket'>('pass');
+  const [ticketDate, setTicketDate] = useState(() => clampDate(todayIn(ev.timezone), ev.startDate, ev.endDate));
+  const [ticketId, setTicketId] = useState<string | null>(null);
+  const tickets = useAsync(() => api.get<DeskTicket[]>(`/events/${ev.eventId}/desk-tickets`, { date: ticketDate }), [ev.eventId, ticketDate]);
+  const ticket = tickets.data?.find((x) => x.id === ticketId) ?? null;
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [count, setCount] = useState(1);
@@ -71,7 +94,14 @@ function IssueForm() {
     e.preventDefault();
     if (!validity) return;
     setError(null);
-    const v = buildValidity(validity);
+    let v: Record<string, unknown> | string;
+    if (kind === 'ticket') {
+      if (!ticket) return setError('Pick the programme this ticket is for.');
+      if (ticket.remaining !== null && ticket.remaining < count) return setError(`Only ${ticket.remaining} ${ticket.remaining === 1 ? 'place is' : 'places are'} left for ${ticket.title}.`);
+      v = { programmeItemId: ticket.id };
+    } else {
+      v = buildValidity(validity);
+    }
     if (typeof v === 'string') return setError(v);
     if (mobile && !/^\+?\d{10,13}$/.test(mobile.replace(/\s/g, ''))) return setError('Enter a valid mobile number or leave it empty.');
     setBusy(true);
@@ -138,19 +168,94 @@ function IssueForm() {
       <CreditBanner status={credit.data} orgId={ev.organization?.id} />
       <IssueAllowance data={credit.data} />
       {slots.error && <Alert>{slots.error}</Alert>}
-      <SectionTitle icon={Clock}>When can they enter?</SectionTitle>
-      <Card>
-        <ValidityPicker
-          value={validity}
-          onChange={setValidity}
-          slots={slots.data ?? []}
-          allowCustom={allowCustom}
-          durationOptions={ev.detail?.tokenDurationOptions ?? []}
-          startDate={ev.startDate}
-          endDate={ev.endDate}
-          tz={ev.timezone}
-        />
-      </Card>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="What to issue">
+        {(['pass', 'ticket'] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={kind === k}
+            onClick={() => setKind(k)}
+            className={cx(
+              'flex min-h-[56px] items-center justify-center gap-2 rounded-xl border px-2 text-sm font-semibold',
+              kind === k ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-400' : 'border-orange-200 bg-white',
+            )}
+          >
+            {k === 'pass' ? <Clock aria-hidden className="h-5 w-5" /> : <Drama aria-hidden className="h-5 w-5" />}
+            {k === 'pass' ? 'Entry pass' : 'Programme ticket'}
+          </button>
+        ))}
+      </div>
+      {kind === 'pass' ? (
+        <>
+          <SectionTitle icon={Clock}>When can they enter?</SectionTitle>
+          <Card>
+            <ValidityPicker
+              value={validity}
+              onChange={setValidity}
+              slots={slots.data ?? []}
+              allowCustom={allowCustom}
+              durationOptions={ev.detail?.tokenDurationOptions ?? []}
+              startDate={ev.startDate}
+              endDate={ev.endDate}
+              tz={ev.timezone}
+            />
+          </Card>
+        </>
+      ) : (
+        <>
+          <SectionTitle icon={Drama}>Which programme?</SectionTitle>
+          <Card className="flex flex-col gap-3">
+            <LabeledInput
+              label="Date"
+              type="date"
+              value={ticketDate}
+              min={ev.startDate.slice(0, 10)}
+              max={ev.endDate.slice(0, 10)}
+              onChange={(e) => { setTicketDate(e.target.value); setTicketId(null); }}
+            />
+            {tickets.error && <Alert>{tickets.error}</Alert>}
+            {tickets.loading && !tickets.data ? (
+              <SkeletonList rows={2} />
+            ) : (tickets.data ?? []).length === 0 ? (
+              <p className="text-sm text-slate-500">No ticketed programmes on this day. The organiser sets them up under Programme (“Sell tickets for this programme”).</p>
+            ) : (
+              <div className="flex flex-col gap-2" role="radiogroup" aria-label="Programme">
+                {tickets.data!.map((x) => {
+                  const off = x.cancelled || x.ended || x.remaining === 0;
+                  return (
+                    <button
+                      key={x.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={ticketId === x.id}
+                      disabled={off}
+                      onClick={() => setTicketId(x.id)}
+                      className={cx(
+                        'flex items-start justify-between gap-2 rounded-xl border px-3 py-2 text-left text-sm',
+                        ticketId === x.id ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-400' : 'border-orange-200 bg-white',
+                        off && 'cursor-not-allowed opacity-50',
+                      )}
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-semibold">{x.title}</span>
+                        <span className="block text-xs text-slate-500">
+                          {x.startTime}–{x.endTime}{x.stage ? ` · ${x.stage}` : ''}
+                          {x.cancelled ? ' · cancelled' : x.ended ? ' · over' : x.remaining === null ? '' : ` · ${x.remaining} left`}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block font-bold tabular-nums">{Number(x.price) > 0 ? fmtMoney(x.price) : 'Free'}</span>
+                        {x.ruleLabel && <span className="block text-[11px] font-semibold text-amber-700">{x.ruleLabel}</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </>
+      )}
       <SectionTitle icon={UserRound}>Visitor</SectionTitle>
       <Card className="flex flex-col gap-4">
         <VisitorCountInput value={count} onChange={setCount} max={maxVisitors} />
@@ -177,10 +282,13 @@ function IssueForm() {
         <LabeledInput label="Visitor name (optional)" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         <LabeledInput label="Visitor mobile (optional)" type="tel" inputMode="numeric" value={mobile} onChange={(e) => setMobile(e.target.value)} autoComplete="off" />
       </Card>
+      {kind === 'ticket' && ticket && Number(ticket.price) > 0 && (
+        <Alert kind="info">Collect {fmtMoney((Number(ticket.price) * count).toFixed(2))} ({count} × {fmtMoney(ticket.price)}) before handing over the ticket.</Alert>
+      )}
       {error && <Alert>{error}</Alert>}
       <Button type="submit" size="lg" loading={busy} disabled={credit.data?.state === 'EXHAUSTED'}>
         {!busy && <Ticket aria-hidden className="h-6 w-6" />}
-        Issue token
+        {kind === 'ticket' ? 'Issue ticket' : 'Issue token'}
       </Button>
     </form>
   );

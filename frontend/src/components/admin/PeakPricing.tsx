@@ -7,6 +7,7 @@ import { useEvent } from '@/lib/event-context';
 import { useAsync } from '@/lib/hooks';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import type { TimeSlot } from '@/lib/types';
+import type { AdminProgramme } from '@/lib/programme-types';
 import { cx } from '@/lib/cx';
 import { Alert, Badge, Button, Card, Checkbox, Empty, Field, LabeledInput, Modal, SectionTitle, SkeletonList } from '../ui';
 
@@ -15,16 +16,29 @@ export interface PriceRule {
   label: string;
   kind: 'DATES' | 'WEEKENDS';
   dates: string[];
+  /** SLOTS = day passes (the original meaning), TICKETS = programme tickets, BOTH. */
+  appliesTo: RuleTarget;
   timeSlotIds: string[];
+  /** Empty = every ticketed programme on the rule's dates. */
+  programmeItemIds: string[];
   fixedPrice: string | null;
   upliftPercent: number | null;
   isActive: boolean;
 }
 
+export type RuleTarget = 'SLOTS' | 'TICKETS' | 'BOTH';
+
+type PriceCell = { label: string; basePrice: string; price: string; ruleLabel: string | null };
+
 interface Preview {
-  days: { date: string; weekend: boolean; slots: { slotId: string; label: string; basePrice: string; price: string; ruleLabel: string | null }[] }[];
+  days: { date: string; weekend: boolean; slots: (PriceCell & { slotId: string })[]; tickets: (PriceCell & { itemId: string })[] }[];
   truncated: boolean;
 }
+
+/** A ticketed programme a rule can price. */
+interface TicketItem { id: string; title: string; date: string; startTime: string; ticketPrice: string }
+
+const TARGET_LABEL: Record<RuleTarget, string> = { SLOTS: 'Day passes', TICKETS: 'Programme tickets', BOTH: 'Passes & tickets' };
 
 function eventDays(start: string, end: string) {
   const out: string[] = [];
@@ -46,6 +60,11 @@ export function PeakPricingSection({ slots }: { slots: TimeSlot[] }) {
   const ev = useEvent();
   const rules = useAsync(() => api.get<PriceRule[]>(`/events/${ev.eventId}/price-rules`), [ev.eventId]);
   const preview = useAsync(() => api.get<Preview>(`/events/${ev.eventId}/price-rules/preview`), [ev.eventId]);
+  const programme = useAsync(() => api.get<AdminProgramme>(`/events/${ev.eventId}/programme`), [ev.eventId]);
+  const tickets: TicketItem[] = useMemo(
+    () => (programme.data?.days ?? []).flatMap((d) => d.items.filter((i) => i.ticketed && i.endTime && i.status !== 'CANCELLED').map((i) => ({ id: i.id, title: i.title, date: d.date, startTime: i.startTime, ticketPrice: i.ticketPrice }))),
+    [programme.data],
+  );
   const [editing, setEditing] = useState<PriceRule | 'new' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const reload = () => {
@@ -53,6 +72,11 @@ export function PeakPricingSection({ slots }: { slots: TimeSlot[] }) {
     preview.reload();
   };
   const slotName = (id: string) => slots.find((s) => s.id === id)?.label ?? 'removed slot';
+  const ticketName = (id: string) => tickets.find((t) => t.id === id)?.title ?? 'removed programme';
+  const targets = (r: PriceRule) => [
+    r.appliesTo !== 'TICKETS' ? (r.timeSlotIds.length ? r.timeSlotIds.map(slotName).join(', ') : 'all slots') : null,
+    r.appliesTo !== 'SLOTS' ? (r.programmeItemIds.length ? r.programmeItemIds.map(ticketName).join(', ') : 'all programme tickets') : null,
+  ].filter(Boolean).join(' · ');
 
   async function remove(r: PriceRule) {
     if (!window.confirm(`Delete the price rule "${r.label}"? Bookings already paid keep their price.`)) return;
@@ -87,10 +111,11 @@ export function PeakPricingSection({ slots }: { slots: TimeSlot[] }) {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-bold">{r.label}</span>
                 <Badge className="bg-rose-100 text-rose-800">{r.fixedPrice !== null ? fmtMoney(r.fixedPrice) : `+${r.upliftPercent}%`}</Badge>
+                {r.appliesTo !== 'SLOTS' && <Badge className="bg-violet-100 text-violet-800">{TARGET_LABEL[r.appliesTo]}</Badge>}
                 {!r.isActive && <Badge value="INACTIVE" />}
               </div>
               <p className="text-sm text-slate-600">
-                {r.kind === 'WEEKENDS' ? 'Every Saturday & Sunday' : r.dates.map(fmtDate).join(', ')} · {r.timeSlotIds.length ? r.timeSlotIds.map(slotName).join(', ') : 'all slots'}
+                {r.kind === 'WEEKENDS' ? 'Every Saturday & Sunday' : r.dates.map(fmtDate).join(', ')} · {targets(r)}
               </p>
             </div>
             <div className="flex gap-2">
@@ -105,6 +130,7 @@ export function PeakPricingSection({ slots }: { slots: TimeSlot[] }) {
         <RuleForm
           rule={editing === 'new' ? null : editing}
           slots={slots}
+          tickets={tickets}
           days={eventDays(ev.startDate, ev.endDate)}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -120,6 +146,7 @@ export function PeakPricingSection({ slots }: { slots: TimeSlot[] }) {
 /** Day-by-day price per slot, peak cells highlighted. */
 function PriceCalendar({ p }: { p: Preview }) {
   const slots = p.days[0]?.slots ?? [];
+  const ticketDays = p.days.filter((d) => (d.tickets ?? []).length > 0);
   return (
     <Card>
       <h3 className="mb-2 flex items-center gap-2 font-bold"><CalendarRange aria-hidden className="h-4 w-4 text-orange-500" /> Price preview</h3>
@@ -151,18 +178,44 @@ function PriceCalendar({ p }: { p: Preview }) {
           </tbody>
         </table>
       </div>
+      {ticketDays.length > 0 && (
+        <div className="mt-3">
+          <h4 className="mb-1 text-xs font-bold uppercase text-slate-500">Programme tickets</h4>
+          <ul className="flex flex-col divide-y divide-orange-50 text-sm">
+            {ticketDays.flatMap((d) => d.tickets.map((t) => {
+              const up = Number(t.price) !== Number(t.basePrice);
+              return (
+                <li key={`${d.date}-${t.itemId}`} className={cx('flex items-center justify-between gap-2 px-2 py-1.5', up && 'bg-rose-50')} title={t.ruleLabel ?? undefined}>
+                  <span className="min-w-0 truncate"><span className={cx('font-semibold', d.weekend && 'text-rose-700')}>{weekday(d.date)} {fmtDate(d.date)}</span> · {t.label}</span>
+                  <span className={cx('whitespace-nowrap tabular-nums', up && 'font-bold text-rose-800')}>
+                    {up && <span className="mr-1 text-xs font-normal text-slate-400 line-through">{fmtMoney(t.basePrice)}</span>}
+                    {Number(t.price) === 0 ? 'Free' : fmtMoney(t.price)}
+                  </span>
+                </li>
+              );
+            }))}
+          </ul>
+        </div>
+      )}
       {p.truncated && <p className="mt-2 text-xs text-slate-500">Showing the first 120 days.</p>}
     </Card>
   );
 }
 
-function RuleForm({ rule, slots, days, onClose, onSaved }: { rule: PriceRule | null; slots: TimeSlot[]; days: string[]; onClose: () => void; onSaved: () => void }) {
+function RuleForm({ rule, slots, tickets, days, onClose, onSaved }: { rule: PriceRule | null; slots: TimeSlot[]; tickets: TicketItem[]; days: string[]; onClose: () => void; onSaved: () => void }) {
   const ev = useEvent();
   const [label, setLabel] = useState(rule?.label ?? '');
   const [kind, setKind] = useState<'DATES' | 'WEEKENDS'>(rule?.kind ?? 'DATES');
   const [dates, setDates] = useState<string[]>(rule?.dates ?? []);
   const [allSlots, setAllSlots] = useState(!rule || rule.timeSlotIds.length === 0);
   const [slotIds, setSlotIds] = useState<string[]>(rule?.timeSlotIds ?? []);
+  const [appliesTo, setAppliesTo] = useState<RuleTarget>(rule?.appliesTo ?? 'SLOTS');
+  const [allTickets, setAllTickets] = useState(!rule || rule.programmeItemIds.length === 0);
+  const [ticketIds, setTicketIds] = useState<string[]>(rule?.programmeItemIds ?? []);
+  const pricesSlots = appliesTo !== 'TICKETS';
+  const pricesTickets = appliesTo !== 'SLOTS';
+  // Only the tickets on the rule's days can ever be priced by it.
+  const ticketChoices = kind === 'DATES' ? tickets.filter((t) => dates.includes(t.date)) : tickets.filter((t) => ['Sat', 'Sun'].includes(weekday(t.date)));
   const [mode, setMode] = useState<'PERCENT' | 'FIXED'>(rule?.fixedPrice != null ? 'FIXED' : 'PERCENT');
   const [percent, setPercent] = useState(rule?.upliftPercent != null ? String(rule.upliftPercent) : '20');
   const [fixed, setFixed] = useState(rule?.fixedPrice ?? '');
@@ -175,9 +228,13 @@ function RuleForm({ rule, slots, days, onClose, onSaved }: { rule: PriceRule | n
     setError(null);
     if (!label.trim()) return setError('Give the rule a name, e.g. “Ashtami peak”.');
     if (kind === 'DATES' && !dates.length) return setError('Pick at least one date.');
-    if (!allSlots && !slotIds.length) return setError('Pick at least one slot, or choose all slots.');
+    if (pricesSlots && !allSlots && !slotIds.length) return setError('Pick at least one slot, or choose all slots.');
+    if (pricesTickets && !allTickets && !ticketIds.length) return setError('Pick at least one programme, or choose all programme tickets.');
     const body = {
-      label: label.trim(), kind, dates: kind === 'DATES' ? dates : [], timeSlotIds: allSlots ? [] : slotIds, isActive: active,
+      label: label.trim(), kind, dates: kind === 'DATES' ? dates : [], appliesTo,
+      timeSlotIds: pricesSlots && !allSlots ? slotIds : [],
+      programmeItemIds: pricesTickets && !allTickets ? ticketIds.filter((id) => ticketChoices.some((t) => t.id === id)) : [],
+      isActive: active,
       ...(mode === 'FIXED' ? { fixedPrice: fixed, upliftPercent: null } : { upliftPercent: Number(percent), fixedPrice: null }),
     };
     setBusy(true);
@@ -216,14 +273,39 @@ function RuleForm({ rule, slots, days, onClose, onSaved }: { rule: PriceRule | n
             ))}
           </div>
         )}
-        <Field label="Which slots?">
-          <Checkbox label="All time slots" checked={allSlots} onChange={setAllSlots} />
-          {!allSlots && (
-            <div className="flex flex-col">
-              {slots.map((s) => <Checkbox key={s.id} label={`${s.label} (${Number(s.price ?? 0) > 0 ? fmtMoney(s.price) : 'Free'})`} checked={slotIds.includes(s.id)} onChange={() => toggle(slotIds, setSlotIds, s.id)} />)}
+        {(tickets.length > 0 || appliesTo !== 'SLOTS') && (
+          <Field label="What does it price?">
+            <div className="flex flex-wrap gap-2">
+              {(['SLOTS', 'TICKETS', 'BOTH'] as const).map((t) => (
+                <button key={t} type="button" className={pill(appliesTo === t)} onClick={() => setAppliesTo(t)}>{TARGET_LABEL[t]}</button>
+              ))}
             </div>
-          )}
-        </Field>
+          </Field>
+        )}
+        {pricesSlots && (
+          <Field label="Which slots?">
+            <Checkbox label="All time slots" checked={allSlots} onChange={setAllSlots} />
+            {!allSlots && (
+              <div className="flex flex-col">
+                {slots.map((s) => <Checkbox key={s.id} label={`${s.label} (${Number(s.price ?? 0) > 0 ? fmtMoney(s.price) : 'Free'})`} checked={slotIds.includes(s.id)} onChange={() => toggle(slotIds, setSlotIds, s.id)} />)}
+              </div>
+            )}
+          </Field>
+        )}
+        {pricesTickets && (
+          <Field label="Which programmes?">
+            <Checkbox label="All ticketed programmes on these days" checked={allTickets} onChange={setAllTickets} />
+            {!allTickets && (
+              ticketChoices.length === 0 ? (
+                <p className="text-sm text-slate-500">No ticketed programme falls on the days picked above.</p>
+              ) : (
+                <div className="flex flex-col">
+                  {ticketChoices.map((t) => <Checkbox key={t.id} label={`${fmtDate(t.date)} ${t.startTime} · ${t.title} (${Number(t.ticketPrice) > 0 ? fmtMoney(t.ticketPrice) : 'Free'})`} checked={ticketIds.includes(t.id)} onChange={() => toggle(ticketIds, setTicketIds, t.id)} />)}
+                </div>
+              )
+            )}
+          </Field>
+        )}
         <Field label="Price on these days">
           <div className="flex flex-wrap gap-2">
             <button type="button" className={pill(mode === 'PERCENT')} onClick={() => setMode('PERCENT')}>+ Percentage</button>

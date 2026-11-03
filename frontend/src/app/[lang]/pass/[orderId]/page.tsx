@@ -4,7 +4,7 @@ import { VenueCard } from '@/components/VenueDetails';
 import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { CircleX, Clock3, FileDown, Hourglass, LinkIcon, RotateCcw, Ticket, TicketPlus, Wallet } from 'lucide-react';
+import { Ban, CircleX, Clock3, FileDown, Hourglass, LinkIcon, RotateCcw, Ticket, TicketPlus, Wallet } from 'lucide-react';
 import { PublicShell } from '@/components/booking/PublicShell';
 import { PassActions, PassCard } from '@/components/booking/PassCard';
 import { PassCarousel } from '@/components/booking/PassCarousel';
@@ -165,6 +165,42 @@ function PassView() {
             </Link>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (order.status === 'CANCELLED') {
+    const r = order.refund;
+    return (
+      <div className="flex flex-col gap-4 rounded-3xl border border-red-100 bg-white p-6 text-center shadow-sm">
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-500">
+          <Ban aria-hidden className="h-8 w-8" />
+        </span>
+        <div>
+          <h1 className="text-xl font-extrabold text-slate-900">{t('pass.cancelled')}</h1>
+          <p className="mt-1 text-slate-600">{t('pass.cancelledHint')}</p>
+          <p className="mt-2 text-sm text-slate-500">
+            {order.event.name} · {order.timeSlot?.label} · {tp('common.people', order.visitorCount)}
+          </p>
+          {r?.reason && <p className="mt-2 text-sm text-slate-700">{t('pass.cancelReason', { reason: r.reason })}</p>}
+        </div>
+        {r && (
+          <Alert kind={r.state === 'TO_SEND' ? 'info' : r.state === 'SENT' ? 'success' : 'warning'}>
+            {r.state === 'TO_SEND'
+              ? t('pass.refundToSend', { amount: fmtMoney(r.amount, order.currency) })
+              : r.state === 'SENT'
+                ? t('pass.refundSent', { amount: fmtMoney(r.amount, order.currency), ref: r.reference ?? '' })
+                : t('pass.noRefund')}
+            {r.creditNoteNo ? ` · ${t('pass.creditNote', { no: r.creditNoteNo })}` : ''}
+          </Alert>
+        )}
+        <Link
+          href={bookAgain}
+          className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 px-5 font-semibold text-white shadow-md"
+        >
+          <TicketPlus aria-hidden className="h-5 w-5" /> {t('pass.bookAgain')}
+        </Link>
+        <FooterLinks />
       </div>
     );
   }

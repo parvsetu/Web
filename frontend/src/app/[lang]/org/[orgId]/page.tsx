@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useOrg } from '@/lib/org-context';
-import { canAny } from '@/lib/permissions';
+import { can, canAny } from '@/lib/permissions';
 import type { Permission } from '@/lib/types';
 import { AppShell } from '@/components/AppShell';
 import { BadgePercent, Building2, Instagram, Camera, CreditCard, Globe, FileBarChart, Handshake, History, KeyRound, Landmark, MessageSquareQuote, PartyPopper, Settings, UserCheck, UserCog, Users, Wallet } from 'lucide-react';
@@ -27,6 +27,7 @@ import { GalleryTab } from '@/components/org/GalleryTab';
 import { LandingTab } from '@/components/org/LandingTab';
 import { OrgReviewsTab } from '@/components/org/OrgReviewsTab';
 import { apiImageSrc } from '@/lib/images';
+import { SetupChecklist } from '@/components/org/SetupChecklist';
 
 const TABS: { key: string; label: string; icon: LucideIcon; anyOf: Permission[] }[] = [
   { key: 'events', label: 'Festivals', icon: PartyPopper, anyOf: ['EVENT_VIEW'] },
@@ -109,6 +110,7 @@ function OrgAdmin() {
           </div>
         </div>
       </section>
+      {can(org.perms, 'SETTINGS_UPDATE') && <SetupChecklist orgId={org.orgId} onOpenTab={change} />}
       <SideTabsLayout tabs={visible} active={tab} onChange={change}>
       {tab === 'events' && <OrgEventsTab />}
       {tab === 'volunteers' && <OrgVolunteersTab onShowApplications={() => change('applications')} />}

@@ -404,8 +404,9 @@ PassOrder = {
 ```
 The buyer's link to their pass is `/pass/<orderId>?k=<accessKey>` — keep it like a ticket.
 
-Admin: `GET /events/:eventId/pass-orders?status&q&page` (DONATION_VIEW) → paged rows +
-`totals: { paidOrders, revenue, visitors }`. Event body gains `publicBookingEnabled`; time slots gain
+Admin: `GET /events/:eventId/pass-orders?status&refundToSend&q&page` (DONATION_VIEW) → paged rows +
+`totals: { paidOrders, revenue (net of refunds), visitors, cancelledOrders, refunded, refundsToSend: { count, amount } }`
+(cancel / refund: see "Pass refunds" below). Event body gains `publicBookingEnabled`; time slots gain
 `price` (decimal string, "0" = free). Finance report gains `passSales: { total, count, visitors }` and
 `balance = donations + passSales − expenses`; summary gains `passSales` (null when restricted).
 
@@ -682,20 +683,24 @@ any matching `DATES` rule beats every `WEEKENDS` rule; within the winning kind t
 Weekends = Saturday and Sunday of the calendar date.
 
 - `GET /events/:eventId/price-rules` — EVENT_VIEW@event → `PriceRule[] = { id, label, kind: DATES|WEEKENDS, dates[],
-  timeSlotIds[], fixedPrice | null, upliftPercent | null, isActive, createdAt }`.
+  appliesTo: SLOTS|TICKETS|BOTH, timeSlotIds[], programmeItemIds[], fixedPrice | null, upliftPercent | null, isActive, createdAt }`.
+  `appliesTo` (default SLOTS) says whether the rule prices day passes, programme tickets or both; `programmeItemIds`
+  empty = every ticketed programme on the rule's days. The list for the side a rule doesn't price is dropped on save.
 - `POST /events/:eventId/price-rules` — SETTINGS_UPDATE@event `{ label, kind, dates? (DATES: ≥1, all within the
   festival), timeSlotIds?, fixedPrice? | upliftPercent? (exactly one; 1–1000 %), isActive? }`. 400 for dates outside
   the festival, foreign slots, both/neither price, or a weekend rule on a festival with no Sat/Sun. Audited.
 - `PATCH /events/:eventId/price-rules/:ruleId` (same fields; sending one price kind clears the other), `DELETE …` → 204.
 - `GET /events/:eventId/price-rules/preview` — EVENT_VIEW@event → `{ days: [{ date, weekend, slots: [{ slotId, label,
-  basePrice, price, ruleLabel }] }], truncated }` (first 120 days).
+  basePrice, price, ruleLabel }], tickets: [{ itemId, label, basePrice, price, ruleLabel }] }], truncated }` (first 120 days;
+  `tickets` = that day's ticketed programmes, cancelled ones left out).
 - Public: `GET /public/booking/events/:id/availability?date` slots now carry `price` (effective), `basePrice`,
   `ruleLabel`; `GET /public/booking/events/:id` adds `peakDates: [{ date, label }]` (days where some slot costs more
   than base). Its `slots[].price` and every `fromPrice` stay the **minimum base price** (catalogue/explore filters
   aren't date-specific).
 - `POST /public/booking/orders` charges the effective price: `unitPrice` is the effective per-person price, the GST
   slab is decided on it (₹90 base +20% = ₹108 → 18% with a ₹100 threshold), and commission/settlement follow the
-  order amount. Orders return `priceRuleLabel`. Desk/bulk tokens carry no price, so rules don't apply there.
+  order amount. Orders return `priceRuleLabel`. Programme tickets use `ticketPrice()` (rules with `appliesTo` TICKETS/BOTH). Desk
+  tokens record no money; for desk tickets `GET …/desk-tickets` shows the effective price to collect.
 
 ## Registration control: mandal registrations, per-event review & fees, field agents
 
@@ -1122,3 +1127,44 @@ exposes `POST /api/mail` (`frontend/src/app/api/mail/route.ts`): `Authorization:
 `{ to, subject, text, html }`, sent from the relay's own `MAIL_FROM`. Set on **Vercel**: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
 `SMTP_USER`, `SMTP_PASS` (Gmail app password), `MAIL_FROM`, `MAIL_RELAY_SECRET`. On **Render**:
 `MAIL_RELAY_URL=https://<frontend domain>/api/mail` and the same `MAIL_RELAY_SECRET`. Gmail allows ~500 recipients/day.
+
+## Pass refunds (organiser cancels a paid online booking)
+
+- `POST /events/:eventId/pass-orders/:orderId/cancel` — DONATION_UPDATE@event `{ reason (5–500), refund?: "250",
+  refundReference? }` → the admin row. Only a `PAID` order (409 `ORDER_NOT_PAID` otherwise, also on a second cancel).
+  - Unused passes → CANCELLED; used ones stay USED.
+  - Default refund (no `refund`): everything when no pass was used, else the unused share pro rata by people.
+    More than was paid → 400 `REFUND_TOO_HIGH`.
+  - One negative settlement row (`sourceType PASS_REFUND`, `sourceId refund:<orderId>`): the platform returns its
+    commission pro rata, the rest comes off the mandal's next payout.
+  - A refund on a GST invoice gets a credit note `<PREFIX>-PCN-<year>-<seq>` (event counter `passCreditNoteSeq`).
+  - The blogger commission for the booking is reversed; the buyer's phone gets a push.
+  - With no `refundReference`, the refund goes back through the order's gateway when it can (demo: always) and the
+    reference is filled in; otherwise it stays "to send".
+- `POST /events/:eventId/pass-orders/:orderId/refund-sent` — DONATION_UPDATE@event `{ refundReference (3–200) }`: the
+  refund was paid outside Parvsetu. 409 `NO_REFUND_DUE` when nothing is waiting.
+- Rows (admin list and the buyer's `GET /public/booking/orders/:id`) carry `refund: null | { cancelledAt, reason, amount,
+  state: NONE|TO_SEND|SENT, reference, refundedAt, creditNoteNo }`; order `status` gains `CANCELLED`.
+- Cancelling a ticketed programme (`PATCH …/programme/items/:id { status: CANCELLED }`) cancels every paid booking for
+  it with a **full** refund, closes unpaid checkouts and cancels desk tickets. Saving it as cancelled again finishes a
+  run that was cut short.
+- Finance, GST register and the yearly P&L count pass sales net of refunds and list pass credit notes.
+
+## Programme tickets at the desk
+
+- `GET /events/:eventId/desk-tickets?date=YYYY-MM-DD` — TOKEN_CREATE@event → `[{ id, title, startTime, endTime, stage,
+  isPublished, price, basePrice, ruleLabel, validFrom, validUntil, cancelled, ended, remaining }]` — the ticketed
+  programmes on that date, `price` per person with peak rules applied (what the desk collects), `remaining` null = no
+  limit. 400 for a date outside the festival.
+- `POST /events/:eventId/tokens` and `…/tokens/bulk` take `{ programmeItemId }` as a validity form (instead of a slot,
+  dates or a duration): valid from the programme's start to its end. Capacity is shared with online sales (409 when
+  full); a cancelled programme is refused.
+
+## Set-up checklist ("Get your mandal ready")
+
+- `GET /organizations/:orgId/setup-checklist` — SETTINGS_UPDATE@org → `{ steps: [{ key, title, hint, done, optional,
+  status?, link: { kind: 'org', tab } | { kind: 'event', eventId, tab } }], done, total, complete, dismissed, canDismiss }`.
+  Steps (in go-live order): profile, payout, festival, slots, review, active, team; optional: booking, sponsors. Every
+  step is computed from the data on each read. `complete` = every required step done.
+- `PUT /organizations/:orgId/setup-checklist/dismissed` — SETTINGS_UPDATE@org `{ dismissed: boolean }` → the checklist.
+  Per member (`OrganizationMember.setupChecklistDismissedAt`); 400 for a non-member (e.g. a super admin helping out).

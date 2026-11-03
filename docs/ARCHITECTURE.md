@@ -209,6 +209,17 @@ pure function, `effectivePrice()` in `backend/src/common/pricing.ts`, used by av
 admin preview — so the price a visitor sees is the price charged. Precedence: explicit DATES beat WEEKENDS; within
 the winning kind the highest price wins; ties go to the oldest rule. GST slabs are decided on the effective
 per-ticket price. Catalogue `fromPrice` stays the minimum base slot price (it isn't date-specific).
+Rules carry `appliesTo` (SLOTS / TICKETS / BOTH); programme tickets go through `ticketPrice()` in the same file,
+so online tickets, availability, peak chips, the preview and the desk's "price to collect" agree.
+
+## Pass refunds
+
+Cancelling a paid pass order (`PassRefundsService.cancelOrder`) is one transaction under the order row lock: unused
+passes cancelled, PAID → CANCELLED conditionally (a second cancel gets 409), one negative `PASS_REFUND` settlement
+(platform fee back pro rata, the rest netted off the next payout — same as stall and competition refunds), a GST credit
+note number from the event's own counter, and the referral commission reversed. The gateway refund runs after the
+commit and never throws; if it can't refund, the order stays "refund to send" until the organiser records the
+reference. Cancelling a ticketed programme runs the same path for each paid booking with a full refund.
 
 ## Registration, review & event fees
 
@@ -302,6 +313,12 @@ routes signed-in users to their dashboard and visitors with saved passes to My p
 redeems online. The service worker caches the shell and pages, never API responses. Web push (`modules/push`): self-generated
 VAPID keys, subscriptions per phone linked to a user and/or pass orders, one pass reminder per order (claimed with a conditional
 update). The gate scanner holds a screen wake lock.
+
+## Set-up checklist
+
+The mandal admin page shows "Get your mandal ready" (`SetupChecklistService`). Nothing is stored but each member's
+"hide" choice: every step is worked out from the data on each read, so it can't drift from what the mandal actually
+set up, and it disappears once every required step is done.
 
 ## Hardening checklist
 
