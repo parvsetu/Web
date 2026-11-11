@@ -6,6 +6,7 @@ import { useEvent } from '@/lib/event-context';
 import type { Permission } from '@/lib/types';
 import { canAny } from '@/lib/permissions';
 import { Alert, SkeletonList } from './ui';
+import { NoAccessNotice } from './NoAccessNotice';
 
 export const NOT_LIVE_NOTE = 'This festival is waiting for platform approval and the registration fee. Passes, scanning, donations, volunteers, stalls, competitions and expenses unlock once it is live — you can keep setting it up meanwhile.';
 
@@ -14,11 +15,7 @@ export function EventGate({ anyOf, liveOnly, children }: { anyOf?: Permission[];
   const ev = useEvent();
   if (ev.loading) return <SkeletonList />;
   if (ev.notFound)
-    return (
-      <Alert>
-        This festival was not found, or you do not have access to it. <Link href="/dashboard" className="underline">Go back</Link>
-      </Alert>
-    );
+    return <NoAccessNotice kind="festival" id={ev.eventId} />;
   if (anyOf && !canAny(ev.perms, anyOf))
     return (
       <Alert kind="warning">

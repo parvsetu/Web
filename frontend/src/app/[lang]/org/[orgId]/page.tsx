@@ -15,6 +15,7 @@ import { PayoutsTab } from '@/components/org/PayoutsTab';
 import type { LucideIcon } from 'lucide-react';
 import { Mandala, Toran } from '@/components/FestivalArt';
 import { Alert, SkeletonList, SideTabsLayout } from '@/components/ui';
+import { NoAccessNotice } from '@/components/NoAccessNotice';
 import { OrgEventsTab } from '@/components/org/OrgEventsTab';
 import { OrgVolunteersTab } from '@/components/org/OrgVolunteersTab';
 import { ApplicationsTab } from '@/components/org/ApplicationsTab';
@@ -91,6 +92,8 @@ function OrgAdmin() {
   const bannerSrc = apiImageSrc(org.org?.bannerUrl);
 
   if (org.loading) return <SkeletonList />;
+  // 404 from the API: unknown mandal or no access (deliberately indistinguishable).
+  if (!org.org && org.perms.length === 0) return <NoAccessNotice kind="mandal" id={org.orgId} />;
   if (visible.length === 0) return <Alert kind="warning">You do not have admin access to this mandal.</Alert>;
 
   return (

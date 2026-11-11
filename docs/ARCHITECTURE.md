@@ -50,6 +50,10 @@ super admin      = all permissions
   (existence isn't disclosed). Every by-id lookup is scoped by the URL's
   `eventId` (`findFirst({ id, eventId })`), so another event's ids can't be
   addressed through your own event.
+  The website shows that 404 as `components/NoAccessNotice.tsx` ("the link
+  is wrong, or you haven't been added yet", the signed-in account, and the
+  user's own pending join request). It must never try to tell "doesn't
+  exist" apart from "no access" (decided 2026-11-11: keep 404, not 403).
 
 ## Single-use tokens: the guarantee
 
