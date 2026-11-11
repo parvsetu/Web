@@ -10,6 +10,14 @@ The public website (explore `/`, `/book/*`, `/pass/*`, `/pay/demo/*`, `/f/*`,
 > before relying on it, especially the FAQ, the content policy and the
 > donation-receipt wording. The content-policy page tells visitors that the
 > English declaration is the one they agree to.
+>
+> 2026-11-11: an AI editing pass fixed mistranslations and made terms consistent
+> in all five languages. Examples: "My passes" in Hindi read as "near me"; 80G
+> "deduction" had been translated as "exemption"/"concession"; Marathi used "पीक"
+> (crop) for peak price. The pass also chose one word per term in each language:
+> hi उत्सव / एंट्री पास, bn কমিটি, mr परतावा, or କମିଟି / ପର୍ବ, kn ಸಮಿತಿ / ಹಬ್ಬ.
+> Native-speaker and CA/legal review is still needed, mainly for receipts, 80G
+> and the content policy.
 
 ## How it works
 
