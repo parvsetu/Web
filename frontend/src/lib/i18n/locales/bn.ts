@@ -278,7 +278,7 @@ const bn: Messages = {
   'pass.cancelledHint': 'আয়োজক এই বুকিং বাতিল করেছেন। এর পাস আর গেটে কাজ করবে না।',
   'pass.cancelReason': 'কারণ: {reason}',
   'pass.refundToSend': '{amount} রিফান্ড যে অ্যাকাউন্ট থেকে পেমেন্ট করেছিলেন সেখানে পাঠানো হচ্ছে।',
-  'pass.refundSent': '{amount} রিফান্ড পাঠানো হয়েছে · রেফ {ref}',
+  'pass.refundSent': '{amount} রিফান্ড পাঠানো হয়েছে · রেফারেন্স {ref}',
   'pass.noRefund': 'এই বুকিংয়ে কোনো রিফান্ড প্রাপ্য ছিল না।',
   'pass.creditNote': 'ক্রেডিট নোট {no}',
   'pass.bookAgain': 'আবার বুক করুন',

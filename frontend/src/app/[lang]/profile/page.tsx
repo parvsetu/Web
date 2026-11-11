@@ -49,12 +49,12 @@ function Profile() {
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+        <div className="flex min-w-0 flex-col gap-4">
           <DetailsCard me={me} />
           <EmailCard me={me} />
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <SecurityCard />
           <NotificationsCard />
           {me.agent ? <AgentCard me={me} /> : !me.partner && !me.vendor && !me.blogger && <AccessCard me={me} />}
@@ -268,7 +268,7 @@ function SecurityCard() {
           <span className="text-sm font-semibold text-slate-700">Current password<span aria-hidden className="ml-0.5 text-red-600">*</span></span>
           <PasswordInput value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
         </label>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-semibold text-slate-700">New password<span aria-hidden className="ml-0.5 text-red-600">*</span></span>
             <PasswordInput value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />

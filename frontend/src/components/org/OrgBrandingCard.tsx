@@ -21,7 +21,7 @@ export function OrgBrandingCard() {
     <Card>
       <SectionTitle icon={ImagePlus}>Logo &amp; banner</SectionTitle>
       <p className="mb-3 text-sm text-slate-600">Shown on your festival pages, booking page, explore cards, passes and donation receipts.</p>
-      <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[180px_1fr]">
         <ImagePicker kind="logo" current={org.org?.logoUrl ?? null} onDone={org.reload} />
         <ImagePicker kind="banner" current={org.org?.bannerUrl ?? null} onDone={org.reload} />
       </div>

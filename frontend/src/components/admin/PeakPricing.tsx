@@ -89,6 +89,9 @@ export function PeakPricingSection({ slots }: { slots: TimeSlot[] }) {
     }
   }
 
+  // Nothing to price yet: no time slots, no ticketed programme, no rule left over.
+  if (slots.length === 0 && tickets.length === 0 && (rules.data ?? []).length === 0) return null;
+
   return (
     <section className="mt-2 flex flex-col gap-3">
       <SectionTitle icon={Flame} action={<Button size="sm" onClick={() => setEditing('new')}><Plus aria-hidden className="h-4 w-4" /> Add rule</Button>}>
@@ -103,7 +106,7 @@ export function PeakPricingSection({ slots }: { slots: TimeSlot[] }) {
       {rules.loading && !rules.data ? (
         <SkeletonList rows={1} />
       ) : (rules.data ?? []).length === 0 ? (
-        <Empty title="No peak pricing" icon={Flame}>Every day uses the slot prices above.</Empty>
+        <Empty title="No peak pricing" icon={Flame}>Every day uses the normal prices.</Empty>
       ) : (
         (rules.data ?? []).map((r) => (
           <Card key={r.id} className="flex flex-wrap items-center justify-between gap-3">
@@ -209,7 +212,7 @@ function RuleForm({ rule, slots, tickets, days, onClose, onSaved }: { rule: Pric
   const [dates, setDates] = useState<string[]>(rule?.dates ?? []);
   const [allSlots, setAllSlots] = useState(!rule || rule.timeSlotIds.length === 0);
   const [slotIds, setSlotIds] = useState<string[]>(rule?.timeSlotIds ?? []);
-  const [appliesTo, setAppliesTo] = useState<RuleTarget>(rule?.appliesTo ?? 'SLOTS');
+  const [appliesTo, setAppliesTo] = useState<RuleTarget>(rule?.appliesTo ?? (slots.length > 0 ? 'SLOTS' : 'TICKETS'));
   const [allTickets, setAllTickets] = useState(!rule || rule.programmeItemIds.length === 0);
   const [ticketIds, setTicketIds] = useState<string[]>(rule?.programmeItemIds ?? []);
   const pricesSlots = appliesTo !== 'TICKETS';
@@ -276,7 +279,7 @@ function RuleForm({ rule, slots, tickets, days, onClose, onSaved }: { rule: Pric
         {(tickets.length > 0 || appliesTo !== 'SLOTS') && (
           <Field label="What does it price?">
             <div className="flex flex-wrap gap-2">
-              {(['SLOTS', 'TICKETS', 'BOTH'] as const).map((t) => (
+              {(['SLOTS', 'TICKETS', 'BOTH'] as const).filter((t) => slots.length > 0 || t === 'TICKETS' || t === appliesTo).map((t) => (
                 <button key={t} type="button" className={pill(appliesTo === t)} onClick={() => setAppliesTo(t)}>{TARGET_LABEL[t]}</button>
               ))}
             </div>
@@ -313,7 +316,7 @@ function RuleForm({ rule, slots, tickets, days, onClose, onSaved }: { rule: Pric
           </div>
         </Field>
         {mode === 'PERCENT' ? (
-          <LabeledInput label="Increase by (%)" inputMode="numeric" value={percent} onChange={(e) => setPercent(e.target.value.replace(/\D/g, ''))} hint={slots[0] && Number(slots[0].price) > 0 ? `${slots[0].label}: ${fmtMoney(slots[0].price)} → ${fmtMoney(Math.round(Number(slots[0].price) * (100 + Number(percent || 0))) / 100)}` : 'Free slots stay free with a percentage rule.'} />
+          <LabeledInput label="Increase by (%)" inputMode="numeric" value={percent} onChange={(e) => setPercent(e.target.value.replace(/\D/g, ''))} hint={slots[0] && Number(slots[0].price) > 0 ? `${slots[0].label}: ${fmtMoney(slots[0].price)} → ${fmtMoney(Math.round(Number(slots[0].price) * (100 + Number(percent || 0))) / 100)}` : 'Free passes and tickets stay free with a percentage rule.'} />
         ) : (
           <LabeledInput label="Price per person (₹)" required inputMode="decimal" value={fixed} onChange={(e) => setFixed(e.target.value.replace(/[^\d.]/g, ''))} placeholder="e.g. 150" />
         )}

@@ -72,7 +72,7 @@ export default function BloggerSignupPage() {
               YouTube, Instagram or a blog — share your own link for each festival and earn a commission whenever someone books a pass through it.
             </p>
           </div>
-          <ul className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
             {[
               { icon: Megaphone, title: 'Pick festivals', text: 'Choose the festivals and melas your audience will love.' },
               { icon: Link2, title: 'Your own link', text: 'A referral code and link for every festival you promote.' },

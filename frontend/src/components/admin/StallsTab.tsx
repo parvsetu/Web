@@ -142,7 +142,7 @@ function TypeModal({ base, t, onClose, onSaved }: { base: string; t: StallTypeIn
     <Modal open onClose={onClose} title={t ? 'Edit stall type' : 'Add stall type'}>
       <form onSubmit={save} className="flex flex-col gap-3">
         <LabeledInput label="Name" required maxLength={80} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Food stall" />
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <LabeledSelect label="Category" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value as StallCategory })}>
             {STALL_CATEGORIES.map((c) => <option key={c} value={c}>{STALL_CATEGORY_LABEL[c]}</option>)}
           </LabeledSelect>

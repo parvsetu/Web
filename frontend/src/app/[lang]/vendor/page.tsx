@@ -135,7 +135,7 @@ function FestivalList({ onOpen }: { onOpen: (id: string) => void }) {
           Festivals appear here when a mandal opens stall booking. Check back soon.
         </Empty>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {list.data.items.map((f) => (
             <button key={f.id} type="button" onClick={() => onOpen(f.id)} className="flex flex-col gap-2 rounded-2xl border border-teal-100 bg-white p-4 text-left shadow-sm transition hover:border-teal-300 hover:shadow-md">
               <div className="flex items-center gap-3">
@@ -205,7 +205,7 @@ function FestivalStalls({ eventId, profile, onBack, onBooked }: { eventId: strin
               ))}
             </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {types.map((t) => (
               <StallTypeCard
                 key={t.id}
@@ -270,7 +270,7 @@ function BookModal({ type, festival, profile, onClose, onBooked }: { type: Stall
           {Array.from({ length: Math.max(1, max) }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
         </LabeledSelect>
         <LabeledInput label="Name on the stall" required maxLength={120} value={f.businessName} onChange={(e) => setF({ ...f, businessName: e.target.value })} />
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <LabeledInput label="Contact person" required maxLength={100} value={f.contactName} onChange={(e) => setF({ ...f, contactName: e.target.value })} />
           <LabeledInput label="Contact mobile" type="tel" required value={f.contactPhone} onChange={(e) => setF({ ...f, contactPhone: e.target.value })} />
         </div>
@@ -361,7 +361,7 @@ function ProfileTab({ profile, onSaved }: { profile: VendorProfile; onSaved: () 
       <form onSubmit={save} className="flex flex-col gap-3">
         <fieldset disabled={locked} className="flex flex-col gap-3">
           <LabeledInput label="Business / stall name" required maxLength={120} value={f.businessName} onChange={(e) => setF({ ...f, businessName: e.target.value })} />
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <LabeledInput label="Contact person" required maxLength={100} value={f.contactName} onChange={(e) => setF({ ...f, contactName: e.target.value })} />
             <LabeledInput label="Contact mobile" type="tel" required value={f.contactPhone} onChange={(e) => setF({ ...f, contactPhone: e.target.value })} />
             <LabeledSelect label="What you sell" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>

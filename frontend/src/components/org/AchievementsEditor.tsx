@@ -167,7 +167,7 @@ function AchievementModal({ base, orgId, a, onClose, onSaved }: { base: string; 
     <Modal open onClose={onClose} title={cur ? 'Edit trophy / award' : 'Add trophy / award'}>
       <form onSubmit={save} className="flex flex-col gap-3">
         <LabeledInput label="Title" required maxLength={120} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Best Pandal Decoration" />
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <LabeledInput label="Year" inputMode="numeric" maxLength={4} value={f.year} onChange={(e) => setF({ ...f, year: e.target.value.replace(/\D/g, '') })} placeholder="2025" />
           <LabeledInput label="Awarded by" maxLength={120} value={f.awardedBy} onChange={(e) => setF({ ...f, awardedBy: e.target.value })} placeholder="e.g. Pune Municipal Corporation" />
         </div>

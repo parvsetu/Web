@@ -73,7 +73,7 @@ export default function PartnerSignupPage() {
             </p>
           </div>
 
-          <ul className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
             {[
               { icon: Ticket, title: 'On every pass', text: 'Logo + your message on each pass printed and shared.' },
               { icon: Wallet, title: 'Pay per pass', text: 'Prepaid wallet. Charged only for passes actually printed.' },

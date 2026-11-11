@@ -442,7 +442,7 @@ export default function BookEventPage() {
               {people > 1 && (
                 <fieldset className="mt-4">
                   <legend className="mb-2 text-sm font-semibold text-slate-800">{t('book.passes')}</legend>
-                  <div role="radiogroup" aria-label={t('book.passes')} className="grid gap-2 sm:grid-cols-2">
+                  <div role="radiogroup" aria-label={t('book.passes')} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {[
                       { v: true, title: t('book.separate'), sub: t('book.separateSub', { n: people }), icon: QrCode },
                       { v: false, title: t('book.group'), sub: t('book.groupSub', { n: people }), icon: Users },

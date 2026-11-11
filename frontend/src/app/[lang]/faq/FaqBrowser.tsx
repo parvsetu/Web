@@ -86,7 +86,7 @@ export function FaqBrowser({ faq: FAQ }: { faq: FaqSection[] }) {
           {tr('faq.noMatch')}
         </div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
           {sections.map((s) => (
             <section key={s.id} aria-labelledby={`faq-${s.id}`} className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm">
               <h2 id={`faq-${s.id}`} className="flex items-center gap-2 border-b border-orange-100 bg-gradient-to-r from-orange-50 to-white px-4 py-3 text-lg font-bold text-slate-900">

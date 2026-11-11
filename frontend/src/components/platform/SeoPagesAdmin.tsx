@@ -136,7 +136,7 @@ function Editor({ row, onClose, onDone }: { row: SeoPageRow | null; onClose: () 
   return (
     <Modal open onClose={onClose} title={row ? `Edit SEO page — ${rowLabel(row)}` : 'New SEO page'} wide>
       <div className="flex flex-col gap-3">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <LabeledSelect label="Page type" value={form.kind} onChange={set('kind')} disabled={locked}>
             {(Object.keys(KIND_LABEL) as SeoKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
           </LabeledSelect>

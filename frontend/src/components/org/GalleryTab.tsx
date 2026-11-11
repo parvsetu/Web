@@ -32,7 +32,7 @@ export function GalleryTab() {
         q.data.years.map((y) => (
           <section key={y.year}>
             <SectionTitle>{y.year}</SectionTitle>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {y.events.map((e) => (
                 <button key={e.id} type="button" onClick={() => setOpen({ id: e.id, name: e.name })} className="overflow-hidden rounded-2xl border border-orange-100 bg-white text-left shadow-sm hover:shadow-md">
                   <Cover path={e.coverThumbUrl} />

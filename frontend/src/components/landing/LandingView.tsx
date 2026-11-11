@@ -98,7 +98,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
             </section>
           )}
           {p.highlights.length > 0 && (
-            <section className="grid gap-2 sm:grid-cols-2">
+            <section className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {p.highlights.map((h) => (
                 <div key={h} className="flex items-start gap-2 rounded-2xl p-3 font-semibold" style={{ background: th.soft, color: th.ink }}>
                   <Sparkles aria-hidden className="mt-0.5 h-5 w-5 shrink-0" /> {h}
@@ -121,7 +121,7 @@ export function LandingView({ p, url }: { p: LandingPublic; url: string }) {
             {p.upcoming.map((e) => <EventRow key={e.id} e={e} ink={th.ink} />)}
           </ul>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {p.upcoming.map((e) => <EventCard key={e.id} e={e} ink={th.ink} />)}
           </div>
         )}

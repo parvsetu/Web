@@ -373,7 +373,7 @@ export function PosterEditor({ festival }: { festival: PosterFestival }) {
   }
 
   return (
-    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="flex flex-col gap-3">
         <canvas ref={canvasRef} width={SIZE} height={SIZE} role="img" aria-label="Poster preview" className="aspect-square w-full rounded-2xl bg-slate-100 shadow" />
         <div className={cx('grid gap-2', canShare ? 'grid-cols-2' : 'grid-cols-1')}>

@@ -68,6 +68,16 @@ function OrgAdmin() {
     setTab((cur) => (cur && visible.some((t) => t.key === cur) ? cur : visible.some((t) => t.key === h) ? h : visible[0]?.key ?? ''));
   }, [visible]);
 
+  // A link to another tab of this page (or Back) only changes the #hash — follow it.
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash.replace('#', '');
+      if (visible.some((t) => t.key === h)) setTab(h);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [visible]);
+
   function change(k: string) {
     setTab(k);
     try {

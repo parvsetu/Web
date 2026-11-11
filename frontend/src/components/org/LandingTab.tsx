@@ -243,7 +243,7 @@ function Editor({ content, editable, onSaved }: { content: LandingContent; edita
               )}
             </div>
           </Field>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <LabeledInput label="Contact phone" type="tel" value={f.contactPhone} onChange={(e) => set('contactPhone', e.target.value)} />
             <LabeledInput label="Contact email" type="email" value={f.contactEmail} onChange={(e) => set('contactEmail', e.target.value)} />
             <LabeledInput label="Instagram link" placeholder="https://instagram.com/yourmandal" value={f.instagramUrl} onChange={(e) => set('instagramUrl', e.target.value)} />

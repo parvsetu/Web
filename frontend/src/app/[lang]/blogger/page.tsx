@@ -301,7 +301,7 @@ function EarningsTab({ o }: { o: BloggerOverview }) {
       {payouts.items.length === 0 ? (
         <Empty title="No payouts yet" />
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {payouts.items.map((p) => (
             <Card key={p.id} className="flex items-center justify-between gap-3">
               <div className="min-w-0">

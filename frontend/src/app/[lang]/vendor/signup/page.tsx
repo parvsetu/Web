@@ -77,7 +77,7 @@ export default function VendorSignupPage() {
             </p>
           </div>
 
-          <ul className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
             {[
               { icon: MapPinned, title: 'Find festivals', text: 'Ganesh Utsav, Durga Puja, Navratri, melas and exhibitions near you.' },
               { icon: CalendarDays, title: 'Live availability', text: 'See stall types, sizes, prices and how many are left.' },

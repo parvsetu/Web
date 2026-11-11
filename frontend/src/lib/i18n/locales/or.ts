@@ -278,7 +278,7 @@ const or: Messages = {
   'pass.cancelledHint': 'ଆୟୋଜକ ଏହି ବୁକିଂ ବାତିଲ କରିଛନ୍ତି। ଏହାର ପାସ୍ ଆଉ ଗେଟରେ କାମ କରିବ ନାହିଁ।',
   'pass.cancelReason': 'କାରଣ: {reason}',
   'pass.refundToSend': '{amount} ଫେରସ୍ତ ଆପଣ ଯେଉଁ ଖାତାରୁ ପେମେଣ୍ଟ କରିଥିଲେ ସେଠାକୁ ପଠାଯାଉଛି।',
-  'pass.refundSent': '{amount} ଫେରସ୍ତ ପଠାଯାଇଛି · ରେଫ୍ {ref}',
+  'pass.refundSent': '{amount} ଫେରସ୍ତ ପଠାଯାଇଛି · ରେଫରେନ୍ସ {ref}',
   'pass.noRefund': 'ଏହି ବୁକିଂରେ କୌଣସି ଫେରସ୍ତ ବାକି ନଥିଲା।',
   'pass.creditNote': 'କ୍ରେଡିଟ୍ ନୋଟ୍ {no}',
   'pass.bookAgain': 'ପୁଣି ବୁକ୍ କରନ୍ତୁ',

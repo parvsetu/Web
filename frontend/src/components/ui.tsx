@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useId, useState } from 'react';
+import { Fragment, cloneElement, isValidElement, useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, Info, Inbox, X, XCircle } from 'lucide-react';
@@ -78,9 +78,18 @@ export function Field({
   /** Shows a red * after the label (the input itself carries required/aria-required). */
   required?: boolean;
 }) {
+  // A single Input / Select / Textarea child is tied to the label automatically, so it has an
+  // accessible name and tapping the label focuses it. Groups of controls pass htmlFor themselves.
+  const autoId = useId();
+  let forId = htmlFor;
+  let control = children;
+  if (!htmlFor && isValidElement<{ id?: string }>(children) && (children.type === Input || children.type === Select || children.type === Textarea)) {
+    forId = children.props.id ?? autoId;
+    control = cloneElement(children, { id: forId });
+  }
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-800">
+      <label htmlFor={forId} className="text-sm font-semibold text-slate-800">
         {label}
         {required && (
           <span aria-hidden className="ml-0.5 text-red-600">
@@ -88,7 +97,7 @@ export function Field({
           </span>
         )}
       </label>
-      {children}
+      {control}
       {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
       {error && <p className="text-sm text-red-700">{error}</p>}
     </div>

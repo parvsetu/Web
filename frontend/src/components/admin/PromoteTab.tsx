@@ -51,7 +51,7 @@ export function PromoteTab() {
         {origin && <ShareButtons url={url} text={`🙏 ${ev.name} — ${ev.organization?.name ?? ''}`} posterUrl={`/f/${ev.slug ?? ev.eventId}/poster`} posterName={ev.name.replace(/[^\w-]+/g, '-')} />}
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className="flex flex-col items-center gap-2">
           <h3 className="font-bold">Instagram / WhatsApp status poster</h3>
           {isPublic ? (

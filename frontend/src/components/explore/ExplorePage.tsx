@@ -386,7 +386,7 @@ function Listing({
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[250px_1fr] lg:items-start">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[250px_1fr] lg:items-start">
         <aside className="sticky top-32 hidden rounded-2xl bg-white p-4 shadow-sm lg:block" aria-label={t('explore.filters')}>
           {panel}
         </aside>
